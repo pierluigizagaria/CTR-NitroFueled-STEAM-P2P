@@ -1,0 +1,12 @@
+/build/
+/out/
+/runtime/
+/ctrnf-p2p.ini
+/steam_appid.txt
+*.dll
+*.dylib
+*.so
+*.exe
+*.pem
+*.key
+__pycache__/
