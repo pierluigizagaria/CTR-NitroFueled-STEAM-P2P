@@ -62,6 +62,31 @@ original-game or WAN acceptance.
   game, invitations, second peer or WAN transport is implied. The upstream
   Steam API prints identity diagnostics itself, so capture its output privately.
 
-B3 original-game pair, B4 live single-account game and B5 two-PC execution are
-not accepted by the fixtures above. The two-PC procedure is supplied separately.
+### B3 bounded original-game observation and remaining gate
+
+Both unchanged native games reached their animated title screens. Lab A was
+normal; Lab B unlock-all used a separate save/database root inside the existing
+Lab B profile. Windows reported A's actual UDP socket as0.0.0.0:3074. B's native
+log recorded bind3074 failure with errno48, then a successful Socket1 bind3098;
+Windows independently reported0.0.0.0:3098. Thus the game itself selects an
+alternate port when3074 is occupied. No host source change is needed to describe
+that observed source to the provider. B's private bridge configuration was set
+to expected game_port3098 and the provider/publisher readiness probe passed.
+This is only bind/readiness evidence, not successful proxy traffic or Join.
+
+The available UI tool's brief Space presses did not move either game beyond
+the title screen, including after focus was explicitly restored. The cause is
+not established; upstream samples SDL held-key state and the tool exposes no
+key-hold duration. No custom input injection or host modification was introduced.
+Alt+F4 closed both games normally (exit0), and their bridges/publishers exited.
+Online, Pit Stop, local/NP name placement, friend Join, public matchmaking and
+race-through-results remain unverified for this architecture. Existing native
+fork acceptance must not be transferred to these new builds.
+
+B4 has passed only the one-account Steam directory/identity bootstrap described
+above; the in-game name and Online menu remain unverified. B5 is complete as a
+written two-PC procedure in TWO_PC.md; two-PC execution is not part of that
+written deliverable and has not occurred. Further progress on the game gates
+needs reliable game input. No original-game canonical-identity rejection or
+architectural need for a native source edit has been demonstrated.
 macOS and Linux are not compiled or runtime-qualified in this record.

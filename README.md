@@ -46,7 +46,10 @@ not establish their compatibility.
 Place the user-supplied Steam API library beside the bridge executable; nothing
 from Steamworks is included or distributed. Place the provider DLL there too, or
 configure an explicit provider library path. Install the independently built
-publisher and supply its response-signing key and matching game signature patch.
+publisher and supply its response-signing key and the supported game server-signature patch.
+The retained CTR patch permits responses signed by a different server key; it
+does not embed a profile-specific public key. It leaves account admission and
+lobby message authentication unchanged.
 The publisher requires OpenSSL on its process PATH for response signing; use its
 own installation or configure publisher.runtime_dir with an existing tool folder.
 Do not put private keys/configuration in version control.
@@ -95,14 +98,14 @@ Paths and environment values passed to this native host must be printable ASCII.
 | game.executable | Required raw native executable, built from the pinned source |
 | game.game_dir | Required owned merged game directory with eboot.bin |
 | game.prepared_dir | Required output of upstream preparation: boot-linked.bin, import_names.txt, content.bin, patches.bin |
-| game.patches_dir | Required source patch directory, passed as BB_PATCHES_DIR; prepared patches.bin must already contain the matching signature patch |
+| game.patches_dir | Required source patch directory, passed as BB_PATCHES_DIR; prepared patches.bin must already contain the supported server-signature patch |
 | game.profile_dir | `runtime/player`; base for separate normal/unlock-all state |
 | game.runtime_dir | Empty; optional native runtime dependency directory prepended to the child's PATH |
 | game.config | Empty: `<profile>/<economy>/bbport.ini`; optional existing native settings file. It must match prepared rendering patches |
 | game.normal_saves | Empty: `<profile>/normal/user`; optional existing normal save root |
 | game.unlock_all_saves | Empty: `<profile>/unlock-all/user`; optional existing unlock-all save root. Effective save roots must not overlap |
 | publisher.executable | Required independent publisher executable |
-| publisher.signing_key | Required private publisher response-signing key matching the installed signature patch |
+| publisher.signing_key | Required private publisher response-signing key; kept local to that publisher |
 | publisher.runtime_dir | Empty; optional existing dependency directory (for example OpenSSL) prepended to the publisher process PATH |
 | publisher.weak_admission | `false`; native upstream requires explicitly setting `true`. Maps to CTR_LOCAL_WEAK_TOKEN=1 |
 | session.title | `5760`, the publisher's Demonware title ID; at most16 bytes. The PS4 asset title CUSA13795 is a different identifier |

@@ -8,8 +8,10 @@ distributed by this project. Current qualification status belongs to VALIDATION.
 ## Prepare independently on each PC
 
 1. Build the pinned upstream native host and prepare its supported owned game
-   using upstream scripts. Keep the signature patch and publisher response key
-   matched. Use a dedicated existing save root for the chosen economy, or the
+   using upstream scripts. Include the supported server-signature patch and
+   configure the publisher's own private response key. The retained patch
+   permits a different signing key; it does not embed a per-profile public key.
+   Use a dedicated existing save root for the chosen economy, or the
    bridge defaults. Never share databases across machines or economy modes.
 2. Build/install ctrnf-p2p, a provider supporting loopback-v1, and the compatible
    local publisher. Retain their commits and SHA-256 hashes in a private record.
@@ -60,7 +62,11 @@ silently falls back. Preserve the error category and hashes. Do not edit CTR
 packets, bypass identity checks, or modify native source to make this gate pass.
 
 Two loopback-v1 players on one PC are at most a Lab carrier possibility: a third
-can require duplicate canonical binds. The unchanged native host additionally
-has no per-instance source-bind/port setting. Its same-PC feasibility must be
-measured separately; the library's two-process fixture does not prove two games
-can bind and receive correctly.
+can require duplicate canonical binds. The unchanged native host has no
+per-instance source-bind/port setting. In the recorded Windows test, A bound
+wildcard3074 and B, after failing3074, selected wildcard3098 itself. Set
+network.game_port to the actual observed port for each process; this setting
+does not change the game bind. Start A before B for that measured arrangement
+and recheck ports after restart. Both reached the title screen, but same-PC
+proxy traffic, Join and races remain unqualified. One player per PC normally
+starts with3074; verify instead of assuming when another process owns that port.
