@@ -33,26 +33,19 @@ Provider::Provider(const Config& c, bool companion) : library_(c.provider_librar
     config.game_port = 3074;
     copy(config.game_bind, c.game_address); copy(config.lab_root, path_text(c.lab_root));
     if (companion) {
-        copy(config.companion_path, path_text(c.publisher)); copy(config.companion_working_dir, path_text(c.data));
+        // The server runs in its own folder and keeps data/ and logs/ there. The
+        // host adapter decides native-token admission; the server's own default
+        // stays disabled. Replies are unsigned: no key or OpenSSL is involved.
+        copy(config.companion_path, path_text(c.server)); copy(config.companion_working_dir, path_text(c.server_dir));
         nlohmann::json env = {
             {"CTR_ADMISSION", "local"}, {"CTR_COMPANION", "stdio"}, {"CTR_MATCHMAKING", "steam"},
-            {"CTR_AUTH_HTTP", "1"}, {"CTR_LOCAL_WEAK_TOKEN", c.weak_admission ? "1" : "0"},
-            {"BIND_ADDR", c.server}, {"NEXTENDO_HOST", c.server}, {"AUTH_PORT", std::to_string(c.auth_port)},
+            {"CTR_AUTH_HTTP", "1"}, {"CTR_LOCAL_WEAK_TOKEN", c.native_token ? "1" : "0"},
+            {"BIND_ADDR", c.address}, {"NEXTENDO_HOST", c.address}, {"AUTH_PORT", std::to_string(server_auth_port)},
             {"LOBBY_PORTS", "3074,3075,3076,3077,3078,3079,3080"}, {"NAT_PORT", "3074"}, {"DASH_PORT", "8093"},
-            {"CTR_AUTH_SIGNING_KEY", path_text(c.signing_key)}, {"DATA_DIR", path_text(c.data / "data")},
+            {"DATA_DIR", path_text(c.server_dir / "data")},
             {"CTR_UNLOCK_ALL", c.unlock_all ? "true" : "false"}, {"NEXTENDO_REDACT_LOGS", "true"},
-            {"OSW_COMPANION_STDERR", path_text(c.data / "publisher.log")}
+            {"OSW_COMPANION_STDERR", path_text(c.server_dir / "logs" / "server.log")}
         };
-        if (!c.publisher_runtime_dir.empty()) {
-            auto inherited = host_environment(); std::string path;
-            for (const auto& [key, value] : inherited)
-                if (key == "PATH" || key == "Path" || key == "path") path = value;
-#ifdef _WIN32
-            env["PATH"] = path_text(c.publisher_runtime_dir) + ";" + path;
-#else
-            env["PATH"] = path_text(c.publisher_runtime_dir) + ":" + path;
-#endif
-        }
         copy(config.companion_environment, env.dump());
     }
     check(create_(&config, &context_), "Provider creation");
@@ -138,7 +131,7 @@ void Provider::wait_ready() {
         if (result.status == OSW_OK && result.metadata.is_object() && result.metadata.value("ready", false)) return;
         std::this_thread::sleep_for(std::chrono::milliseconds(50));
     }
-    throw std::runtime_error("Publisher did not acknowledge loopback readiness");
+    throw std::runtime_error("Local server did not acknowledge loopback readiness");
 }
 void Provider::bind_game_endpoint(const std::string& address, uint16_t port) {
     auto reply = request(OSW_P2P, {{"op", "game.endpoint.bind"}, {"address", address}, {"port", port}});
@@ -148,8 +141,8 @@ void Provider::bind_game_endpoint(const std::string& address, uint16_t port) {
         !state.metadata.value("ready", false) || state.metadata.value("game_endpoint_pending", true))
         throw std::runtime_error("Provider did not confirm the owned game endpoint");
 }
-bool Provider::healthy() {
-    auto id = identity(); if (!id.signed_in) return false;
+bool Provider::healthy(uint64_t account) {
+    auto id = identity(); if (!id.signed_in || id.account_id != account) return false;
     auto state = request(OSW_P2P, {{"op", "status"}}, {}, 2000);
     if (state.status != OSW_OK || !state.metadata.is_object() || !state.metadata.value("ready", false)) return false;
     std::lock_guard lock(mutex_);

@@ -17,6 +17,13 @@ public:
 private:
     void* handle_ = nullptr;
 };
+// The supervised game's UDP source: the one process owning it (its ID and start
+// time, so a reused ID is never mistaken for it) and its single local port.
+struct GameEndpoint {
+    uint64_t owner = 0, started = 0;
+    uint16_t port = 0;
+    bool operator==(const GameEndpoint&) const = default;
+};
 class Process {
 public:
     Process(const fs::path& exe, const std::vector<std::string>& args, const fs::path& cwd,
@@ -24,10 +31,16 @@ public:
     ~Process();
     Process(const Process&) = delete;
     Process& operator=(const Process&) = delete;
+    // The direct child's exit code, once it has exited.
     std::optional<int> exit_code();
-    // Observe only this live child. No IPv4 UDP bind returns nullopt; ambiguous ports
-    // or addresses other than wildcard/127.0.0.1 fail without selecting one.
-    std::optional<uint16_t> udp_source_port() const;
+    // Whether any process of the supervised tree still runs.
+    bool running();
+    // Observe only processes this bridge supervises. No IPv4 UDP bind returns
+    // nullopt; several owners, several ports or addresses other than wildcard/
+    // 127.0.0.1 fail without selecting one.
+    std::optional<GameEndpoint> game_endpoint() const;
+    // Whether exactly that owner still runs inside the supervised tree.
+    bool alive(const GameEndpoint& endpoint) const;
     void stop();
 private:
     struct Impl;
@@ -44,5 +57,8 @@ private:
     struct Impl;
     std::unique_ptr<Impl> impl_;
 };
+// The bridge's own inherited environment, unfiltered.
 std::map<std::string, std::string> host_environment();
+// The comparison key of an environment name: case-insensitive on Windows.
+std::string environment_key(std::string_view name);
 }

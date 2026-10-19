@@ -21,7 +21,8 @@ public:
     HttpResponse webapi(const HttpRequest& request, const std::string& group);
     void wait_ready();
     void bind_game_endpoint(const std::string& address, uint16_t port);
-    bool healthy();
+    // Signed in as the launch account, with the server still ready.
+    bool healthy(uint64_t account);
 private:
     DynamicLibrary library_;
     osw_context* context_ = nullptr;

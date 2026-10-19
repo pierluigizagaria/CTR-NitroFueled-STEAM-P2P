@@ -246,7 +246,7 @@ HttpRequest parse_request_head(std::string_view head) {
 }
 HttpResponse proxy_request(const HttpRequest& request, const std::string& address, uint16_t port) {
     initialize(); Connection c(socket(AF_INET, SOCK_STREAM, IPPROTO_TCP));
-    if (c.socket == invalid) throw std::runtime_error("Cannot create publisher connection");
+    if (c.socket == invalid) throw std::runtime_error("Cannot create server connection");
     nonblocking(c.socket); auto target = endpoint(address, port);
     connect(c.socket, reinterpret_cast<sockaddr*>(&target), sizeof(target)); ready(c, true);
     int error = 0;
@@ -256,14 +256,14 @@ HttpResponse proxy_request(const HttpRequest& request, const std::string& addres
     socklen_t size = sizeof(error);
 #endif
     if (getsockopt(c.socket, SOL_SOCKET, SO_ERROR, reinterpret_cast<char*>(&error), &size) || error)
-        throw std::runtime_error("Publisher connection failed");
+        throw std::runtime_error("Server connection failed");
     write(c, request.method + " " + request.path + " HTTP/1.1\r\n" + render_headers(request.headers, request.body.size()));
     write(c, request.body);
     auto head = read_head(c); auto end = head.find("\r\n");
     if ((!head.starts_with("HTTP/1.0 ") && !head.starts_with("HTTP/1.1 ")) || head.size() < 14 || head[12] != ' ')
-        throw std::runtime_error("Invalid publisher response");
+        throw std::runtime_error("Invalid server response");
     int status = 0; auto [last, ec] = std::from_chars(head.data() + 9, head.data() + 12, status);
-    if (ec != std::errc{} || last != head.data() + 12 || status < 200 || status > 599) throw std::runtime_error("Invalid publisher status");
+    if (ec != std::errc{} || last != head.data() + 12 || status < 200 || status > 599) throw std::runtime_error("Invalid server status");
     auto headers = parse_headers(std::string_view(head).substr(end + 2));
     auto body = read_body(c, headers, true, request.method == "HEAD" || status == 204 || status == 304);
     return {status, std::move(headers), std::move(body)};

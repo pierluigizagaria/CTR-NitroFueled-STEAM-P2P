@@ -1,5 +1,33 @@
 # Validation record
 
+## 2026-10-19, configuration and boundary cleanup
+
+Agreed in a read-only review between Claude and Codex, then implemented at the
+user's request. Fixture evidence (I) only: no game, Steam account or installed Lab
+binary was run or changed, and the earlier B0–B5 records below describe the
+previous bridge.
+
+- Bridge: essential configuration (`platform.provider`, `steam.app_id`, `game.host`,
+  `server.unlock_all`); native paths, saves, preferences, signing key, runtime
+  folders, title/build and internal ports removed without aliases. The native
+  adapter starts the port's own launcher with only the online identity, tracks
+  the one supervised game process and port across the job, ends the session when
+  that game exits, checks the signature patch selection before launch and stops
+  on a Steam account change. 103 contract checks and 19 integration methods pass
+  on Windows with the fake provider, launcher and game.
+- Provider: a different signed-in SteamID now fails the Steam context; 50/50
+  Windows tests pass, including the new account-change contract.
+- Server: unsigned auth replies (signer, key and OpenSSL removed); local admission
+  shares one database per installation across accounts, AppIDs, realms and both
+  economy modes, with an in-place upgrade of v1 local databases. The complete Go
+  suite (22 packages) and vet pass.
+
+Still to verify with the game (C): online sign-in with unsigned replies and the
+enabled patch; native preferences applied through the launcher; inventory refresh
+and equipped items after unlock-all → normal; A → B → A names and progression;
+native "Apply and restart" ending the session without survivors; two-PC race.
+POSIX launch is refused; no macOS or Linux runtime is claimed.
+
 ## 2026-10-19
 
 Evidence categories follow the owning projects: I for explicit replacement

@@ -1,6 +1,7 @@
 #include "config.h"
 #include "host.h"
 #include "http.h"
+#include "platform.h"
 #include <functional>
 #include <iostream>
 #include <stdexcept>
@@ -12,53 +13,119 @@ void rejects(const std::function<void()>& operation) {
     bool failed = false; try { operation(); } catch (const std::exception&) { failed = true; }
     require(failed, "Invalid input was accepted");
 }
+const char* patch_xml = R"(<?xml version='1.0' encoding='utf-8'?>
+<Patch><TitleID><ID>CUSA13795</ID></TitleID><Metadata Title="Crash Team Racing Nitro-Fueled" Name="CTR:NF Server Signature Patch" Author="fixture" PatchVer="0.1" AppVer="01.21" AppElf="eboot.bin" isEnabled="false" Note="fixture"><PatchList><Line Type="bytes" Address="0x00413ec0" Value="909090909090" /></PatchList></Metadata></Patch>)";
+const char* selected = R"({"enabled": ["CrashTeamRacingNitroFueled.xml/CTR:NF Server Signature Patch"], "disabled": []})";
+std::string replaced(std::string text, const std::string& from, const std::string& to) {
+    auto at = text.find(from); if (at == text.npos) throw std::runtime_error("fixture text missing");
+    return text.replace(at, from.size(), to);
+}
 }
 int main() {
     using namespace bridge;
     try {
-        auto root = fs::absolute("fixture-root");
-        auto normal = parse_config("[player]\nonline_id = Alice\nunlock_all = false\n", root);
-        auto unlocked = parse_config("[player]\nonline_id = Alice\nunlock_all = true\n", root);
-        require(normal.app_id == 480 && !normal.weak_admission && !normal.lab, "Defaults changed");
-        require(normal.saves != unlocked.saves && normal.data != unlocked.data, "Economy storage is shared");
-        require(normal.realm == unlocked.realm && normal.title == unlocked.title && normal.build == unlocked.build, "Economy entered discovery namespace");
+        auto root = fs::absolute("fixture-root").lexically_normal();
+        auto c = parse_config("", root);
+        require(c.app_id == 480 && !c.unlock_all && !c.lab && c.realm == "ctrnf-p2p", "Defaults changed");
+        require(c.title == "5760" && c.build == "01.21" && c.game_address == "127.0.0.1" && c.native_token,
+                "Native adapter contract changed");
+        require(c.address == "127.0.0.2" && c.http_port == 31380, "Network defaults changed");
+        require(c.state == root / "ctrnf-p2p", "Bridge state is not beside the executable");
+#ifdef _WIN32
+        require(c.server == root / "demonware-server.exe", "Server default is not beside the bridge");
+#else
+        require(c.server == root / "demonware-server", "POSIX server default carries a Windows suffix");
+#endif
+        require(c.server_dir == root / "demonware-server", "Server folder is not beside its executable");
+        auto elsewhere = parse_config("[server]\nexecutable = tools/demonware-server.exe\n", root);
+        require(elsewhere.server_dir == root / "tools" / "demonware-server", "Server folder does not follow its executable");
+        auto unlocked = parse_config("[server]\nunlock_all = true\n", root);
+        require(unlocked.unlock_all && unlocked.server_dir == c.server_dir && unlocked.state == c.state,
+                "Economy mode selected different storage");
+        require(unlocked.realm == c.realm && unlocked.title == c.title && unlocked.build == c.build, "Economy entered discovery namespace");
+        auto lab = parse_config("[lab]\nenabled = true\naccount_id = 7\nroot = hub\nonline_id = \"Lab ; # A\"\n", root);
+        require(lab.lab && lab.online_id == "Lab ; # A" && lab.lab_account == 7, "Lab identity lost");
         require(ascii_name("  A !.{};B  ") == "A !.{};B", "Printable ASCII lost");
         require(ascii_name("\xc3\xa8\xf0\x9f\x98\x80" "ABCDEFGHIJKLMNO") == "__ABCDEFGHIJKLMN", "UTF8 mapping/truncation order incorrect");
         require(ascii_name("  ab  ") == "ab", "Host-only NP sanitization leaked into provider name");
         require(ascii_name("\tA\n") == "_A_", "Control characters entered environment");
         rejects([] { ascii_name("   "); });
-        for (auto text : {"[unknown]\nx=1", "[player]\nwat=1", "[player]\nunlock_all=1", "[steam]\napp_id=0", "[steam]\napp_id=-1", "[steam]\napp_id=4294967296", "[player]\nunlock_all=true\nunlock_all=false", "[player]\n[player]", "[game]\nhost=shadps4", "[platform]\nprovider=shadnet", "[network]\nserver=0.0.0.0", "[network]\nserver=127.00.0.1", "[network]\nhttp_port=8460", "[lab]\nenabled=true", "[lab]\naccount_id=1", "[steam]\nlibrary=../elsewhere.dll"})
+        for (auto text : {"[unknown]\nx=1", "[server]\nwat=1", "[server]\nunlock_all=1", "[steam]\napp_id=0", "[steam]\napp_id=-1",
+                          "[steam]\napp_id=4294967296", "[server]\nunlock_all=true\nunlock_all=false", "[server]\n[server]",
+                          "[game]\nhost=shadps4", "[platform]\nprovider=shadnet", "[network]\naddress=0.0.0.0",
+                          "[network]\naddress=127.00.0.2", "[network]\naddress=127.0.0.1", "[network]\nhttp_port=8460",
+                          "[network]\nhttp_port=3076", "[lab]\nenabled=true", "[lab]\naccount_id=1", "[lab]\nonline_id=Alice",
+                          "[steam]\nlibrary=../elsewhere.dll",
+                          // Removed settings stay removed: no aliases.
+                          "[player]\nonline_id=Alice", "[player]\nunlock_all=true", "[publisher]\nexecutable=x",
+                          "[server]\nweak_admission=true", "[server]\nsigning_key=key.pem", "[game]\nexecutable=x",
+                          "[game]\ngame_dir=x", "[game]\nsaves_dir=user", "[game]\nprepared_dir=x", "[game]\npatches_dir=x",
+                          "[game]\nprofile=ctr", "[game]\nprofile_dir=x", "[game]\nport_dir=x", "[game]\nconfig=x",
+                          "[session]\ntitle=5760", "[session]\nbuild=01.21", "[network]\nserver=127.0.0.2",
+                          "[network]\nauth_port=8460", "[network]\ngame_address=127.0.0.1", "[network]\ngame_port=3098"})
             rejects([&] { parse_config(text, root); });
-        auto parsed = parse_config("[player]\nonline_id = \"A ; # B\"\n[steam]\napp_id=12345 ; private fixture\n", root);
-        require(parsed.online_id == "A ; # B" && parsed.app_id == 12345, "Quoted names or comments broken");
+        auto parsed = parse_config("[session]\nrealm = private-group ; comment\n[steam]\napp_id=12345 ; private fixture\n", root);
+        require(parsed.realm == "private-group" && parsed.app_id == 12345, "Comments broken");
         require(loopback_address("127.255.255.254") && !loopback_address("128.0.0.1"), "Loopback parser incorrect");
+
         auto request = parse_request_head("POST /v1/sessions?x=1 HTTP/1.1\r\nHost: sessionInvitation.np.community.playstation.net\r\nContent-Type: application/octet-stream\r\nContent-Length: 3\r\nX-SacredFire-Scheme: https\r\n\r\n");
         require(request.path == "/v1/sessions?x=1" && request.method == "POST", "Request metadata lost");
         require(api_group(header(request.headers, "host")) == "sessioninvitation", "API group route wrong");
-        require(api_group("sdk:userProfile.np.community.playstation.net") == "userprofile", "Native SDK authority was routed to publisher");
+        require(api_group("sdk:userProfile.np.community.playstation.net") == "userprofile", "Native SDK authority was routed to server");
         require(api_group("sdk:sessionInvitation.np.community.playstation.net:443") == "sessioninvitation", "SDK authority with explicit port misrouted");
         require(api_group("userProfile.np.community.playstation.net:443") == "userprofile", "Platform authority with port misrouted");
         for (auto host : {"sdk:publisher.invalid", "sdk:userProfile.np.community.playstation.net.evil", "sdk:sdk:userProfile.np.community.playstation.net", "userProfile.np.community.playstation.net:evil", "userProfile.np.community.playstation.net:443:80"})
             rejects([&] { api_group(host); });
         require(api_group("session.np.community.playstation.net.evil") == "", "Suffix routing escaped");
-        require(api_group("publisher.invalid") == "", "Publisher misrouted");
-        rejects([&] { parse_config("[network]\ngame_port=3098", root); });
+        require(api_group("publisher.invalid") == "", "Server request misrouted");
         for (auto text : {
             "GET / HTTP/1.1\r\nHost: a\r\nHost: b\r\n\r\n",
             "GET / HTTP/1.1\r\nHost: a\r\nContent-Length: 2\r\nContent-Length: 3\r\n\r\n",
             "GET / HTTP/1.1\r\nHost: a\r\nContent-Length: 0\r\nTransfer-Encoding: chunked\r\n\r\n",
             "GET http://external/ HTTP/1.1\r\nHost: a\r\n\r\n", "GET / HTTP/1.1\r\n\r\n",
             "GET / HTTP/1.1\r\nHost: a\r\n folded: bad\r\n\r\n"}) rejects([&] { parse_request_head(text); });
-        auto env = native_environment(normal, 42);
-        require(env.at("BB_ONLINE_ACCOUNT_ID") == "42" && env.at("BB_ONLINE_ID") == "Alice", "Identity mapping wrong");
-        require(env.at("BB_USER_DIR") == env.at("BB_GPU_USER_DIR"), "Save/cache roots differ");
-        auto custom_profile = parse_config("[player]\nonline_id = Alice\n[game]\nprofile = fixture-other-title\n", root);
-        require(native_environment(custom_profile, 42).at("BB_GAME_PROFILE") == "fixture-other-title", "Configured host profile was ignored");
-        auto args = native_arguments(normal);
-        require(args[args.size() - 2] == "--timeout" && args.back() == "0", "Native default time cutoff not disabled");
-        require(!env.contains("BB_OSW_LIBRARY") && !env.contains("BB_ONLINE_BIND"), "Modified-host settings leaked");
-        rejects([&] { parse_config("[game]\nunlock_all_saves=runtime/player/normal/user", root); });
-        rejects([&] { parse_config("[game]\nnormal_saves=runtime/player/unlock-all", root); });
+
+        // Online identity only; native settings pass through, stale online values never do.
+        auto named = c; named.online_id = "Alice";
+        std::map<std::string, std::string> inherited = {
+            {"PATH", "fixture-path"}, {"BB_DATA_DIR", "native-data"}, {"BB_NEO", "1"},
+            {"BB_ONLINE_SERVER", "203.0.113.9"}, {"BB_ONLINE_ALLOW", "203.0.113.9"}, {"CTR_UNLOCK_ALL", "1"},
+            {"OSW_STALE", "x"}, {"STEAMAPPID", "1"}};
+#ifdef _WIN32
+        inherited["bb_user_name"] = "stale"; inherited["bb_online_id"] = "stale";
+#endif
+        auto env = native_environment(named, 42, inherited);
+        require(env.at(environment_key("BB_ONLINE_ACCOUNT_ID")) == "42" && env.at(environment_key("BB_ONLINE_ID")) == "Alice" &&
+                env.at(environment_key("BB_USER_NAME")) == "Alice", "Identity mapping wrong");
+        require(env.at(environment_key("BB_ONLINE_SERVER")) == "127.0.0.2" && env.at(environment_key("BB_ONLINE_HTTP_PORT")) == "31380" &&
+                env.at(environment_key("BB_ONLINE_ALLOW")) == "127.0.0.1", "Online routing wrong");
+        require(env.at(environment_key("BB_DATA_DIR")) == "native-data" && env.at(environment_key("BB_NEO")) == "1" &&
+                env.at(environment_key("PATH")) == "fixture-path", "Native settings were not passed through");
+        require(!env.contains(environment_key("CTR_UNLOCK_ALL")) && !env.contains(environment_key("OSW_STALE")) &&
+                !env.contains(environment_key("STEAMAPPID")), "Private inheritance leaked");
+        for (auto name : {"BB_USER_DIR", "BB_GAME_DIR", "BB_CONFIG", "BB_FPS", "BB_TIMEOUT", "BB_PATCHES_DIR", "BB_GAME_PROFILE"})
+            require(!env.contains(environment_key(name)), "Bridge set a native path or preference");
+        size_t names = 0;
+        for (const auto& [key, value] : env) if (environment_key(key) == environment_key("BB_USER_NAME")) ++names;
+        require(names == 1, "Differently cased environment names survived");
+        rejects([&] { native_environment(c, 42, {}); });
+        rejects([&] { native_environment(named, 0, {}); });
+
+        require(signature_patch_problem(patch_xml, selected).empty(), "Supported signature patch refused");
+        require(signature_patch_problem(replaced(patch_xml, " AppElf=\"eboot.bin\"", ""), selected).empty(), "Default AppElf refused");
+        for (auto [xml, selection] : std::initializer_list<std::pair<std::string, std::string>>{
+                 {patch_xml, "{}"}, {patch_xml, "[]"}, {patch_xml, R"({"enabled": []})"},
+                 {patch_xml, R"({"enabled": ["CrashTeamRacingNitroFueled.xml/CTR:NF Server Signature Patch"], "disabled": ["CrashTeamRacingNitroFueled.xml/CTR:NF Server Signature Patch"]})"},
+                 {replaced(patch_xml, "CUSA13795", "CUSA00000"), selected},
+                 {replaced(patch_xml, "AppVer=\"01.21\"", "AppVer=\"01.20\""), selected},
+                 {replaced(patch_xml, "AppElf=\"eboot.bin\"", "AppElf=\"other.prx\""), selected},
+                 {replaced(patch_xml, "0x00413ec0", "0x00413ec4"), selected},
+                 {replaced(patch_xml, "909090909090", "90909090"), selected},
+                 {replaced(patch_xml, "Type=\"bytes\"", "Type=\"bytes16\""), selected},
+                 {replaced(patch_xml, "Name=\"CTR:NF Server Signature Patch\"", "Name=\"Other\""), selected},
+                 {replaced(patch_xml, "</Metadata>", ""), selected}})
+            require(!signature_patch_problem(xml, selection).empty(), "Unsupported signature patch accepted");
+        rejects([&] { signature_patch_problem(patch_xml, R"({"enabled": "CrashTeamRacingNitroFueled.xml/CTR:NF Server Signature Patch"})"); });
         std::cout << checks << " bridge contract checks passed\n";
         return 0;
     } catch (const std::exception& e) { std::cerr << e.what() << '\n'; return 1; }

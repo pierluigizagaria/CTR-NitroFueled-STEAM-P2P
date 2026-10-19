@@ -36,9 +36,9 @@ constexpr size_t max_child_fds = 16384;
 void observe_port(std::optional<uint16_t>& found, uint32_t address, uint16_t port) {
     if (!port) return; // Unbound socket, not a source endpoint.
     if (address != 0 && address != 0x7f000001)
-        throw std::runtime_error("Native child UDP socket has an unsupported local address");
+        throw std::runtime_error("Supervised game UDP socket has an unsupported local address");
     if (found && *found != port)
-        throw std::runtime_error("Native child has multiple distinct UDP source ports");
+        throw std::runtime_error("Supervised game has multiple distinct UDP source ports");
     found = port;
 }
 #ifndef _WIN32
@@ -127,13 +127,32 @@ std::set<uint64_t> socket_inodes(pid_t child) {
 }
 #endif
 #endif
-bool private_environment(std::string name) {
-    std::transform(name.begin(), name.end(), name.begin(), [](unsigned char c) { return static_cast<char>(std::toupper(c)); });
-    for (auto prefix : {"BB_", "OSW_", "CTR_", "NEXTENDO_", "SHADNET_", "D3_", "DASH_"})
-        if (name.starts_with(prefix)) return true;
-    return name == "STEAMAPPID" || name == "STEAMGAMEID";
-}
 #ifdef _WIN32
+constexpr DWORD max_job_processes = 1024;
+std::vector<DWORD> job_processes(HANDLE job) {
+    std::vector<unsigned char> buffer(offsetof(JOBOBJECT_BASIC_PROCESS_ID_LIST, ProcessIdList) +
+                                      max_job_processes * sizeof(ULONG_PTR));
+    auto* list = reinterpret_cast<JOBOBJECT_BASIC_PROCESS_ID_LIST*>(buffer.data());
+    if (!QueryInformationJobObject(job, JobObjectBasicProcessIdList, list, static_cast<DWORD>(buffer.size()), nullptr))
+        throw std::runtime_error("Cannot enumerate bounded supervised processes");
+    if (list->NumberOfProcessIdsInList > max_job_processes) throw std::runtime_error("Supervised process list exceeds bound");
+    std::vector<DWORD> result;
+    for (DWORD i = 0; i < list->NumberOfProcessIdsInList; ++i) result.push_back(static_cast<DWORD>(list->ProcessIdList[i]));
+    return result;
+}
+// The start time of a live process inside job; nullopt once it has exited or
+// when its ID now names a process outside the supervised tree.
+std::optional<uint64_t> job_process_start(HANDLE job, DWORD pid) {
+    HANDLE process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | SYNCHRONIZE, FALSE, pid);
+    if (!process) return std::nullopt;
+    BOOL inside = FALSE; FILETIME created{}, exited{}, kernel{}, user{};
+    bool live = IsProcessInJob(process, job, &inside) && inside &&
+                GetProcessTimes(process, &created, &exited, &kernel, &user) &&
+                WaitForSingleObject(process, 0) == WAIT_TIMEOUT;
+    CloseHandle(process);
+    if (!live) return std::nullopt;
+    return (static_cast<uint64_t>(created.dwHighDateTime) << 32) | created.dwLowDateTime;
+}
 std::wstring wide(std::string_view text) {
     if (text.empty()) return {};
     int count = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, text.data(), static_cast<int>(text.size()), nullptr, 0);
@@ -207,7 +226,7 @@ std::map<std::string, std::string> host_environment() {
         auto equal = pair.find('=');
         if (equal == pair.npos || equal == 0) return;
         auto name = pair.substr(0, equal);
-        if (!private_environment(name)) out[name] = pair.substr(equal + 1);
+        out[name] = pair.substr(equal + 1);
     };
 #ifdef _WIN32
     auto env = GetEnvironmentStringsW();
@@ -218,6 +237,13 @@ std::map<std::string, std::string> host_environment() {
     for (auto p = environ; *p; ++p) accept(*p);
 #endif
     return out;
+}
+std::string environment_key(std::string_view name) {
+    std::string key(name);
+#ifdef _WIN32
+    std::transform(key.begin(), key.end(), key.begin(), [](unsigned char c) { return static_cast<char>(std::toupper(c)); });
+#endif
+    return key;
 }
 struct Process::Impl {
     std::optional<int> result;
@@ -347,13 +373,37 @@ std::optional<int> Process::exit_code() {
 #endif
     return impl_->result;
 }
-std::optional<uint16_t> Process::udp_source_port() const {
-    if (!impl_ || impl_->result) return std::nullopt;
+bool Process::running() {
+#ifdef _WIN32
+    if (!impl_ || !impl_->job) return false;
+    JOBOBJECT_BASIC_ACCOUNTING_INFORMATION info{};
+    if (!QueryInformationJobObject(impl_->job, JobObjectBasicAccountingInformation, &info, sizeof(info), nullptr))
+        throw std::runtime_error("Cannot inspect supervised processes");
+    return info.ActiveProcesses > 0;
+#else
+    return impl_ && !exit_code();
+#endif
+}
+bool Process::alive(const GameEndpoint& endpoint) const {
+#ifdef _WIN32
+    if (!impl_ || !impl_->job || endpoint.owner > MAXDWORD) return false;
+    auto started = job_process_start(impl_->job, static_cast<DWORD>(endpoint.owner));
+    return started && *started == endpoint.started;
+#else
+    return impl_ && !impl_->result && impl_->guardian > 0 && impl_->child > 0 &&
+           static_cast<uint64_t>(impl_->child) == endpoint.owner && owned_child(impl_->child, impl_->guardian);
+#endif
+}
+std::optional<GameEndpoint> Process::game_endpoint() const {
+    if (!impl_) return std::nullopt;
     std::optional<uint16_t> found;
 #ifdef _WIN32
-    if (!impl_->process || WaitForSingleObject(impl_->process, 0) != WAIT_TIMEOUT) return std::nullopt;
-    const auto child = GetProcessId(impl_->process);
-    if (!child) throw std::runtime_error("Cannot inspect native child process identity");
+    // Every process of the kill-on-close job is ours: the launcher, its script
+    // runner and the game it starts. Exactly one of them may own UDP sockets.
+    if (!impl_->job) return std::nullopt;
+    const auto members = job_processes(impl_->job);
+    if (members.empty()) return std::nullopt;
+    const std::set<DWORD> owned(members.begin(), members.end());
     ULONG bytes = 0;
     auto status = GetExtendedUdpTable(nullptr, &bytes, FALSE, AF_INET, UDP_TABLE_OWNER_PID, 0);
     for (int attempt = 0; attempt < 3; ++attempt) {
@@ -367,17 +417,24 @@ std::optional<uint16_t> Process::udp_source_port() const {
         const auto* table = reinterpret_cast<const MIB_UDPTABLE_OWNER_PID*>(buffer.data());
         if (table->dwNumEntries > (bytes - offsetof(MIB_UDPTABLE_OWNER_PID, table)) / sizeof(MIB_UDPROW_OWNER_PID))
             throw std::runtime_error("Invalid UDP owner table size");
+        std::optional<DWORD> owner;
         for (DWORD i = 0; i < table->dwNumEntries; ++i) {
             const auto& row = table->table[i];
-            if (row.dwOwningPid == child)
-                observe_port(found, ntohl(row.dwLocalAddr), ntohs(static_cast<uint16_t>(row.dwLocalPort)));
+            const auto port = ntohs(static_cast<uint16_t>(row.dwLocalPort));
+            if (!owned.contains(row.dwOwningPid) || !port) continue;
+            if (owner && *owner != row.dwOwningPid)
+                throw std::runtime_error("More than one supervised process owns UDP sockets");
+            owner = row.dwOwningPid;
+            observe_port(found, ntohl(row.dwLocalAddr), port);
         }
-        if (WaitForSingleObject(impl_->process, 0) != WAIT_TIMEOUT) return std::nullopt;
-        return found;
+        if (!found) return std::nullopt;
+        auto started = job_process_start(impl_->job, *owner);
+        if (!started) return std::nullopt;
+        return GameEndpoint{*owner, *started, *found};
     }
     throw std::runtime_error("UDP owner table changed beyond retry bound");
 #else
-    if (impl_->guardian <= 0 || impl_->child <= 0 || !owned_child(impl_->child, impl_->guardian)) return std::nullopt;
+    if (impl_->result || impl_->guardian <= 0 || impl_->child <= 0 || !owned_child(impl_->child, impl_->guardian)) return std::nullopt;
 #ifdef __APPLE__
     // libproc enumerates descriptors of this exact child, never a global port scan.
     std::vector<proc_fdinfo> descriptors(max_child_fds + 1);
@@ -426,8 +483,8 @@ std::optional<uint16_t> Process::udp_source_port() const {
     if (socket_inodes(impl_->child) != inodes) return std::nullopt;
     for (const auto& [address, port] : candidates) observe_port(found, address, port);
 #endif
-    if (!owned_child(impl_->child, impl_->guardian)) return std::nullopt;
-    return found;
+    if (!owned_child(impl_->child, impl_->guardian) || !found) return std::nullopt;
+    return GameEndpoint{static_cast<uint64_t>(impl_->child), 0, *found};
 #endif
 }
 void Process::stop() {

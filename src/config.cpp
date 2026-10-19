@@ -74,19 +74,18 @@ std::string ascii_name(std::string_view input) {
     output = trim(output);
     if (output.size() > 16) output.resize(16);
     output = trim(output);
-    if (output.empty()) throw std::runtime_error("The player name is empty after ASCII conversion; set player.online_id");
+    if (output.empty()) throw std::runtime_error("The player name is empty after ASCII conversion");
     return output;
 }
 Config parse_config(std::string_view text, const fs::path& root) {
     if (text.size() > 65536 || text.find('\0') != text.npos) throw std::runtime_error("Invalid configuration size or NUL byte");
+    // Bridge settings and integration links only. Native game paths, saves and
+    // preferences stay in the port's own configuration.
     static const std::map<std::string, std::set<std::string>> keys = {
         {"platform", {"provider", "library"}}, {"steam", {"app_id", "library"}},
-        {"player", {"online_id", "unlock_all"}},
-        {"game", {"host", "profile", "executable", "game_dir", "prepared_dir", "patches_dir", "profile_dir", "runtime_dir", "config", "normal_saves", "unlock_all_saves"}},
-        {"publisher", {"executable", "signing_key", "weak_admission", "runtime_dir"}},
-        {"session", {"title", "build", "realm"}},
-        {"network", {"server", "http_port", "auth_port", "game_address"}},
-        {"lab", {"enabled", "account_id", "root"}}
+        {"game", {"host"}}, {"server", {"executable", "unlock_all"}},
+        {"session", {"realm"}}, {"network", {"address", "http_port"}},
+        {"lab", {"enabled", "account_id", "root", "online_id"}}
     };
     std::map<std::string, std::string> values;
     std::set<std::string> sections;
@@ -124,70 +123,52 @@ Config parse_config(std::string_view text, const fs::path& root) {
         auto it = values.find(key); return it == values.end() ? fallback : it->second;
     };
     auto path = [&](const std::string& key, const std::string& fallback = "") { return resolve(root, get(key, fallback)); };
-    Config c; c.root = fs::absolute(root);
+    Config c; c.root = fs::absolute(root).lexically_normal();
     c.provider = get("platform.provider", "steam"); c.host = get("game.host", "native");
     if (c.provider != "steam") throw std::runtime_error("Unsupported platform.provider; only steam is implemented");
     if (c.host != "native") throw std::runtime_error("Unsupported game.host; only native is implemented");
-    c.game_profile = get("game.profile", c.game_profile); label(c.game_profile, 64, "game.profile");
+    // The native adapter's fixed contract: CTR's Demonware title, the supported
+    // game build, the observed source of its wildcard UDP socket, and native
+    // token admission (the unchanged host fabricates its sacredfire token).
+    c.title = "5760"; c.build = "01.21"; c.game_address = "127.0.0.1"; c.native_token = true;
 #ifdef _WIN32
     c.provider_library = path("platform.library", "orbisteamworks.dll");
     c.steam_library = path("steam.library", "steam_api64.dll");
+    c.server = path("server.executable", "demonware-server.exe");
 #elif defined(__APPLE__)
     c.provider_library = path("platform.library", "liborbisteamworks.dylib");
     c.steam_library = path("steam.library", "libsteam_api.dylib");
+    c.server = path("server.executable", "demonware-server");
 #else
     c.provider_library = path("platform.library", "liborbisteamworks.so");
     c.steam_library = path("steam.library", "libsteam_api.so");
+    c.server = path("server.executable", "demonware-server");
 #endif
-    if (c.steam_library.parent_path() != c.root.lexically_normal())
+    if (c.steam_library.parent_path() != c.root)
         throw std::runtime_error("steam.library must be beside the bridge executable");
     c.app_id = static_cast<uint32_t>(number(get("steam.app_id", "480"), 1, UINT32_MAX, "steam.app_id"));
-    c.online_id = get("player.online_id");
-    if (!c.online_id.empty()) c.online_id = ascii_name(c.online_id);
-    c.unlock_all = boolean(get("player.unlock_all", "false"), "player.unlock_all");
-    c.weak_admission = boolean(get("publisher.weak_admission", "false"), "publisher.weak_admission");
-    c.executable = path("game.executable"); c.game_dir = path("game.game_dir");
-    c.prepared_dir = path("game.prepared_dir"); c.patches_dir = path("game.patches_dir");
-    c.profile_dir = path("game.profile_dir", "runtime/player");
-    c.runtime_dir = path("game.runtime_dir"); c.native_config = path("game.config");
-    c.publisher = path("publisher.executable"); c.signing_key = path("publisher.signing_key");
-    c.publisher_runtime_dir = path("publisher.runtime_dir");
-    c.title = get("session.title", c.title); c.build = get("session.build", c.build); c.realm = get("session.realm", c.realm);
-    label(c.title, 16, "session.title"); label(c.build, 64, "session.build"); label(c.realm, 64, "session.realm");
-    c.server = get("network.server", c.server); c.game_address = get("network.game_address", c.game_address);
-    if (!loopback_address(c.server) || !loopback_address(c.game_address)) throw std::runtime_error("network addresses must be literal loopback IPv4");
-    if (!c.server.starts_with("127.0.0.") || c.server == "127.0.0.0" || c.server == "127.0.0.1" || c.server == "127.0.0.255")
-        throw std::runtime_error("Bridge publisher listeners use 127.0.0.2 through 127.0.0.254");
-    if (c.game_address != "127.0.0.1") throw std::runtime_error("The upstream native wildcard socket is observed as network.game_address=127.0.0.1");
+    c.unlock_all = boolean(get("server.unlock_all", "false"), "server.unlock_all");
+    c.realm = get("session.realm", c.realm);
+    label(c.realm, 64, "session.realm");
+    c.address = get("network.address", c.address);
+    if (!loopback_address(c.address) || !c.address.starts_with("127.0.0.") || c.address == "127.0.0.0" ||
+        c.address == "127.0.0.1" || c.address == "127.0.0.255")
+        throw std::runtime_error("network.address must be a literal loopback IPv4 in 127.0.0.2 through 127.0.0.254");
     c.http_port = static_cast<uint16_t>(number(get("network.http_port", "31380"), 1, 65535, "network.http_port"));
-    c.auth_port = static_cast<uint16_t>(number(get("network.auth_port", "8460"), 1, 65535, "network.auth_port"));
-    if (c.http_port == c.auth_port || (c.http_port >= 3074 && c.http_port <= 3080) || c.http_port == 8093)
-        throw std::runtime_error("HTTP front port conflicts with publisher listeners");
-    if ((c.auth_port >= 3074 && c.auth_port <= 3080) || c.auth_port == 8093)
-        throw std::runtime_error("Publisher auth port conflicts with lobby/dashboard listeners");
-    if (c.server == c.game_address) throw std::runtime_error("Publisher and native game addresses must be distinct");
+    if (c.http_port == server_auth_port || (c.http_port >= 3074 && c.http_port <= 3080) || c.http_port == 8093)
+        throw std::runtime_error("network.http_port conflicts with server listeners");
     c.lab = boolean(get("lab.enabled", "false"), "lab.enabled");
     c.lab_root = path("lab.root");
     c.lab_account = number(get("lab.account_id", "0"), 0, UINT64_MAX, "lab.account_id");
+    // Steam names always come from the persona; only synthetic Lab players carry one.
+    c.online_id = get("lab.online_id");
+    if (!c.online_id.empty()) c.online_id = ascii_name(c.online_id);
     if (c.lab && (!c.lab_account || c.lab_root.empty() || c.online_id.empty()))
-        throw std::runtime_error("Explicit Lab mode requires lab.account_id, lab.root and player.online_id");
-    if (!c.lab && (c.lab_account || !c.lab_root.empty())) throw std::runtime_error("Lab settings require lab.enabled=true");
-    c.state = c.profile_dir / (c.unlock_all ? "unlock-all" : "normal");
-    auto normal = path("game.normal_saves"), unlocked = path("game.unlock_all_saves");
-    if (normal.empty()) normal = c.profile_dir / "normal" / "user";
-    if (unlocked.empty()) unlocked = c.profile_dir / "unlock-all" / "user";
-    auto comparable = [](const fs::path& p) {
-        auto result = path_text(fs::weakly_canonical(p));
-#ifdef _WIN32
-        std::transform(result.begin(), result.end(), result.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-#endif
-        return result + "/";
-    };
-    auto n = comparable(normal), u = comparable(unlocked);
-    if (n.starts_with(u) || u.starts_with(n)) throw std::runtime_error("Normal and unlock-all save directories must not overlap");
-    c.saves = c.unlock_all ? unlocked : normal;
-    c.data = c.state / "publisher";
-    if (c.native_config.empty()) c.native_config = c.state / "bbport.ini";
+        throw std::runtime_error("Explicit Lab mode requires lab.account_id, lab.root and lab.online_id");
+    if (!c.lab && (c.lab_account || !c.lab_root.empty() || !c.online_id.empty()))
+        throw std::runtime_error("Lab settings require lab.enabled=true");
+    c.state = c.root / "ctrnf-p2p";
+    c.server_dir = c.server.parent_path() / "demonware-server";
     return c;
 }
 Config load_config(const fs::path& file, const fs::path& root) {
@@ -197,18 +178,8 @@ Config load_config(const fs::path& file, const fs::path& root) {
     text.resize(static_cast<size_t>(in.gcount())); return parse_config(text, root);
 }
 void validate_files(const Config& c) {
-    for (const auto& [path, name] : std::initializer_list<std::pair<fs::path, const char*>>{
-        {c.executable, "game.executable"}, {c.publisher, "publisher.executable"}, {c.signing_key, "publisher.signing_key"},
-        {c.provider_library, "platform.library"}, {c.game_dir / "eboot.bin", "game.game_dir/eboot.bin"},
-        {c.prepared_dir / "boot-linked.bin", "game.prepared_dir/boot-linked.bin"},
-        {c.prepared_dir / "import_names.txt", "game.prepared_dir/import_names.txt"},
-        {c.prepared_dir / "content.bin", "game.prepared_dir/content.bin"},
-        {c.prepared_dir / "patches.bin", "game.prepared_dir/patches.bin"}})
-        if (path.empty() || !fs::is_regular_file(path)) throw std::runtime_error(std::string("Missing file for ") + name);
-    if (!fs::is_directory(c.patches_dir)) throw std::runtime_error("game.patches_dir must exist");
+    if (c.provider_library.empty() || !fs::is_regular_file(c.provider_library)) throw std::runtime_error("Missing file for platform.library");
+    if (c.server.empty() || !fs::is_regular_file(c.server)) throw std::runtime_error("Missing file for server.executable");
     if (!c.lab && !fs::is_regular_file(c.steam_library)) throw std::runtime_error("User-supplied Steam API library is missing beside the bridge");
-    if (!c.runtime_dir.empty() && !fs::is_directory(c.runtime_dir)) throw std::runtime_error("game.runtime_dir must exist");
-    if (!c.publisher_runtime_dir.empty() && !fs::is_directory(c.publisher_runtime_dir)) throw std::runtime_error("publisher.runtime_dir must exist");
-    if (!c.weak_admission) throw std::runtime_error("Native upstream requires explicit publisher.weak_admission=true");
 }
 }

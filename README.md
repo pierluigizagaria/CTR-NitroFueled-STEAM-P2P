@@ -1,10 +1,11 @@
 # ctrnf-p2p
 
 A local process that connects an unchanged native host to a platform provider
-through the public orbiSteamworks C API. It owns configuration, HTTP adaptation
+through the public orbiSteamworks C API. It owns its configuration, HTTP adaptation
 and process lifetime. Steam, endpoint allocation, peer authorization and opaque
 transport belong to the provider. Demonware, CTR matchmaking and local progression
-belong to the separate publisher. No source from either host or publisher is
+belong to the separate local server (demonware-server). Native paths, saves and
+preferences belong to the port. No source from the host, provider or server is
 incorporated here. License: MIT.
 
 The first host adapter targets GetLostIn `online` at
@@ -28,8 +29,8 @@ ctest --test-dir build -C Release --output-on-failure
 ```
 
 Tests default on and use Python 3, a fake provider DLL/shared library and a fake
-HTTP/UDP host written for these tests. They need no Steam account, game, publisher
-binary or sibling runtime state. Set `-DBUILD_TESTING=OFF` for a build without
+launcher that starts a fake HTTP/UDP game, written for these tests. They need no
+Steam account, game, server binary or sibling runtime state. Set `-DBUILD_TESTING=OFF` for a build without
 Python/tests. Real-provider/publisher and original-game acceptance are separate
 optional integration work, never implied by these fixtures.
 
@@ -37,26 +38,43 @@ Windows is the tested execution platform. Shared code uses standard C++20;
 platform.cpp isolates library loading and child supervision, and http.cpp isolates
 Winsock/POSIX sockets. The POSIX implementation uses a guardian process and an EOF
 pipe for child lifetime, including on macOS where Linux parent-death signals are
-unavailable. **macOS and Linux builds/runtime are not yet qualified.** The provider
+unavailable. **macOS and Linux builds/runtime are not yet qualified**, and the
+native adapter refuses to launch on POSIX (see below). The provider
 and native game must independently support the target OS; bridge portability does
 not establish their compatibility.
 
-## Run
+## Install
+
+The mod is installed directly into the root folder of an existing native port
+installation (the folder with `CTR-NitroFueled-PC.exe`, `run.py`, `bbport.ini` and
+`patches/`). The bridge executable's folder is the port root: no setting names it.
+
+```text
+<port root>/
+├── CTR-NitroFueled-PC.exe        native launcher (unchanged)
+├── bbport.ini, launcher.ini, user/, out/, patches/, patches.json   native, unchanged
+├── ctrnf-p2p.exe, ctrnf-p2p.ini  this bridge and its configuration
+├── ctrnf-p2p/                    bridge-owned state and diagnostics only
+├── demonware-server.exe          the independent local server
+├── demonware-server/             its data/ctrnf.db and logs/
+├── orbisteamworks.dll            the provider
+└── steam_api64.dll               user-supplied Steam API library
+```
 
 Place the user-supplied Steam API library beside the bridge executable; nothing
-from Steamworks is included or distributed. Place the provider DLL there too, or
-configure an explicit provider library path. Install the independently built
-publisher and supply its response-signing key and the supported game server-signature patch.
-The retained CTR patch permits responses signed by a different server key; it
-does not embed a profile-specific public key. It leaves account admission and
-lobby message authentication unchanged.
-The publisher requires OpenSSL on its process PATH for response signing; use its
-own installation or configure publisher.runtime_dir with an existing tool folder.
-Do not put private keys/configuration in version control.
+from Steamworks is included or distributed. `steam_appid.txt` is neither required
+nor consulted: `steam.app_id` is the only AppID source.
 
-Copy `ctrnf-p2p.example.ini` to `ctrnf-p2p.ini` beside the executable and fill in
-paths. All relative paths resolve beside the executable, even with `--config`.
-`--config path` itself resolves from the current working directory.
+Install the CTR:NF Server Signature Patch XML into the port's `patches/` folder and
+enable `CrashTeamRacingNitroFueled.xml/CTR:NF Server Signature Patch` in the port's
+existing `patches.json` (`enabled` list), keeping its other selections. The release
+file is disabled by default; copying it alone does not activate it. The local server
+sends unsigned authentication replies: the game's verifier then fails and this patch
+removes the rejection of that failure. No response-signing key or OpenSSL is needed.
+The patch supports only the verified CUSA13795 01.21 `eboot.bin` (see its own
+documentation); the bridge does not inspect the game files.
+
+## Run
 
 ```text
 ctrnf-p2p --check
@@ -65,123 +83,150 @@ ctrnf-p2p --directory-check
 ctrnf-p2p
 ```
 
-`--check` validates configuration/files without starting anything. `--probe`
-starts the provider, hidden publisher and HTTP listener, verifies readiness and
-then stops them; it does not start a game or qualify game/peer transport.
-`--directory-check` additionally creates a temporary room, reads it, requires
-that exact room in search and leaves it. This can qualify one-account directory
-operations without launching a game; it cannot qualify Steam peer transport.
-Ordinary launch supervises the game until it exits. Windows uses a kill-on-close Job
-Object for the host and its descendants; the provider owns its own publisher.
-Host exit, bridge teardown or provider/publisher failure tears the session down.
-There is no menu-idle or elapsed-session cutoff. An in-game restart request exits
-the bridge; relaunch it after preparing any changed native settings.
+Copy `ctrnf-p2p.example.ini` to `ctrnf-p2p.ini` beside the executable. Relative
+paths resolve beside the executable, even with `--config`; `--config path` itself
+resolves from the current working directory.
+
+`--check` validates the configuration, the provider, Steam and server files, and the
+launch prerequisites (native launcher and signature patch selection) without
+starting anything. `--probe` starts the provider, the hidden local server and the
+HTTP listener, verifies readiness and stops them; it does not start a game or
+qualify game/peer transport. `--directory-check` additionally creates a temporary
+room, reads it, requires that exact room in search and leaves it. These two
+portable diagnostics do not need the native launcher or the patch.
+
+An ordinary launch starts the port's own launcher; the player starts the game from
+it as usual. Everything native (game folder, saves, preparation, patches, graphics,
+input, language, restart) is handled by the port with its own settings. The session
+belongs to the first game process that opens the game's UDP socket: when that game
+exits, including the native in-game "Apply and restart", the bridge ends the session
+and closes the launcher. Relaunch the bridge to play online again. Closing the
+launcher before starting a game also ends it. Windows uses a kill-on-close Job
+Object for the launcher and all its descendants; the provider owns its own server.
+Host exit, bridge teardown, provider/server failure or a Steam account change tears
+the session down. There is no menu-idle or elapsed-session cutoff.
 
 ## Configuration
 
-Unknown/duplicate sections or settings and invalid values stop startup. Boolean
-values are exactly `true` or `false`. Integers are decimal. Full-line `;`/`#`
-comments are accepted. Unquoted inline comments start after whitespace; to retain
-such punctuation in names, use a JSON quoted string, for example `"A ; B"`.
-Paths and environment values passed to this native host must be printable ASCII.
+Unknown/duplicate sections or settings and invalid values stop startup. There are
+no aliases for removed settings. Boolean values are exactly `true` or `false`.
+Integers are decimal. Full-line `;`/`#` comments are accepted. Unquoted inline
+comments start after whitespace; a JSON quoted string keeps such punctuation.
+Paths passed to the bridge must be printable ASCII.
+
+The configuration holds only bridge settings and the links between its components.
+Native paths, saves and preferences are never copied here.
 
 | Setting | Default and meaning |
 | --- | --- |
 | platform.provider | `steam`; other providers are currently unsupported |
-| platform.library | `orbisteamworks.dll` on Windows, `liborbisteamworks.dylib` on macOS, `liborbisteamworks.so` on other POSIX targets |
 | steam.app_id | `480`; nonzero uint32. Every peer must use the same licensed AppID |
+| game.host | `native`; selects the bridge's host adapter, not a native setting |
+| server.unlock_all | `false`; forwarded to the server's `CTR_UNLOCK_ALL`. Same saves and database in both modes |
+
+Advanced settings, omitted from the example:
+
+| Setting | Default and meaning |
+| --- | --- |
+| platform.library | `orbisteamworks.dll` on Windows, `liborbisteamworks.dylib` on macOS, `liborbisteamworks.so` on other POSIX targets |
 | steam.library | `steam_api64.dll` on Windows, `libsteam_api.dylib` on macOS, `libsteam_api.so` otherwise; must be beside the bridge executable |
-| player.online_id | Empty: obtain the raw Steam persona via public API, map to ASCII, then create the final context with that explicit name. An explicit override uses the same mapping |
-| player.unlock_all | `false`; boolean publisher economy choice, excluded from matchmaking namespace |
-| game.host | `native`; other host adapters are currently unsupported |
-| game.profile | `ctr`; upstream rendering profile name, separate from save directories |
-| game.executable | Required raw native executable, built from the pinned source |
-| game.game_dir | Required owned merged game directory with eboot.bin |
-| game.prepared_dir | Required output of upstream preparation: boot-linked.bin, import_names.txt, content.bin, patches.bin |
-| game.patches_dir | Required source patch directory, passed as BB_PATCHES_DIR; prepared patches.bin must already contain the supported server-signature patch |
-| game.profile_dir | `runtime/player`; base for separate normal/unlock-all state |
-| game.runtime_dir | Empty; optional native runtime dependency directory prepended to the child's PATH |
-| game.config | Empty: `<profile>/<economy>/bbport.ini`; optional existing native settings file. It must match prepared rendering patches |
-| game.normal_saves | Empty: `<profile>/normal/user`; optional existing normal save root |
-| game.unlock_all_saves | Empty: `<profile>/unlock-all/user`; optional existing unlock-all save root. Effective save roots must not overlap |
-| publisher.executable | Required independent publisher executable |
-| publisher.signing_key | Required private publisher response-signing key; kept local to that publisher |
-| publisher.runtime_dir | Empty; optional existing dependency directory (for example OpenSSL) prepended to the publisher process PATH |
-| publisher.weak_admission | `false`; native upstream requires explicitly setting `true`. Maps to CTR_LOCAL_WEAK_TOKEN=1 |
-| session.title | `5760`, the publisher's Demonware title ID; at most16 bytes. The PS4 asset title CUSA13795 is a different identifier |
-| session.build | `01.21`; at most64 bytes, same for all peers |
-| session.realm | `ctrnf-p2p`; at most64 bytes, same for all peers; never encode economy here |
-| network.server | `127.0.0.2`; bridge/publisher listener address in127.0.0.2–254, separate from the game |
-| network.http_port | `31380`; native HTTP front, must not collide with publisher listeners |
-| network.auth_port | `8460`; publisher's plain HTTP auth listener |
-| network.game_address | `127.0.0.1`; measured Windows source of the unchanged wildcard game socket |
-| lab.enabled | `false`; explicitly simulated local backend for fixtures/Lab only, never a Steam fallback |
-| lab.account_id | `0`; nonzero synthetic ID required when Lab is enabled |
-| lab.root | Empty; shared private Lab hub directory required when Lab is enabled |
+| server.executable | `demonware-server.exe` on Windows, `demonware-server` elsewhere, beside the bridge. Its working folder is `demonware-server/` beside that executable, with `data/` (passed as `DATA_DIR`) and `logs/` |
+| session.realm | `ctrnf-p2p`; at most 64 bytes, same for all peers. Matchmaking namespace only: never economy or progression |
+| network.address | `127.0.0.2`; loopback address in 127.0.0.2–254 for the bridge front and the server listeners. Distinct instances on one PC need distinct addresses |
+| network.http_port | `31380`; the native HTTP front; must not collide with the server listeners |
+| lab.enabled, lab.account_id, lab.root, lab.online_id | Off. Explicitly simulated local backend for fixtures/Lab only, never a Steam fallback; all four are required together |
 
-Lab also requires an explicit player.online_id. With Lab disabled, account_id/root
-must remain empty/default. Lab results are not Steam transport acceptance.
-
-The bridge discovers the IPv4 UDP socket of the exact native child it owns.
-It accepts only one distinct port bound to wildcard or `127.0.0.1`; an unrelated
-process cannot supply it. There is no configured game source port. The provider
-starts with `osw_defer_game_endpoint` and requires the publisher's
-`game.endpoint.v1` capability. NAT responses and room/peer advertisement remain
-blocked until `game.endpoint.bind` receives the publisher's correlated
-acknowledgement. A closed, changed or ambiguous source fails closed. Socket discovery
-has no menu-idle timeout. `--directory-check` instead reserves a diagnostic
-loopback UDP socket for its own lifetime; it never claims game acceptance.
+The native adapter fixes the rest of the contract: Demonware title `5760` (the PS4
+asset title CUSA13795 is a different identifier), build `01.21`, the game's UDP
+source as observed at `127.0.0.1`, the server's auth listener on port `8460` of
+`network.address`, and native-token admission (`CTR_LOCAL_WEAK_TOKEN=1`), because
+the unchanged host fabricates its token. The server's own default for that mode
+stays disabled; a future host adapter declares its own requirements.
 
 ## Identity, persistence and security boundary
 
-The ASCII mapping retains printable0x20–0x7e, replaces non-ASCII Unicode characters
-with `_`, trims spaces and limits to16 bytes. Control bytes become `_`; an empty
-result requires an override. The identical explicit name goes to the provider,
-BB_ONLINE_ID and BB_USER_NAME. Native upstream then separately rewrites its NP ID
-to `[A-Za-z0-9_-]` and pads names shorter than3 characters; UserService retains
-BB_USER_NAME. This difference is documented rather than patched. Explicit names
-do not follow live renames; relaunch to recompute the Steam persona.
+The SteamID and the displayed name always come from the connected Steam account;
+there is no production name override. The ASCII mapping retains printable
+0x20–0x7e, replaces non-ASCII Unicode characters with `_`, trims spaces and limits
+to 16 bytes. Control bytes become `_`; an all-blank persona refuses to start. The
+same name goes to the provider, `BB_ONLINE_ID` and `BB_USER_NAME`. Native upstream
+then separately rewrites its NP ID to `[A-Za-z0-9_-]` and pads names shorter than
+3 characters; UserService retains `BB_USER_NAME`. This difference is documented
+rather than patched. AppID identifies the application, SteamID the account, and the
+online ID is only the displayed name.
 
-The SteamID64 is passed as decimal BB_ONLINE_ACCOUNT_ID. Native upstream fabricates
-its sacredfire token; weak admission only checks that its account is the current
-pipe owner and the actual request source is loopback. **Any local process able to
-impersonate that owner format can attempt admission.** This is weaker than the
-provider's random pipe capability and is off by default. Name text is not the
-authentication key. This option must never be exposed as central/public admission.
+The SteamID64 is passed as decimal `BB_ONLINE_ACCOUNT_ID`. Native upstream fabricates
+its sacredfire token; native-token admission only checks that its account is the
+current pipe owner and the actual request source is loopback. **Any local process
+able to impersonate that owner format can attempt admission.** This is weaker than
+the provider's random pipe capability. Name text is not the authentication key.
+It must never be exposed as central/public admission.
 
-Normal/unlock-all databases reside in `<profile>/<economy>/publisher/data/ctrnf.db`.
-Their save directories remain separate even when the players share rooms. Each
-publisher exposes only the documented room/opaque race contracts to peers;
-progression and publisher files stay local. Existing save overrides are used in
-place; the bridge does not copy, reset or delete them.
+The identity is read once per session. If another Steam account signs in behind the
+same client, the provider fails the context and the bridge ends the session; relaunch
+to play as that account. The server's one database (`demonware-server/data/ctrnf.db`)
+keeps each account's progression under its SteamID, so A → B → A preserves both, and
+normal/unlock-all share it: unlock-all makes the catalog available without recording
+it as owned, while races, challenges and statistics count in both modes. Returning to
+normal shows real purchases, coins and progress again. The native save is the port's
+and is shared by every account and both modes; the bridge never selects, copies,
+resets or edits saves. Use the port's own save-folder settings for separation.
+Each server exposes only the documented room/opaque race contracts to peers;
+progression and server files stay local.
 
 ## Native adapter and HTTP front
 
-Prepare the owned game with the pinned upstream scripts; the bridge does not
-reimplement the native loader/linker or download game assets. Launch arguments
-provide --app0, --user and the prepared artifacts. **--timeout0 is always passed**
-because the raw upstream executable otherwise defaults to ten seconds.
-BB_GPU_USER_DIR and --user agree. BB_GAME_PROFILE selects `ctr`, not a save root.
-The adapter uses the documented Windows run.py defaults (base resolution, PS4
-mode, GPU buffer-copy settings). Changed rendering/60FPS settings require upstream
-preparation with matching patches. Old BB_*/OSW_*/publisher settings are removed
-from the child environment before the selected mapping is installed.
+The launcher inherits the bridge's environment except stale bridge, provider,
+server and online settings (`OSW_*`, `CTR_*`, `NEXTENDO_*`, `SHADNET_*`, `D3_*`,
+`DASH_*`, `BB_ONLINE_*`, `BB_USER_NAME`, `STEAMAPPID`, `STEAMGAMEID`; compared
+case-insensitively on Windows). Other native `BB_*` values pass through unchanged.
+The bridge then sets only `BB_ONLINE_SERVER`, `BB_ONLINE_HTTP_PORT`, `BB_ONLINE_ID`,
+`BB_USER_NAME`, `BB_ONLINE_ACCOUNT_ID` and `BB_ONLINE_ALLOW=127.0.0.1`. The port's
+launch script lets these environment values win over `bbport.ini`; the explicit
+loopback allow list keeps `bbport.ini` `online_allow` from widening the game's
+reachable addresses. The native launcher may still show its own online fields.
+
+Before an ordinary launch (and in `--check`) the bridge reads, without writing, the
+patch selection the native launch script will use: `BB_PATCHES_CONFIG`, else
+`patches.json` in `BB_DATA_DIR` (else the port root), and `BB_PATCHES_DIR`, else
+`patches/`. Relative values resolve from the port root, as the script does. The
+patch must be listed under `enabled` and not under `disabled`, and its file must
+name CUSA13795, AppVer 01.21, `eboot.bin` and the supported write. This is a
+configuration diagnostic: the launcher can change the selection afterwards, and
+other selected patches are not inspected for conflicts.
+
+The bridge discovers the IPv4 UDP socket owned by exactly one process of its own
+job. It accepts only one distinct port bound to wildcard or `127.0.0.1`; several
+owning processes or ports fail closed, and an unrelated process cannot supply it.
+The session is pinned to that process (ID and start time) and port. The provider
+starts with `osw_defer_game_endpoint` and requires the server's `game.endpoint.v1`
+capability. NAT responses and room/peer advertisement remain blocked until
+`game.endpoint.bind` receives the server's correlated acknowledgement. A closed or
+changed socket of the still-running game fails closed. Socket discovery has no
+menu-idle timeout. `--directory-check` instead reserves a diagnostic loopback UDP
+socket for its own lifetime; it never claims game acceptance.
+
+The POSIX native launcher detaches the game into its own session, beyond the
+POSIX process-group teardown, so the native adapter refuses to launch there until
+that is solved. Configuration, provider, server and HTTP code and the portable
+diagnostics stay platform-neutral.
 
 Upstream forwards HTTP and HTTPS as plain HTTP to this loopback front. Exact
 `<group>.np.community.playstation.net` hosts, including the pinned native host's
 `sdk:` authority prefix, dispatch OSW_WEBAPI with method, path,
 group, headers, content type and opaque binary body. Other hosts go only to the
-configured loopback publisher; the Host/scheme/end-to-end headers are preserved.
+local server; the Host/scheme/end-to-end headers are preserved.
 There is no external DNS/proxy destination or redirect following. Hop-by-hop
 headers and framing are rebuilt. Duplicate/ambiguous framing is rejected.
 Unsupported provider routes retain explicit HTTP errors.
 
-Limits:32KiB headers,100 header fields,1MiB body,8 concurrent handlers and16 queued
-connections. Socket operations have a30-second total deadline; provider requests
-have a25-second deadline. These per-request limits do not expire sessions.
+Limits: 32 KiB headers, 100 header fields, 1 MiB body, 8 concurrent handlers and 16
+queued connections. Socket operations have a 30-second total deadline; provider
+requests have a 25-second deadline. These per-request limits do not expire sessions.
 Bridge logs contain status/categories only, never bodies or tokens. Native
-upstream itself logs short body prefixes: keep `<state>/host.log` private. Publisher
-logs are also private. Do not paste raw runtime logs into public issues.
+upstream itself logs short body prefixes: keep the port's logs and
+`ctrnf-p2p/host.log` private. Server logs are also private. Do not paste raw
+runtime logs into public issues.
 
 Steam overlay injection into the separate game window and native push invitation
 delivery are outside this implementation. Two-PC live Steam qualification needs

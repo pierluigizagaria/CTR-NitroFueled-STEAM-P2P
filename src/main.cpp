@@ -49,61 +49,75 @@ int main(int argc, char** argv) {
             else if (arg == "--check") check_only = true;
             else if (arg == "--probe") probe_only = true;
             else if (arg == "--directory-check") directory_only = true;
-            else if (arg == "--help") { std::cout << "ctrnf-p2p [--config path] [--check | --probe | --directory-check]\n--check validates without starting processes; --probe checks provider and publisher; --directory-check also creates, reads, searches and leaves a room. Neither diagnostic launches the game.\n"; return 0; }
+            else if (arg == "--help") { std::cout << "ctrnf-p2p [--config path] [--check | --probe | --directory-check]\n--check validates configuration and launch prerequisites without starting processes; --probe checks provider and server; --directory-check also creates, reads, searches and leaves a room. Neither diagnostic launches the game.\n"; return 0; }
             else throw std::runtime_error("Unknown or incomplete command-line option");
         }
         if (static_cast<int>(check_only) + probe_only + directory_only > 1) throw std::runtime_error("Choose only one diagnostic mode");
         auto c = load_config(file, root); validate_files(c);
-        if (check_only) { std::cout << "Configuration and required files validated.\n"; return 0; }
+        const auto inherited = host_environment();
+        // Launch prerequisites are native-adapter specific; the portable
+        // provider/server diagnostics do not need them.
+        if (check_only || (!probe_only && !directory_only)) validate_native_installation(c, inherited);
+        if (check_only) { std::cout << "Configuration, required files and launch prerequisites validated.\n"; return 0; }
         std::signal(SIGINT, interrupt); std::signal(SIGTERM, interrupt);
-        fs::create_directories(c.saves); fs::create_directories(c.data);
+        fs::create_directories(c.state); fs::create_directories(c.server_dir / "logs");
         uint64_t bootstrap_account = 0;
-        if (c.online_id.empty()) {
+        if (!c.lab) {
+            // The displayed name always derives from the connected account's persona.
             Provider bootstrap(c, false); bootstrap_account = bootstrap.wait_identity().account_id; c.online_id = ascii_name(bootstrap.persona());
         }
         Provider provider(c, true); auto id = provider.wait_identity(); provider.wait_ready();
         if (bootstrap_account && bootstrap_account != id.account_id) throw std::runtime_error("Platform account changed during launch; restart the bridge");
         if (std::string(id.online_id) != c.online_id) throw std::runtime_error("Provider did not retain the explicit launch name");
-        std::cout << (c.lab ? "Simulated Lab" : "Steam") << " provider and loopback publisher ready; economy "
+        std::cout << (c.lab ? "Simulated Lab" : "Steam") << " provider and local server ready; economy "
                   << (c.unlock_all ? "unlock-all" : "normal") << ".\n";
-        HttpServer front(c.server, c.http_port, [&](const HttpRequest& request) {
+        HttpServer front(c.address, c.http_port, [&](const HttpRequest& request) {
             auto group = api_group(header(request.headers, "host"));
-            return group.empty() ? proxy_request(request, c.server, c.auth_port) : provider.webapi(request, group);
+            return group.empty() ? proxy_request(request, c.address, server_auth_port) : provider.webapi(request, group);
         });
-        if (probe_only) { std::cout << "Provider, publisher and HTTP listener probe passed; no game acceptance implied.\n"; return 0; }
+        if (probe_only) { std::cout << "Provider, server and HTTP listener probe passed; no game acceptance implied.\n"; return 0; }
         if (directory_only) {
             DiagnosticDatagram endpoint;
             provider.bind_game_endpoint(c.game_address, endpoint.port());
             check_directory(provider);
             std::cout << "Directory create/read/search/leave passed; no game or peer transport acceptance implied.\n"; return 0;
         }
-        Process host(c.executable, native_arguments(c), c.executable.parent_path(), native_environment(c, id.account_id), c.state / "host.log");
-        std::cout << "Native host launched with no session cutoff.\n";
+        Process host(native_launcher(c), {}, c.root, native_environment(c, id.account_id, inherited), c.state / "host.log");
+        std::cout << "Native launcher started; start the game from it. There is no session cutoff.\n";
         auto next_check = std::chrono::steady_clock::now();
-        std::optional<uint16_t> endpoint_bound;
+        std::optional<GameEndpoint> bound;
         while (!interrupted) {
-            if (auto code = host.exit_code()) { std::cout << "Native host exited with code " << *code << ".\n"; return *code == 0 ? 0 : 3; }
-            if (!endpoint_bound) {
-                if (auto port = host.udp_source_port()) {
-                    provider.bind_game_endpoint(c.game_address, *port);
-                    endpoint_bound = *port;
-                    std::cout << "Owned game UDP endpoint registered on port " << *port << ".\n";
+            if (!host.running()) {
+                auto code = host.exit_code().value_or(0);
+                std::cout << "Native launcher exited with code " << code << ".\n";
+                return code == 0 ? 0 : 3;
+            }
+            if (!bound) {
+                if (auto endpoint = host.game_endpoint()) {
+                    provider.bind_game_endpoint(c.game_address, endpoint->port);
+                    bound = endpoint;
+                    std::cout << "Owned game UDP endpoint registered on port " << endpoint->port << ".\n";
                 }
             }
             if (std::chrono::steady_clock::now() >= next_check) {
-                if (!provider.healthy()) throw std::runtime_error("Provider or publisher became unavailable; supervised session stopped");
-                if (endpoint_bound) {
-                    auto current = host.udp_source_port();
-                    if (!current || *current != *endpoint_bound) {
-                        if (auto code = host.exit_code()) {
-                            std::cout << "Native host exited with code " << *code << ".\n";
-                            return *code == 0 ? 0 : 3;
+                if (!provider.healthy(id.account_id)) throw std::runtime_error("Provider, account or server became unavailable; supervised session stopped");
+                if (bound) {
+                    // The session belongs to one game process and port. A game exit,
+                    // including the native "Apply and restart", ends it; a changed or
+                    // vanished socket of the still-running game fails closed.
+                    auto current = host.game_endpoint();
+                    if (!current || *current != *bound) {
+                        if (!host.alive(*bound)) {
+                            std::cout << "Game exited; the supervised session is finished. Relaunch ctrnf-p2p to play online again.\n";
+                            return 0;
                         }
                         if (!current)
                             throw std::runtime_error("Owned game UDP endpoint is no longer observable (registered port " +
-                                std::to_string(*endpoint_bound) + "); restart the supervised session");
+                                std::to_string(bound->port) + "); restart the supervised session");
+                        if (current->owner != bound->owner || current->started != bound->started)
+                            throw std::runtime_error("Another supervised process owns the game UDP endpoint; restart the supervised session");
                         throw std::runtime_error("Owned game UDP endpoint changed from port " +
-                            std::to_string(*endpoint_bound) + " to " + std::to_string(*current) +
+                            std::to_string(bound->port) + " to " + std::to_string(current->port) +
                             "; restart the supervised session");
                     }
                 }

@@ -28,7 +28,7 @@ struct Result {
 
 struct osw_context {
     osw_config_v2 config{};
-    bool started = false, loopback = false, endpoint_pending = false;
+    bool started = false, loopback = false, endpoint_pending = false, bound = false;
     uint32_t app_id = 480;
     uint64_t next_request = 1;
     unsigned bound_readiness_reads = 0;
@@ -48,7 +48,7 @@ TEST_EXPORT int32_t osw_create_v2(const osw_config_v2* config, osw_context** out
             {"title", config->base.title}, {"build", config->base.build},
             {"realm", config->base.realm}, {"backend", config->backend},
             {"game_bind", config->game_bind}, {"game_port", config->game_port},
-            {"companion", config->companion_path[0] != 0},
+            {"companion", config->companion_path[0] != 0}, {"companion_working_dir", config->companion_working_dir},
             {"companion_environment", Json::parse(config->companion_environment[0] ? config->companion_environment : "{}")}});
     return OSW_OK;
 }
@@ -77,6 +77,8 @@ TEST_EXPORT int32_t osw_get_identity(osw_context* c, osw_identity* out) {
     if (!c || !out || out->size != sizeof(*out)) return OSW_INVALID_ARGUMENT;
     *out = {}; out->size = sizeof(*out); out->signed_in = c->started;
     out->account_id = c->config.lab_account_id ? c->config.lab_account_id : 123456789;
+    // Another account behind the same platform client after the game bound.
+    if (c->bound && std::getenv("TEST_PROVIDER_ACCOUNT_CHANGE")) ++out->account_id;
     const std::string name = c->config.base.online_id[0] ? c->config.base.online_id : "Fixture";
     std::memcpy(out->online_id, name.c_str(), name.size() + 1);
     return OSW_OK;
@@ -107,7 +109,7 @@ TEST_EXPORT int32_t osw_submit(osw_context* c, const osw_request* request, uint6
             metadata["port"].get<uint64_t>() == 0 || metadata["port"].get<uint64_t>() > 65535)
             value.status = OSW_INVALID_ARGUMENT;
         else if (std::getenv("TEST_ENDPOINT_REJECT")) value.status = OSW_UNAVAILABLE;
-        else c->endpoint_pending = false;
+        else { c->endpoint_pending = false; c->bound = true; }
         record({{"event", "bind_endpoint"}, {"address", metadata.value("address", "")},
                 {"port", metadata.value("port", 0)}, {"status", value.status}});
         value.metadata = "{}";
