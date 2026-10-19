@@ -12,7 +12,7 @@ distributed by this project. Current qualification status belongs to VALIDATION.
    Signature Patch XML to the port's `patches/` folder and enable it in the port's
    `patches.json`. The local server sends unsigned replies; no key or OpenSSL is used.
 2. Build/install ctrnf-p2p, a provider supporting loopback-v1 and account-change
-   failure, and the compatible local server into the port root (README "Install").
+   failure, and the compatible local server into the port root (the [installation guide](INSTALLATION.md)).
    Retain their commits and SHA-256 hashes in a private record. Supply the correct
    Steam API runtime beside the bridge executable.
 3. Copy the example configuration. Both PCs must use the same `steam.app_id` and
@@ -74,17 +74,9 @@ the other player's bridge remains running. In the Lab retest this forced a
 fresh nonempty friend response; it does not implement live presence updates.
 Restarting exits the current lobby and retains the native saves and server database.
 
-The Windows single-account acceptance run also used the installed Steam Vulkan
-manifest's per-process switch `DISABLE_VK_LAYER_VALVE_steam_overlay_1=1`.
-This setting was limited to the launched process tree; it did not change a user
-or machine setting. It excluded SteamOverlayVulkanLayer64.dll, while the separate
-GameOverlayRenderer module remained present. The human confirmed Online/name
-and one successful overlay opening, following earlier native crashes including
-one triggered by opening the overlay. This is not a proven crash fix or broad
-overlay qualification; overlay injection remains outside the bridge's scope.
-Retain this test condition when comparing Windows results and use only controls
-advertised by the locally installed layer manifest. No equivalent macOS result
-is claimed.
+Historical overlay experiments and their process-local settings are recorded in
+[the validation history](VALIDATION.md); they are not installation steps. The
+current bridge passes the configured Steam AppID to the launcher and game.
 
 Two loopback-v1 players on one PC are at most a Lab carrier possibility: a third
 can require duplicate canonical binds. The unchanged native host has no

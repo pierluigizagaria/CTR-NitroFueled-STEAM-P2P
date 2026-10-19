@@ -9,6 +9,11 @@ Protocol adapters are written from scratch. Native host source remains unchanged
 Keep all build output, private configuration and test evidence ignored. Do not
 commit Steamworks files, game assets, tokens, IDs or signing keys. Never log bodies
 or credentials. Each request is bounded; sessions have no idle cutoff.
-No publication or push. Local commits are authorized after staged-path review.
+Review staged paths before local commits. Keep distribution packages separate
+from source history; include component licenses and no user runtime state.
+Publication requires an explicit user request. The 2026-10-19 distribution
+request authorizes publishing this project and its experimental Windows mod
+package, with the independent provider/server binaries and signature patch.
+It does not authorize Steamworks or game-file distribution.
 Tests use fake providers/hosts by default; actual provider/publisher/game checks
 are optional, take explicit artifact paths and remain separate evidence.
