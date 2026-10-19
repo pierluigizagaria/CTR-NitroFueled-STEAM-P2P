@@ -61,6 +61,14 @@ are explicit failure cases. The provider never changes a canonical endpoint or
 silently falls back. Preserve the error category and hashes. Do not edit CTR
 packets, bypass identity checks, or modify native source to make this gate pass.
 
+The pinned native host does not deliver presence push callbacks. A game that
+read its friend list before the other player started can keep that initial
+snapshot, even while the provider's current list is correct. If reopening
+Online does not cause a new list request, restart that player's bridge while
+the other player's bridge remains running. In the Lab retest this forced a
+fresh nonempty friend response; it does not implement live presence updates.
+Restarting exits the current lobby and retains the configured saves/database.
+
 Two loopback-v1 players on one PC are at most a Lab carrier possibility: a third
 can require duplicate canonical binds. The unchanged native host has no
 per-instance source-bind/port setting. The game chooses another port when3074
