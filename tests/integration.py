@@ -362,8 +362,11 @@ root = {json.dumps(str(self.root / 'lab'))}
             with self.subTest(mode=mode):
                 result = self.invoke(mode=mode)
                 self.assertEqual(result.returncode, 1, result.stderr)
-                self.assertIn("UDP endpoint closed or changed", result.stderr)
                 report = wait_json(self.root / "host.json")
+                if mode == "closed":
+                    self.assertIn(f"UDP endpoint is no longer observable (registered port {report['udp_port']})", result.stderr)
+                else:
+                    self.assertIn(f"UDP endpoint changed from port {report['udp_port']} to {report['changed_udp_port']}", result.stderr)
                 self.assertTrue(report["endpoint_ready"])
                 self.assertFalse(alive(report["pid"]))
                 self.assert_clean_shutdown()

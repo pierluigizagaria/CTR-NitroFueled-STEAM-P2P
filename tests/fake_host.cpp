@@ -149,6 +149,8 @@ int main(int argc, char** argv) {
                 extra = std::make_unique<Connection>(SOCK_DGRAM);
                 auto other = address("127.0.0.1", 0);
                 require(bind(extra->value, reinterpret_cast<sockaddr*>(&other), sizeof(other)) == 0, "Changed UDP bind");
+                require(getsockname(extra->value, reinterpret_cast<sockaddr*>(&other), &local_size) == 0, "Changed UDP endpoint");
+                report["changed_udp_port"] = ntohs(other.sin_port);
             }
             close_socket(udp.value); udp.value = invalid_socket;
             report["endpoint_ready"] = true; save(root / "host.json", report);

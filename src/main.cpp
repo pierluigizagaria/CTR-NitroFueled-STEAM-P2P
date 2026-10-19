@@ -37,6 +37,9 @@ void check_directory(bridge::Provider& provider) {
 }
 int main(int argc, char** argv) {
     using namespace bridge;
+    // Supervised runs redirect output to a private log. Make lifecycle evidence
+    // visible while the host is running, rather than only when the bridge exits.
+    std::cout << std::unitbuf;
     try {
         auto root = executable_path().parent_path(); auto file = root / "ctrnf-p2p.ini";
         bool check_only = false, probe_only = false, directory_only = false;
@@ -96,7 +99,12 @@ int main(int argc, char** argv) {
                             std::cout << "Native host exited with code " << *code << ".\n";
                             return *code == 0 ? 0 : 3;
                         }
-                        throw std::runtime_error("Owned game UDP endpoint closed or changed; restart the supervised session");
+                        if (!current)
+                            throw std::runtime_error("Owned game UDP endpoint is no longer observable (registered port " +
+                                std::to_string(*endpoint_bound) + "); restart the supervised session");
+                        throw std::runtime_error("Owned game UDP endpoint changed from port " +
+                            std::to_string(*endpoint_bound) + " to " + std::to_string(*current) +
+                            "; restart the supervised session");
                     }
                 }
                 next_check = std::chrono::steady_clock::now() + std::chrono::seconds(1);

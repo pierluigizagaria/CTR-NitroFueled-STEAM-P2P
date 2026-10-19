@@ -175,3 +175,15 @@ The final bridge/provider/publisher also passed live single-account Steam480
 `--directory-check` with a reserved diagnostic UDP socket and the deferred
 registration contract. No game window was launched; B4 name/Online and live
 peer transport remain distinct unverified checks.
+
+### Diagnostic follow-up, prepared without interrupting the pair
+
+The endpoint-lifetime error now distinguishes an unobservable registered port
+from an observed replacement, recording the old/new port where applicable.
+An absent observation is not labelled a proven socket close. Lifecycle stdout
+is flushed during redirected runs, so registration is visible before exit.
+This changes diagnostics only: source authorization and fail-closed behavior
+are unchanged. 52 contract assertions and16 integration methods pass, including
+separate absent/changed cases with exact port diagnostics. Candidate SHA-256:
+`2f6b2341450a23ddbf7da92be662b9f7a8621067558049df08a55e673af47eeb`.
+The active pair retains the earlier installed binary until its next update.
