@@ -1,35 +1,41 @@
 # Configuration
 
-Unknown/duplicate sections or settings and invalid values stop startup. There are
-no aliases for removed settings. Boolean values are exactly `true` or `false`.
-Integers are decimal. Full-line `;`/`#` comments are accepted. Unquoted inline
-comments start after whitespace; a JSON quoted string keeps such punctuation.
-Paths passed to the bridge must be printable ASCII.
+`ctrnf-p2p.ini` sits beside `ctrnf-p2p.exe` and holds only the bridge's own
+settings. The port's paths, saves and preferences stay in the port's settings.
 
-The configuration holds only bridge settings and the links between its components.
-Native paths, saves and preferences are never copied here.
+Every player in a session needs the same `steam.app_id` and `session.realm`.
+The defaults work for normal play.
 
-| Setting | Default and meaning |
-| --- | --- |
-| platform.provider | `steam`; other providers are currently unsupported |
-| steam.app_id | `480`; nonzero uint32. Every peer must use the same licensed AppID |
-| game.host | `native`; selects the bridge's host adapter, not a native setting |
-| server.unlock_all | `false`; forwarded to the server's `CTR_UNLOCK_ALL`. Same saves and database in both modes |
-
-Advanced settings, omitted from the example:
+## Basic settings
 
 | Setting | Default and meaning |
 | --- | --- |
-| platform.library | `orbisteamworks.dll` on Windows, `liborbisteamworks.dylib` on macOS, `liborbisteamworks.so` on other POSIX targets |
-| steam.library | `steam_api64.dll` on Windows, `libsteam_api.dylib` on macOS, `libsteam_api.so` otherwise; must be beside the bridge executable |
-| server.executable | `demonware-server.exe` on Windows, `demonware-server` elsewhere, beside the bridge. Its working folder is `demonware-server/` beside that executable, with `data/` (passed as `DATA_DIR`) and `logs/` |
-| session.realm | `ctrnf-p2p`; at most 64 bytes, same for all peers. Matchmaking namespace only: never economy or progression |
-| network.address | `127.0.0.2`; loopback address in 127.0.0.2–254 for the bridge front and the server listeners. Distinct instances on one PC need distinct addresses |
-| network.http_port | `31380`; the native HTTP front; must not collide with the server listeners |
+| `platform.provider` | `steam`, the only supported provider |
+| `steam.app_id` | `480` (Steam's public Spacewar test application). Any other nonzero AppID must be available to every player's Steam account |
+| `game.host` | `native`, the only supported game: the GetLostIn native port |
+| `server.unlock_all` | `false`. `true` makes the whole Pit Stop catalog available without spending coins and without recording purchases; see the [README](../README.md#configuration) |
 
-The native adapter fixes the rest of the contract: Demonware title `5760` (the PS4
-asset title CUSA13795 is a different identifier), build `01.21`, the game's UDP
-source as observed at `127.0.0.1`, the server's auth listener on port `8460` of
-`network.address`, and native-token admission (`CTR_LOCAL_WEAK_TOKEN=1`), because
-the unchanged host fabricates its token. The server's own default for that mode
-stays disabled; a future host adapter declares its own requirements.
+## Advanced settings
+
+These are omitted from the example and rarely need changing.
+
+| Setting | Default and meaning |
+| --- | --- |
+| `platform.library` | `orbisteamworks.dll` on Windows, `liborbisteamworks.dylib` on macOS, `liborbisteamworks.so` on other POSIX targets |
+| `steam.library` | `steam_api64.dll` on Windows, `libsteam_api.dylib` on macOS, `libsteam_api.so` otherwise; must be beside the bridge executable |
+| `server.executable` | `demonware-server.exe` on Windows, `demonware-server` elsewhere, beside the bridge. Its working folder is `demonware-server/` beside that executable, with `data/` and `logs/` |
+| `session.realm` | `ctrnf-p2p`; at most 64 bytes. Players only see each other in the same realm. It does not separate progression |
+| `network.address` | `127.0.0.2`; a loopback address in 127.0.0.2–254 for the bridge and the local server. Two bridges on one PC need different addresses |
+| `network.http_port` | `31380`; the bridge's HTTP port for the game; must not collide with the local server's ports |
+
+## File format
+
+- Unknown or duplicate sections and settings, and invalid values, stop startup
+  with an error.
+- Boolean values are exactly `true` or `false`; integers are decimal.
+- Full-line comments start with `;` or `#`. An unquoted inline comment starts
+  after whitespace; put a value in JSON double quotes to keep such characters.
+- Paths must be printable ASCII. Relative paths resolve beside the executable.
+
+`ctrnf-p2p-cli.exe --config path` reads another file; that path itself resolves
+from the current directory.

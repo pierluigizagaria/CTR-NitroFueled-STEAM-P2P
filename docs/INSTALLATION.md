@@ -2,87 +2,113 @@
 
 Download the Windows mod ZIP from
 [Releases](https://github.com/pierluigizagaria/ctrnf-p2p/releases).
-It contains the bridge, provider, server, signature patch XML and component
-licenses. The included `CTR-P2P-README.md` provides the short setup.
-For manual builds, select the same four runtime binaries shown below.
+It contains the bridge, orbiSteamworks, Demonware Server, the signature patch XML
+and the component licenses. `CTR-P2P-README.md` in the ZIP is the short version
+of this guide.
 
-The mod is installed directly into the root folder of an existing native port
-installation (the folder with `CTR-NitroFueled-PC.exe`, `run.py`, `bbport.ini` and
-`patches/`). The bridge executable's folder is the port root: no setting names it.
+## Install
+
+The mod goes directly into the root folder of an existing native port
+installation: the folder with `CTR-NitroFueled-PC.exe`, `run.py`, `bbport.ini`
+and `patches/`. After installation it looks like this:
 
 ```text
 <port root>/
 ├── CTR-NitroFueled-PC.exe        native launcher (unchanged)
 ├── bbport.ini, launcher.ini, user/, out/    native settings and data
-├── patches/, patches.json                 native patch definitions and selection
-├── ctrnf-p2p.exe, ctrnf-p2p.ini  desktop bridge and its configuration
-├── ctrnf-p2p-cli.exe             console entry point for diagnostics/scripts
-├── ctrnf-p2p/                    bridge-owned state and diagnostics only
-├── demonware-server.exe          the independent local server
-├── demonware-server/             its data/ctrnf.db and logs/
-├── orbisteamworks.dll            the provider
-└── steam_api64.dll               user-supplied Steam API library
+├── patches/, patches.json        native patch definitions and selection
+├── ctrnf-p2p.exe, ctrnf-p2p.ini  the bridge and its configuration
+├── ctrnf-p2p-cli.exe             console version, for troubleshooting
+├── ctrnf-p2p/                    bridge logs and state
+├── demonware-server.exe          the local server
+├── demonware-server/             server database (data/ctrnf.db) and logs
+├── orbisteamworks.dll            the Steam provider
+└── steam_api64.dll               supplied by you
 ```
 
-Place the user-supplied Steam API library beside the bridge executable; nothing
-from Steamworks is included or distributed. `steam_appid.txt` is neither required
-nor consulted: `steam.app_id` is the only AppID source.
+1. Set up the port and your game files with the port's own instructions.
+2. Close the port, then extract the ZIP into the port root.
+3. Copy `steam_api64.dll` into the port root. It is part of Valve's
+   [Steamworks SDK](https://partner.steamgames.com/doc/sdk), under
+   `redistributable_bin/win64/`. The mod does not download it and does not need
+   `steam_appid.txt`.
+4. For a new installation, copy `ctrnf-p2p.example.ini` to `ctrnf-p2p.ini`.
 
-The [Steamworks SDK documentation](https://partner.steamgames.com/doc/sdk)
-describes Valve's runtime library. Obtain it separately; the mod does not
-download it or change the Steam client's installation.
+### Signature patch
 
-The ZIP includes the CTR:NF Server Signature Patch XML under `patches/`. On a normal
-launch, the bridge validates the XML and adds
-`CrashTeamRacingNitroFueled.xml/CTR:NF Server Signature Patch` to the native
-configuration's `enabled` list, removing that same key from `disabled` if present.
-It preserves all other patch selections and settings. An already enabled patch
-requires no change. Invalid XML or an invalid patch configuration stops startup
-without replacing the configuration with defaults.
+The ZIP adds `patches/CrashTeamRacingNitroFueled.xml`, which contains the
+[CTR:NF Server Signature Patch](https://github.com/pierluigizagaria/ctrnf-server-signature-patch).
+The local server's authentication replies are unsigned, and the game only
+accepts them with this patch. It supports only the CUSA13795 01.21 `eboot.bin`.
 
-The local server
-sends unsigned authentication replies: the game's verifier then fails and this patch
-removes the rejection of that failure. No response-signing key or OpenSSL is needed.
-The patch supports only the verified CUSA13795 01.21 `eboot.bin` (see its own
-documentation); the bridge does not inspect the game files.
+On every normal start the bridge checks the XML and makes sure the patch is
+enabled in the port's `patches.json`. All other patch selections and settings
+are kept. If the XML or `patches.json` is invalid, the bridge stops with an error
+and leaves the file unchanged.
 
 ## Run
 
-On Windows, double-click `ctrnf-p2p.exe`. It opens the native launcher without a
-terminal window. Lifecycle messages go to `ctrnf-p2p/bridge.log`; a startup or
-session error appears in a dialog. Close the native launcher to end the session.
+Double-click `ctrnf-p2p.exe`. It opens the native launcher without a terminal
+window; start the game from there as usual. Everything native (game folder,
+saves, preparation, patches, graphics, input, language) keeps working through
+the port's own settings.
 
-On POSIX the console executable is still named `ctrnf-p2p`; there is no desktop
-entry point, and native game launch remains unsupported there.
+The online session belongs to the game started from that launcher. It ends, and
+the launcher closes, when:
 
-Copy `ctrnf-p2p.example.ini` to `ctrnf-p2p.ini` beside the executable. Relative
-paths resolve beside the executable, even with `--config`; `--config path` itself
-resolves from the current working directory.
+- you close the game or the launcher;
+- you use the game's **Apply and restart** action;
+- the Steam account changes;
+- the provider or the local server stops.
 
-An ordinary launch starts the port's own launcher; the player starts the game from
-it as usual. Everything native (game folder, saves, preparation, patches, graphics,
-input, language, restart) is handled by the port with its own settings. The session
-belongs to the first game process that opens the game's UDP socket: when that game
-exits, including the native in-game "Apply and restart", the bridge ends the session
-and closes the launcher. Relaunch the bridge to play online again. Closing the
-launcher before starting a game also ends it. Windows uses a kill-on-close Job
-Object for the launcher and all its descendants; the provider owns its own server.
-Host exit, bridge teardown, provider/server failure or a Steam account change tears
-the session down. There is no menu-idle or elapsed-session cutoff.
+Start `ctrnf-p2p.exe` again to play online. Sessions have no time limit.
+
+Messages go to `ctrnf-p2p/bridge.log`; errors appear in a dialog.
+
+## Update
+
+Close the port and the bridge, then extract the new ZIP over the old files. Your
+`ctrnf-p2p.ini` and `demonware-server/` data are not part of the ZIP and are
+kept. Every player should use the same mod version.
+
+## Uninstall
+
+Close the port and the bridge, then delete the files the ZIP added:
+`ctrnf-p2p.exe`, `ctrnf-p2p-cli.exe`, `ctrnf-p2p.example.ini`, `ctrnf-p2p.ini`,
+`ctrnf-p2p/`, `demonware-server.exe`, `orbisteamworks.dll`,
+`patches/CrashTeamRacingNitroFueled.xml`, `CTR-P2P-README.md`,
+`ctrnf-p2p-docs/`, `licenses/`, `ctrnf-p2p-manifest.json` and
+`ctrnf-p2p-SHA256SUMS.txt`. Without its XML file the signature patch is no longer
+applied. Delete `demonware-server/` only if you no longer need your Pit Stop
+progress, and `steam_api64.dll` if nothing else uses it.
 
 ## Troubleshooting
 
-The console entry point keeps stdout, stderr and exit codes available to terminals
-and scripts. These commands do not start the game:
+`ctrnf-p2p-cli.exe` shows the same checks in a terminal, with exit codes. None of
+these commands starts the game:
 
 ```powershell
 .\ctrnf-p2p-cli.exe --check
 .\ctrnf-p2p-cli.exe --probe
+.\ctrnf-p2p-cli.exe --directory-check
 ```
 
-`--check` is read-only: it checks configuration, required files and the selected
-signature patch without starting components or enabling the patch. Before the
-first normal launch it can therefore report that the patch is not enabled yet.
-`--probe` briefly starts the provider and local server to check initialization,
-then stops them. It does not change the native patch configuration or test a
-multiplayer session. Keep raw runtime logs private when reporting a problem.
+- `--check` checks the configuration, the required files and the signature
+  patch, without starting anything or changing files. Before the first normal
+  start it reports that the patch is not enabled yet; that is expected.
+- `--probe` also starts the provider and the local server briefly, then stops
+  them. Use it when Steam or the server fails to start.
+- `--directory-check` additionally creates, searches for and leaves a test room
+  through Steam.
+
+Common problems:
+
+| Symptom | Check |
+| --- | --- |
+| Steam library missing or signed out | `steam_api64.dll` is in the port root, Steam is running and signed in |
+| Patch XML or `patches.json` invalid | Extract `patches/CrashTeamRacingNitroFueled.xml` again. Repair `patches.json`, or delete it and choose your other patches again in the launcher |
+| A friend does not appear | Both use the same mod version and settings, are Steam friends and started the game through `ctrnf-p2p.exe`; refresh the friend list |
+| Address or port already in use | Another bridge or server is already running; close it, or see `network.address` in [configuration](CONFIGURATION.md) |
+
+Logs in `ctrnf-p2p/`, `demonware-server/logs/` and the port's own logs can
+contain account details. Do not paste them unedited into public issues.

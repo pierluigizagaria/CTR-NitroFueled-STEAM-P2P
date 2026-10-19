@@ -1,61 +1,61 @@
 # CTR:NF P2P mod for Windows x64
 
-This experimental package combines independent builds of ctrnf-p2p,
-orbiSteamworks and Demonware Server. Each project retains its own license.
-The signature patch XML is included. The native port, game files and Steam API
-runtime are supplied separately.
+This experimental package adds Steam multiplayer to the native Crash Team Racing
+Nitro-Fueled port. It combines builds of ctrnf-p2p, orbiSteamworks and
+Demonware Server, plus the CTR:NF Server Signature Patch. The native port, your
+game files and the Steam API library are not included.
 
-## Install into an existing native port
+## Install
 
-1. Use the GetLostIn port's online revision
-   b1b4bf9647132822147e76aeec47390c6cb157bf with your own CUSA13795 01.21 files.
-   Configure the game folder, preparation and preferences in its native launcher.
-2. Close the port and bridge before updating. Extract this ZIP into the folder
-   containing CTR-NitroFueled-PC.exe and run.py. Preserve your existing settings,
-   saves, ctrnf-p2p.ini and demonware-server data directory.
-3. Supply steam_api64.dll beside ctrnf-p2p.exe. This package contains no
-   Steamworks files. Start Steam with the intended account.
+1. Set up the GetLostIn native port at online revision
+   b1b4bf9647132822147e76aeec47390c6cb157bf with your own CUSA13795 01.21 game
+   files, following the port's instructions.
+2. Close the port. Extract this ZIP into the folder containing
+   CTR-NitroFueled-PC.exe. It replaces none of the port's settings or saves.
+3. Copy steam_api64.dll into the same folder. It is in Valve's Steamworks SDK,
+   under redistributable_bin/win64/.
 4. For a new installation, copy ctrnf-p2p.example.ini to ctrnf-p2p.ini.
-5. Double-click ctrnf-p2p.exe. The bridge validates the included XML and enables
-   the signature patch automatically, preserving other patch selections and
-   settings. An already enabled patch requires no change.
-6. Start the game from the native launcher. No terminal window is needed.
+5. Start Steam and sign in.
+6. Double-click ctrnf-p2p.exe, then start the game from the native launcher.
+   The first start enables the signature patch automatically.
 
-Do not start demonware-server.exe separately for this mod.
+Always start the game through ctrnf-p2p.exe. Do not start demonware-server.exe
+yourself.
 
-## Play with another player
+## Play with a friend
 
-Install the same compatible components on both PCs, using a separate Steam
-account and owned game files on each. Both players need the same AppID and
-session realm, and should be Steam friends for friend Join. Start both games,
-enter Online, then use the game's friend Join or matchmaking.
+Both players install the same mod version on their own PC, with their own Steam
+account and game files, and keep the same settings in ctrnf-p2p.ini. Steam shows
+you as playing Spacewar (AppID 480); nobody needs to own another game.
 
-Leave AppID 480 unless your integration is configured for another available
-AppID on both accounts. Normal and unlock-all players use the same namespace.
-The server keeps progression locally; it is not a shared online economy.
+Add each other as Steam friends, enter Online, then use the game's friend Join
+or matchmaking.
+
+Pit Stop items, coins and statistics stay on your own PC. Setting
+unlock_all = true in ctrnf-p2p.ini makes the whole Pit Stop catalog available
+without spending coins; switching back restores your real purchases and coins.
+Players using either setting can race together.
 
 ## Known limits
 
-This is an experimental preview. Internet multiplayer compatibility across
-different networks is not guaranteed. The host's friend snapshot can require a refresh
-or restart; native push invitations are not delivered. The P2P room ends if
-its owner leaves. Linux and macOS game launch are unsupported.
-
-Closing the game or launcher ends the session. After Apply and restart, start
-ctrnf-p2p.exe again. Changing Steam account also ends the session.
-Native saves are shared; server progression is keyed by account.
-
-Diagnostics are written under ctrnf-p2p/. Keep raw runtime logs private.
-Check ctrnf-p2p-manifest.json for exact component revisions and
-ctrnf-p2p-SHA256SUMS.txt for file hashes.
+- Experimental preview: play between different networks is not guaranteed.
+- Invitations are not delivered to the game; use friend Join or matchmaking.
+- The friend list may need a refresh or restart before a friend appears.
+- A room ends when the player who created it leaves.
+- Closing the game or launcher, Apply and restart, or switching Steam account
+  ends the session; start ctrnf-p2p.exe again.
 
 ## Troubleshooting
 
-Run ctrnf-p2p-cli.exe --check from a terminal to check files and configuration
-without starting components. This command is read-only: it may report that the
-patch is disabled before the first normal launch. Run ctrnf-p2p-cli.exe --probe
-to check provider and local-server initialization without starting the game.
-Neither command enables the patch. See ctrnf-p2p-docs/INSTALLATION.md for details.
+Run these from a terminal in the port folder; neither starts the game:
+
+- ctrnf-p2p-cli.exe --check checks files and settings without changing them.
+  Before the first normal start it reports that the patch is not enabled yet.
+- ctrnf-p2p-cli.exe --probe also starts Steam and the local server briefly.
+
+Logs are under ctrnf-p2p/ and demonware-server/logs/. They can contain account
+details, so do not post them unedited. ctrnf-p2p-docs/INSTALLATION.md covers
+updating, uninstalling and common problems.
 
 ## Source and licenses
 
@@ -65,6 +65,7 @@ Neither command enables the patch. See ctrnf-p2p-docs/INSTALLATION.md for detail
   PolyForm Shield 1.0.0. Required Notice: Copyright 2026 Nextendo Network.
 - [Server Signature Patch](https://github.com/pierluigizagaria/ctrnf-server-signature-patch): MIT.
 
-Full license texts and third-party notices are under licenses/. The combined
-archive does not relicense its components. No game, firmware or Steamworks
-files are included.
+ctrnf-p2p-manifest.json lists the exact source revision of each component and
+ctrnf-p2p-SHA256SUMS.txt the file hashes. Full license texts and third-party
+notices are under licenses/. The combined archive does not relicense its
+components. No game, firmware or Steamworks files are included.

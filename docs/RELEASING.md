@@ -72,5 +72,5 @@ An existing output archive is never overwritten.
 Before publishing, inspect archive members, verify hashes after extraction and
 run the diagnostic entry point without a game launch. Validate the patch and
 configuration against a compatible installation separately; package checks do
-not establish multiplayer acceptance. Publish experimental builds as GitHub
+not test multiplayer. Publish experimental builds as GitHub
 pre-releases, including external SHA-256 checksums and exact source revisions.
