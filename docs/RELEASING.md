@@ -61,9 +61,12 @@ It never copies a profile or installed port directory:
 python tools/package_mod.py --bridge-build /path/to/bridge-build --bridge-revision <commit> --provider-package /path/to/provider.zip --server-package /path/to/server.zip --patch-xml /path/to/CrashTeamRacingNitroFueled.xml --patch-license /path/to/patch-LICENSE --patch-revision <commit> --json-license /path/to/json-LICENSE --version v0.1.0-preview.1 --output /path/to/ctrnf-p2p-mod-v0.1.0-preview.1-windows-x64.zip
 ```
 
-The output includes executable files, example INI, patch XML, operating guides,
-per-component notices, a source manifest and SHA-256 file hashes. It deliberately
-contains no live INI or patches.json that could replace a user's selections.
+The output includes executable files, a ready-to-use `ctrnf-p2p.ini`, patch XML,
+operating guides, per-component notices, a source manifest and SHA-256 file hashes.
+The packaged INI comes only from the tracked `ctrnf-p2p.example.ini` template:
+Steam, AppID 480, native host and normal progression. Never package an installed
+user's configuration. The update instructions tell users to preserve their
+existing INI. No native settings or `patches.json` are included.
 The bridge enables the validated signature patch during normal startup.
 Keep internal testing procedures, captures and diagnostic executables out of
 the player package; the CLI entry point remains available for troubleshooting.

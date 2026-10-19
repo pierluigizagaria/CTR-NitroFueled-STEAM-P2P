@@ -2,9 +2,9 @@
 
 Download the Windows mod ZIP from
 [Releases](https://github.com/pierluigizagaria/ctrnf-p2p/releases).
-It contains the bridge, orbiSteamworks, Demonware Server, the signature patch XML
-and the component licenses. `CTR-P2P-README.md` in the ZIP is the short version
-of this guide.
+It contains the bridge, orbiSteamworks, Demonware Server, a ready-to-use INI,
+the signature patch XML and the component licenses. `CTR-P2P-README.md` in the
+ZIP is the short version of this guide.
 
 ## Install
 
@@ -32,7 +32,8 @@ and `patches/`. After installation it looks like this:
    [Steamworks SDK](https://partner.steamgames.com/doc/sdk), under
    `redistributable_bin/win64/`. The mod does not download it and does not need
    `steam_appid.txt`.
-4. For a new installation, copy `ctrnf-p2p.example.ini` to `ctrnf-p2p.ini`.
+4. The included `ctrnf-p2p.ini` is ready for Steam with AppID 480 and normal
+   progression (`unlock_all = false`). No copying or editing is needed.
 
 ### Signature patch
 
@@ -67,9 +68,11 @@ Messages go to `ctrnf-p2p/bridge.log`; errors appear in a dialog.
 
 ## Update
 
-Close the port and the bridge, then extract the new ZIP over the old files. Your
-`ctrnf-p2p.ini` and `demonware-server/` data are not part of the ZIP and are
-kept. Every player should use the same mod version.
+Close the port and the bridge, then extract the new ZIP over the old files,
+skipping `ctrnf-p2p.ini` to keep your existing configuration. If your extraction
+tool cannot skip individual files, extract into a temporary folder and copy
+everything except `ctrnf-p2p.ini` into the port root. The ZIP contains no
+`demonware-server/` data. Every player should use the same mod version.
 
 ## Uninstall
 

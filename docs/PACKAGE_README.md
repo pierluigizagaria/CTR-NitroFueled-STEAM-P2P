@@ -14,7 +14,9 @@ game files and the Steam API library are not included.
    CTR-NitroFueled-PC.exe. It replaces none of the port's settings or saves.
 3. Copy steam_api64.dll into the same folder. It is in Valve's Steamworks SDK,
    under redistributable_bin/win64/.
-4. For a new installation, copy ctrnf-p2p.example.ini to ctrnf-p2p.ini.
+4. The included ctrnf-p2p.ini is ready for Steam with AppID 480 and normal
+   progression (unlock_all = false). When updating, keep your existing INI
+   instead of overwriting it.
 5. Start Steam and sign in.
 6. Double-click ctrnf-p2p.exe, then start the game from the native launcher.
    The first start enables the signature patch automatically.

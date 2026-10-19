@@ -35,7 +35,8 @@ Download the Windows mod ZIP from [Releases](https://github.com/pierluigizagaria
    folder containing `CTR-NitroFueled-PC.exe`). The ZIP replaces none of the
    port's settings or saves.
 3. Copy `steam_api64.dll` into that folder.
-4. For a new installation, copy `ctrnf-p2p.example.ini` to `ctrnf-p2p.ini`.
+4. The included `ctrnf-p2p.ini` is ready for Steam with AppID 480 and normal
+   progression. When updating, keep your existing INI instead of overwriting it.
 5. Double-click `ctrnf-p2p.exe`. On first start it enables the signature patch
    in the port's patch selection and leaves all other settings unchanged.
 

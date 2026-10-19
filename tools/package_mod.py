@@ -60,7 +60,7 @@ def main():
     }
     files["orbisteamworks.dll"] = provider_files["orbisteamworks.dll"]
     files["demonware-server.exe"] = server_files["demonware-server.exe"]
-    files["ctrnf-p2p.example.ini"] = (root / "ctrnf-p2p.example.ini").read_bytes()
+    files["ctrnf-p2p.ini"] = (root / "ctrnf-p2p.example.ini").read_bytes()
     files["patches/CrashTeamRacingNitroFueled.xml"] = args.patch_xml.read_bytes()
     files["licenses/ctrnf-p2p/LICENSE"] = (root / "LICENSE").read_bytes()
     files["licenses/ctrnf-p2p/expat.txt"] = (root / "third_party/expat/upstream/COPYING").read_bytes()
