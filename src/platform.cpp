@@ -1,6 +1,7 @@
 #include "platform.h"
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <cerrno>
 #include <charconv>
 #include <chrono>
@@ -20,6 +21,7 @@
 #include <poll.h>
 #include <signal.h>
 #include <sys/wait.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #ifdef __APPLE__
 #include <libproc.h>
@@ -33,6 +35,64 @@ namespace bridge {
 namespace {
 constexpr size_t max_socket_bytes = 8 * 1024 * 1024;
 constexpr size_t max_child_fds = 16384;
+struct TemporaryUpdate {
+    fs::path path;
+#ifdef _WIN32
+    HANDLE handle = INVALID_HANDLE_VALUE;
+#else
+    int handle = -1;
+#endif
+    explicit TemporaryUpdate(const fs::path& destination) {
+        static std::atomic<uint64_t> sequence{0};
+        const auto clock = std::chrono::steady_clock::now().time_since_epoch().count();
+#ifdef _WIN32
+        const auto process = GetCurrentProcessId();
+#else
+        const auto process = getpid();
+#endif
+        for (int attempt = 0; attempt < 64; ++attempt) {
+            path = destination.parent_path() / (".ctrnf-p2p-update-" + std::to_string(process) + "-" +
+                std::to_string(clock) + "-" + std::to_string(sequence.fetch_add(1)) + ".tmp");
+#ifdef _WIN32
+            handle = CreateFileW(path.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, nullptr);
+            if (handle != INVALID_HANDLE_VALUE) return;
+            if (GetLastError() != ERROR_FILE_EXISTS && GetLastError() != ERROR_ALREADY_EXISTS) break;
+#else
+            handle = open(path.c_str(), O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, 0600);
+            if (handle >= 0) return;
+            if (errno != EEXIST) break;
+#endif
+        }
+        throw std::runtime_error("Cannot create a temporary patch selection file");
+    }
+    TemporaryUpdate(const TemporaryUpdate&) = delete;
+    void close() noexcept {
+#ifdef _WIN32
+        if (handle != INVALID_HANDLE_VALUE) CloseHandle(handle);
+        handle = INVALID_HANDLE_VALUE;
+#else
+        if (handle >= 0) ::close(handle);
+        handle = -1;
+#endif
+    }
+    ~TemporaryUpdate() {
+        close();
+        if (path.empty()) return;
+#ifdef _WIN32
+        DeleteFileW(path.c_str());
+#else
+        unlink(path.c_str());
+#endif
+    }
+};
+#ifdef _WIN32
+struct FileHandle {
+    HANDLE value = INVALID_HANDLE_VALUE;
+    ~FileHandle() { if (value != INVALID_HANDLE_VALUE) CloseHandle(value); }
+    FileHandle(const FileHandle&) = delete;
+    explicit FileHandle(HANDLE handle) : value(handle) {}
+};
+#endif
 void observe_port(std::optional<uint16_t>& found, uint32_t address, uint16_t port) {
     if (!port) return; // Unbound socket, not a source endpoint.
     if (address != 0 && address != 0x7f000001)
@@ -178,6 +238,120 @@ std::wstring quote(const std::wstring& arg) {
     }
     out.append(slashes * 2, L'\\'); out += L'"'; return out;
 }
+#endif
+}
+void replace_file_atomically(const fs::path& path, const std::optional<std::string>& expected,
+                             std::string_view replacement) {
+    TemporaryUpdate update(path);
+    size_t written = 0;
+    while (written < replacement.size()) {
+        const auto count = std::min<size_t>(replacement.size() - written, 65536);
+#ifdef _WIN32
+        DWORD bytes = 0;
+        if (!WriteFile(update.handle, replacement.data() + written, static_cast<DWORD>(count), &bytes, nullptr) || !bytes)
+            throw std::runtime_error("Cannot write temporary patch selections");
+#else
+        const auto bytes = ::write(update.handle, replacement.data() + written, count);
+        if (bytes < 0 && errno == EINTR) continue;
+        if (bytes <= 0) throw std::runtime_error("Cannot write temporary patch selections");
+#endif
+        written += static_cast<size_t>(bytes);
+    }
+#ifdef _WIN32
+    if (!FlushFileBuffers(update.handle)) throw std::runtime_error("Cannot flush temporary patch selections");
+    update.close();
+    if (!expected) {
+        // Omitting MOVEFILE_REPLACE_EXISTING also closes the missing-file race:
+        // another writer's newly created selections must never be overwritten.
+        if (!MoveFileExW(update.path.c_str(), path.c_str(), MOVEFILE_WRITE_THROUGH))
+            throw std::runtime_error("Cannot create patch selections; the destination changed or is inaccessible");
+        return;
+    }
+    FileHandle original(CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_DELETE, nullptr,
+                                    OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+    BY_HANDLE_FILE_INFORMATION info{};
+    if (original.value == INVALID_HANDLE_VALUE || !GetFileInformationByHandle(original.value, &info) ||
+        (info.dwFileAttributes & (FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_READONLY | FILE_ATTRIBUTE_REPARSE_POINT)))
+        throw std::runtime_error("Cannot update inaccessible or read-only patch selections");
+    const auto size = (static_cast<uint64_t>(info.nFileSizeHigh) << 32) | info.nFileSizeLow;
+    if (size != expected->size()) throw std::runtime_error("Patch selections changed during activation; retry");
+    std::array<char, 65536> buffer{};
+    size_t offset = 0;
+    while (offset < expected->size()) {
+        DWORD bytes = 0;
+        const auto count = static_cast<DWORD>(std::min(buffer.size(), expected->size() - offset));
+        if (!ReadFile(original.value, buffer.data(), count, &bytes, nullptr) || !bytes)
+            throw std::runtime_error("Cannot read patch selections before replacement");
+        if (std::string_view(buffer.data(), bytes) != std::string_view(*expected).substr(offset, bytes))
+            throw std::runtime_error("Patch selections changed during activation; retry");
+        offset += bytes;
+    }
+    // ReplaceFile preserves the original ACL and streams. Its documented 1176
+    // failure can lose the original when no backup name is supplied, so reserve
+    // a unique rollback name and keep that original until replacement succeeds.
+    TemporaryUpdate rollback(path);
+    rollback.close();
+    if (!DeleteFileW(rollback.path.c_str())) throw std::runtime_error("Cannot prepare patch selection rollback");
+    FileHandle current(CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_DELETE, nullptr,
+                                   OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+    BY_HANDLE_FILE_INFORMATION now{};
+    if (current.value == INVALID_HANDLE_VALUE || !GetFileInformationByHandle(current.value, &now) ||
+        now.dwVolumeSerialNumber != info.dwVolumeSerialNumber || now.nFileIndexHigh != info.nFileIndexHigh ||
+        now.nFileIndexLow != info.nFileIndexLow)
+        throw std::runtime_error("Patch selections changed during activation; retry");
+    if (!ReplaceFileW(path.c_str(), update.path.c_str(), rollback.path.c_str(), 0, nullptr, nullptr)) {
+        const auto attributes = GetFileAttributesW(rollback.path.c_str());
+        if (attributes != INVALID_FILE_ATTRIBUTES) {
+            if (!MoveFileExW(rollback.path.c_str(), path.c_str(), MOVEFILE_WRITE_THROUGH)) {
+                // Never overwrite a concurrent writer while restoring. Retain
+                // the original under the rollback name if recovery is blocked.
+                rollback.path.clear();
+                throw std::runtime_error("Cannot replace patch selections; the original remains in a .ctrnf-p2p-update file");
+            }
+        }
+        throw std::runtime_error("Cannot replace patch selections; the original was preserved");
+    }
+#else
+    if (!expected) {
+        if (fsync(update.handle)) throw std::runtime_error("Cannot flush temporary patch selections");
+        // link() refuses an existing destination; rename() would overwrite it.
+        if (link(update.path.c_str(), path.c_str()))
+            throw std::runtime_error("Cannot create patch selections; the destination changed or is inaccessible");
+        return;
+    }
+    FileDescriptor original(open(path.c_str(), O_RDWR | O_NONBLOCK | O_NOFOLLOW | O_CLOEXEC));
+    struct stat info{};
+    if (original.value < 0 || fstat(original.value, &info) || !S_ISREG(info.st_mode) ||
+        !(info.st_mode & (S_IWUSR | S_IWGRP | S_IWOTH)))
+        throw std::runtime_error("Cannot update inaccessible or read-only patch selections");
+    if (info.st_size < 0 || static_cast<uintmax_t>(info.st_size) != expected->size())
+        throw std::runtime_error("Patch selections changed during activation; retry");
+    std::array<char, 65536> buffer{};
+    size_t offset = 0;
+    while (offset < expected->size()) {
+        const auto bytes = ::read(original.value, buffer.data(), std::min(buffer.size(), expected->size() - offset));
+        if (bytes < 0 && errno == EINTR) continue;
+        if (bytes <= 0) throw std::runtime_error("Cannot read patch selections before replacement");
+        if (std::string_view(buffer.data(), static_cast<size_t>(bytes)) !=
+            std::string_view(*expected).substr(offset, static_cast<size_t>(bytes)))
+            throw std::runtime_error("Patch selections changed during activation; retry");
+        offset += static_cast<size_t>(bytes);
+    }
+    if (fchown(update.handle, info.st_uid, info.st_gid) ||
+        fchmod(update.handle, info.st_mode & 07777) || fsync(update.handle))
+        throw std::runtime_error("Cannot preserve and flush patch selection permissions");
+    struct stat current{};
+    if (lstat(path.c_str(), &current) || current.st_dev != info.st_dev || current.st_ino != info.st_ino ||
+        current.st_size != info.st_size || current.st_mtime != info.st_mtime || current.st_ctime != info.st_ctime)
+        throw std::runtime_error("Patch selections changed during activation; retry");
+#ifdef __APPLE__
+    if (current.st_mtimespec.tv_nsec != info.st_mtimespec.tv_nsec || current.st_ctimespec.tv_nsec != info.st_ctimespec.tv_nsec)
+#else
+    if (current.st_mtim.tv_nsec != info.st_mtim.tv_nsec || current.st_ctim.tv_nsec != info.st_ctim.tv_nsec)
+#endif
+        throw std::runtime_error("Patch selections changed during activation; retry");
+    if (rename(update.path.c_str(), path.c_str()))
+        throw std::runtime_error("Cannot replace patch selections; the original was preserved");
 #endif
 }
 fs::path executable_path() {

@@ -17,6 +17,9 @@ std::map<std::string, std::string> native_environment(const Config& config, uint
 // the supported server-signature patch. It cannot prove what the game will run:
 // the launcher can still change the selection afterwards.
 void validate_native_installation(const Config& config, const std::map<std::string, std::string>& inherited);
+// Normal launch only: validate the XML and select the required patch while
+// preserving other native settings. Returns true only when the file changed.
+bool enable_native_signature_patch(const Config& config, const std::map<std::string, std::string>& inherited);
 // Pure part of that diagnostic: empty when the patch file and selection qualify.
 std::string signature_patch_problem(std::string_view xml, std::string_view selection);
 }

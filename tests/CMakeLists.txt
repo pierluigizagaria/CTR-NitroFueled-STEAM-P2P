@@ -1,4 +1,7 @@
 find_package(Python3 COMPONENTS Interpreter REQUIRED)
+add_executable(bridge_file_update_tests file_update.cpp)
+target_link_libraries(bridge_file_update_tests PRIVATE bridge_core)
+add_test(NAME bridge-atomic-file-update COMMAND bridge_file_update_tests)
 add_library(bridge_fake_provider SHARED fake_provider.cpp)
 add_library(bridge_missing_provider SHARED fake_provider.cpp)
 target_compile_definitions(bridge_missing_provider PRIVATE TEST_MISSING_PERSONA_SYMBOL)

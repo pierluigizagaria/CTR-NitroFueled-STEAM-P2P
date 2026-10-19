@@ -49,11 +49,15 @@ still discarded, and simulated Lab sessions receive neither variable. This does
 not inject an overlay DLL or call Steam from the native host. The overlay can
 attach to both the native launcher and the game.
 
-Before an ordinary launch (and in `--check`) the bridge reads, without writing, the
-patch selection the native launch script will use: `BB_PATCHES_CONFIG`, else
+Before an ordinary launch the bridge reads the patch selection the native launch
+script will use: `BB_PATCHES_CONFIG`, else
 `patches.json` in `BB_DATA_DIR` (else the port root), and `BB_PATCHES_DIR`, else
 `patches/`. Relative values resolve from the port root, as the script does. The
-patch must be listed under `enabled` and not under `disabled`. Its XML is parsed
+bridge adds the required patch to `enabled` and removes that key from `disabled`,
+preserving all other selections and settings. It makes no change when the patch
+is already enabled. The XML and configuration must validate before any update;
+invalid input fails without replacing user settings. `--check` performs validation
+only and never writes the configuration. The XML is parsed
 as a complete document; comments and CDATA cannot supply patch elements, malformed
 documents and DTDs are refused. The selected patch must name CUSA13795, AppVer
 01.21, `eboot.bin` and the supported write. This is a
@@ -96,5 +100,4 @@ upstream itself logs short body prefixes: keep the port's logs and
 runtime logs into public issues.
 
 Steam overlay injection into the separate game window and native push invitation
-delivery are outside this implementation. Two-PC live Steam qualification needs
-separate accounts and machines; see the integration procedures in `docs/`.
+delivery are outside this implementation.

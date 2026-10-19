@@ -9,10 +9,8 @@ matchmaking, Pit Stop and progression.
 The mod starts the port's own launcher. Game settings, preparation and saves stay
 with the port. No native source changes are required.
 
-**Experimental.** Windows startup, Online, Pit Stop and the Steam overlay have
-been exercised in game. Two-PC Steam races still need qualification; automated
-tests and same-PC races do not establish that result. See
-[compatibility and limitations](#compatibility-and-limitations).
+**Experimental.** See [compatibility and limitations](#compatibility-and-limitations)
+before installing.
 
 ## Requirements
 
@@ -21,7 +19,8 @@ tests and same-PC races do not establish that result. See
 - Your own supported PS4 game files: CUSA13795, update 01.21.
 - Steam running with the intended account.
 - A user-supplied `steam_api64.dll` beside the bridge executable.
-- The enabled [CTR:NF Server Signature Patch](https://github.com/pierluigizagaria/ctrnf-server-signature-patch).
+- The included [CTR:NF Server Signature Patch](https://github.com/pierluigizagaria/ctrnf-server-signature-patch),
+  enabled automatically when the bridge starts.
 
 ## Install
 
@@ -30,15 +29,15 @@ It includes the bridge, provider, local server, patch XML and separate license
 notices. See the [package instructions](docs/PACKAGE_README.md).
 
 1. Set up the native port and its game files using the port's instructions.
-2. Put `ctrnf-p2p.exe`, `ctrnf-p2p-cli.exe`, `orbisteamworks.dll` and
-   `demonware-server.exe` in the port's root folder.
+2. Extract the mod ZIP into the port's root folder, preserving your existing
+   configuration and saves.
 3. Add your `steam_api64.dll` to that folder.
-4. Install the signature patch XML under `patches/` and enable its key in the
-   existing `patches.json`. Copying the XML alone does not enable it.
-5. Copy `ctrnf-p2p.example.ini` to `ctrnf-p2p.ini`.
+4. Copy `ctrnf-p2p.example.ini` to `ctrnf-p2p.ini` for a new installation.
+5. Double-click `ctrnf-p2p.exe`. It validates the included patch XML and enables
+   that patch in the native configuration, preserving all other settings.
 
 The [installation guide](docs/INSTALLATION.md) includes the directory layout,
-patch selection and diagnostics. The native port, game files and Steamworks
+patch activation and troubleshooting. The native port, game files and Steamworks
 runtime are separate prerequisites, not part of this project's distribution.
 
 ## Run
@@ -47,19 +46,18 @@ Double-click **`ctrnf-p2p.exe`**, then start the game from the native launcher.
 No terminal window is opened. Lifecycle messages go to `ctrnf-p2p/bridge.log`;
 startup errors appear in a dialog.
 
-For command-line diagnostics:
-
-```powershell
-.\ctrnf-p2p-cli.exe --check
-.\ctrnf-p2p-cli.exe --probe
-```
-
-`--check` validates files and configuration without starting components.
-`--probe` briefly starts the provider and local server, without starting the game.
-
 Closing the launcher or game ends the online session. After the native
 **Apply and restart** action, relaunch the bridge. Switching Steam accounts also
 ends the session.
+
+## Playing together
+
+Each player installs the mod with their own Steam account and game files.
+Use matching component versions, AppID and session realm. Add each other as
+Steam friends, enter Online and use the game's friend Join or matchmaking.
+
+The local server keeps progression on each player's PC; it does not provide a
+shared online economy. The room ends when its owner leaves.
 
 ## Configuration
 
@@ -110,12 +108,8 @@ into the bridge.
   Its friend list can require a refresh or restart after another player joins.
 - The local server is loopback-only. Its native-token admission is not suitable
   for a public server.
-- Two-PC transport, account switching, economy-mode transitions and restart
-  cleanup have separate acceptance requirements.
-
-Use the [two-PC guide](docs/TWO_PC.md) for multiplayer setup and qualification.
-The [validation record](docs/VALIDATION.md) contains dated evidence rather than
-additional installation requirements.
+- Internet multiplayer remains experimental; compatibility across different
+  networks is not guaranteed.
 
 Maintainers can [assemble a release](docs/RELEASING.md) from explicit component
 artifacts without sharing their source trees or private runtime state.

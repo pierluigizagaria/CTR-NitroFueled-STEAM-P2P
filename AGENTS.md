@@ -6,6 +6,10 @@ Consume the provider's documented public `osw.h` only; never compile sibling
 sources or copy host/shadNet/publisher implementations. Steam symbols, endpoint
 allocation, peer authorization and CTR/Demonware parsing are outside this project.
 Protocol adapters are written from scratch. Native host source remains unchanged.
+An ordinary bridge launch may enable only the required signature patch in the
+native patch-selection file after validating its XML. Preserve other settings
+and selections; diagnostic modes remain read-only. Do not alter native saves,
+game preparation or preferences as part of patch activation.
 Keep all build output, private configuration and test evidence ignored. Do not
 commit Steamworks files, game assets, tokens, IDs or signing keys. Never log bodies
 or credentials. Each request is bounded; sessions have no idle cutoff.

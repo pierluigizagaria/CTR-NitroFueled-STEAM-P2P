@@ -62,7 +62,9 @@ int bridge_main(int argc, char** argv, std::string* failure) {
         const auto inherited = host_environment();
         // Launch prerequisites are native-adapter specific; the portable
         // provider/server diagnostics do not need them.
-        if (check_only || (!probe_only && !directory_only)) validate_native_installation(c, inherited);
+        if (check_only) validate_native_installation(c, inherited);
+        else if (!probe_only && !directory_only && enable_native_signature_patch(c, inherited))
+            std::cout << "Required server-signature patch enabled. Other native settings preserved.\n";
         if (check_only) { std::cout << "Configuration, required files and launch prerequisites validated.\n"; return 0; }
         std::signal(SIGINT, interrupt); std::signal(SIGTERM, interrupt);
         fs::create_directories(c.state); fs::create_directories(c.server_dir / "logs");

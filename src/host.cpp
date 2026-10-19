@@ -2,10 +2,12 @@
 #include "platform.h"
 #include <expat.h>
 #include <nlohmann/json.hpp>
+#include <algorithm>
 #include <exception>
 #include <fstream>
 #include <memory>
 #include <optional>
+#include <set>
 #include <stdexcept>
 #include <vector>
 
@@ -136,12 +138,49 @@ fs::path port_path(const Config& c, const std::string& value, const fs::path& fa
 }
 std::optional<std::string> read_bounded(const fs::path& path) {
     std::ifstream in(path, std::ios::binary);
-    if (!in) return std::nullopt;
+    if (!in) {
+        std::error_code error;
+        const bool exists = fs::exists(path, error);
+        if (error || exists) throw std::runtime_error("Cannot read native patch configuration");
+        return std::nullopt;
+    }
     std::string text(patch_size_limit + 1, '\0');
     in.read(text.data(), static_cast<std::streamsize>(text.size()));
+    if (in.bad() || (in.fail() && !in.eof())) throw std::runtime_error("Cannot read native patch configuration");
     text.resize(static_cast<size_t>(in.gcount()));
     if (text.size() > patch_size_limit) throw std::runtime_error("Native patch configuration exceeds its size bound");
     return text;
+}
+// Use ordered JSON so unrelated fields keep their order. Reject duplicate keys
+// instead of silently discarding one while rewriting the user's configuration.
+nlohmann::ordered_json patch_selection(std::string_view selection) {
+    using Json = nlohmann::ordered_json;
+    std::vector<std::set<std::string>> keys;
+    auto json = Json::parse(selection, [&](int, Json::parse_event_t event, Json& value) {
+        if (event == Json::parse_event_t::object_start) keys.emplace_back();
+        if (event == Json::parse_event_t::object_end) keys.pop_back();
+        if (event == Json::parse_event_t::key && !keys.back().insert(value.get<std::string>()).second)
+            throw std::runtime_error("Native patches.json contains duplicate fields");
+        return true;
+    }, false);
+    if (!json.is_object()) throw std::runtime_error("Native patches.json is not a JSON object");
+    for (const auto* name : {"enabled", "disabled"}) {
+        if (!json.contains(name)) continue;
+        if (!json[name].is_array()) throw std::runtime_error("Native patches.json selection lists must be arrays");
+        for (const auto& item : json[name])
+            if (!item.is_string()) throw std::runtime_error("Native patches.json selections must be strings");
+    }
+    return json;
+}
+struct NativePatchPaths {
+    fs::path selection, xml;
+};
+NativePatchPaths native_patch_paths(const Config& c, const std::map<std::string, std::string>& inherited) {
+    if (!fs::is_regular_file(native_launcher(c))) throw std::runtime_error("Native launcher CTR-NitroFueled-PC.exe is missing beside the bridge");
+    const auto data = port_path(c, inherited_value(inherited, "BB_DATA_DIR"), c.root);
+    const auto selection = port_path(c, inherited_value(inherited, "BB_PATCHES_CONFIG"), data / "patches.json");
+    const auto patches = port_path(c, inherited_value(inherited, "BB_PATCHES_DIR"), c.root / "patches");
+    return {selection, patches / std::string(patch_file)};
 }
 bool bridge_owned(const std::string& key) {
     // Keys are already environment_key()-normalized for this OS.
@@ -206,14 +245,40 @@ std::string signature_patch_problem(std::string_view xml, std::string_view selec
     return parsed_patch_problem(xml);
 }
 void validate_native_installation(const Config& c, const std::map<std::string, std::string>& inherited) {
-    if (!fs::is_regular_file(native_launcher(c))) throw std::runtime_error("Native launcher CTR-NitroFueled-PC.exe is missing beside the bridge");
-    const auto data = port_path(c, inherited_value(inherited, "BB_DATA_DIR"), c.root);
-    const auto selection = port_path(c, inherited_value(inherited, "BB_PATCHES_CONFIG"), data / "patches.json");
-    const auto patches = port_path(c, inherited_value(inherited, "BB_PATCHES_DIR"), c.root / "patches");
-    auto json = read_bounded(selection);
+    const auto paths = native_patch_paths(c, inherited);
+    auto json = read_bounded(paths.selection);
     if (!json) throw std::runtime_error("Signature patch is not enabled: the port's patches.json is missing");
-    auto xml = read_bounded(patches / std::string(patch_file));
+    auto xml = read_bounded(paths.xml);
     if (!xml) throw std::runtime_error("Signature patch file is missing from the port's patches folder");
     if (auto problem = signature_patch_problem(*xml, *json); !problem.empty()) throw std::runtime_error(problem);
+}
+bool enable_native_signature_patch(const Config& c, const std::map<std::string, std::string>& inherited) {
+    const auto paths = native_patch_paths(c, inherited);
+    const auto xml = read_bounded(paths.xml);
+    if (!xml) throw std::runtime_error("Signature patch file is missing from the port's patches folder");
+    if (auto problem = parsed_patch_problem(*xml); !problem.empty()) throw std::runtime_error(problem);
+    const auto original = read_bounded(paths.selection);
+    auto json = patch_selection(original.value_or("{}"));
+    const auto key = patch_key();
+    bool changed = false;
+    if (!json.contains("enabled")) json["enabled"] = nlohmann::ordered_json::array();
+    auto& enabled = json["enabled"];
+    if (std::find(enabled.begin(), enabled.end(), key) == enabled.end()) {
+        enabled.push_back(key);
+        changed = true;
+    }
+    if (json.contains("disabled")) {
+        auto& disabled = json["disabled"];
+        const auto end = std::remove(disabled.begin(), disabled.end(), key);
+        changed |= end != disabled.end();
+        disabled.erase(end, disabled.end());
+    }
+    if (!changed) return false;
+    auto replacement = json.dump(2) + "\n";
+    if (replacement.size() > patch_size_limit) throw std::runtime_error("Native patch configuration exceeds its size bound");
+    // The native launcher also creates a new data directory on first use.
+    if (!original) fs::create_directories(paths.selection.parent_path());
+    replace_file_atomically(paths.selection, original, replacement);
+    return true;
 }
 }

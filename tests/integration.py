@@ -147,7 +147,7 @@ EXE = ".exe" if os.name == "nt" else ""
 class BridgeIntegration(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory(prefix="bridge fixtures ", dir=ARGS.work_root)
-        self.addCleanup(self.temp.cleanup)
+        self.addCleanup(self.cleanup_fixture)
         self.root = Path(self.temp.name)
         # The installed layout: bridge, native launcher and server at the port root.
         self.bridge = self.root / ("ctrnf-p2p" + EXE)
@@ -167,6 +167,19 @@ class BridgeIntegration(unittest.TestCase):
                         BB_ONLINE_STALE_FIXTURE="must-not-reach-host", CTR_STALE_FIXTURE="must-not-reach-host",
                         OSW_STALE_FIXTURE="must-not-reach-host", BB_NATIVE_FIXTURE="kept",
                         bb_user_name="stale-differently-cased")
+
+    def cleanup_fixture(self):
+        # Windows may release an exited process's executable after its exit code
+        # becomes observable. Retry cleanup briefly without hiding a locked file.
+        end = time.monotonic() + 3
+        while True:
+            try:
+                self.temp.cleanup()
+                return
+            except PermissionError:
+                if time.monotonic() >= end:
+                    raise
+                time.sleep(0.05)
 
     def config(self, *, provider=None, lab=True, name="Fixture !+", unlock=False):
         # steam.library names the bridge binary as inert fixture input; the fake
@@ -286,9 +299,6 @@ online_id = {json.dumps(name)}
         selection = self.root / "patches.json"
         patch = self.root / "patches" / "CrashTeamRacingNitroFueled.xml"
         cases = [
-            ("not enabled", lambda: selection.write_text(json.dumps({"enabled": []}))),
-            ("both", lambda: selection.write_text(json.dumps({"enabled": [PATCH_KEY], "disabled": [PATCH_KEY]}))),
-            ("missing", lambda: selection.unlink()),
             ("wrong write", lambda: patch.write_text(PATCH_XML.replace("0x00413ec0", "0x00413ec4"))),
             ("other version", lambda: patch.write_text(PATCH_XML.replace('AppVer="01.21"', 'AppVer="01.20"'))),
             ("commented write", lambda: patch.write_text(PATCH_XML.replace('<Line ', '<!-- <Line ').replace('/></PatchList>', '/> --></PatchList>'))),
@@ -327,7 +337,122 @@ online_id = {json.dumps(name)}
         self.assertNotEqual(missing.returncode, 0)
         self.assertIn("Native launcher", missing.stderr)
 
+    def test_first_launch_enables_only_required_patch_and_is_idempotent(self):
+        selection = self.root / "patches.json"
+        original = {
+            "version": 1,
+            "enabled": ["Other.xml/Keep enabled"],
+            "disabled": ["Other.xml/Keep disabled", PATCH_KEY, PATCH_KEY],
+            "preferences": {"window": [1280, 720], "label": "caf\u00e9", "remember": True},
+        }
+        selection.write_text(json.dumps(original), encoding="utf-8")
+        before = selection.read_bytes()
+        checked = self.invoke(arguments=("--check",))
+        self.assertEqual(checked.returncode, 1)
+        self.assertEqual(selection.read_bytes(), before, "Read-only check changed patch settings")
+        self.assertFalse((self.root / "provider.jsonl").exists())
+        result = self.invoke(mode="delayed")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        expected = dict(original, enabled=original["enabled"] + [PATCH_KEY],
+                        disabled=["Other.xml/Keep disabled"])
+        self.assertEqual(json.loads(selection.read_text(encoding="utf-8")), expected)
+        self.assertIn("patch enabled", result.stdout)
+        saved = selection.read_bytes()
+        timestamp = 1_600_000_000_000_000_000
+        os.utime(selection, ns=(timestamp, timestamp))
+        repeated = self.invoke(mode="delayed")
+        self.assertEqual(repeated.returncode, 0, repeated.stderr)
+        self.assertEqual(selection.read_bytes(), saved)
+        self.assertEqual(selection.stat().st_mtime_ns, timestamp,
+                         "Already enabled configuration was rewritten")
+        self.assertNotIn("patch enabled", repeated.stdout)
+        self.assertEqual(self.invoke(arguments=("--check",)).returncode, 0)
+
+    def test_first_launch_creates_selection_and_resolves_disabled_conflict(self):
+        selection = self.root / "patches.json"
+        for initial in [None, {}, {"enabled": [PATCH_KEY], "disabled": [PATCH_KEY, "Other.xml/Off"]}]:
+            with self.subTest(initial=initial):
+                if initial is None:
+                    selection.unlink(missing_ok=True)
+                else:
+                    selection.write_text(json.dumps(initial), encoding="utf-8")
+                result = self.invoke(mode="delayed")
+                self.assertEqual(result.returncode, 0, result.stderr)
+                actual = json.loads(selection.read_text())
+                self.assertEqual(actual["enabled"], [PATCH_KEY])
+                self.assertNotIn(PATCH_KEY, actual.get("disabled", []))
+                if initial and "disabled" in initial:
+                    self.assertEqual(actual["disabled"], ["Other.xml/Off"])
+
+    def test_auto_patch_respects_native_path_overrides(self):
+        standard = self.root / "patches.json"
+        original = standard.read_bytes()
+        data = self.root / "native data" / "first run"
+        self.env["BB_DATA_DIR"] = "native data/first run"
+        result = self.invoke(mode="delayed")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn(PATCH_KEY, json.loads((data / "patches.json").read_text())["enabled"])
+        custom = self.root / "custom native"
+        custom.mkdir()
+        xml_dir = self.root / "custom patches"
+        xml_dir.mkdir()
+        (xml_dir / "CrashTeamRacingNitroFueled.xml").write_text(PATCH_XML, encoding="utf-8")
+        custom_selection = custom / "selections.json"
+        custom_selection.write_text('{"other":true,"disabled":[]}', encoding="utf-8")
+        self.env.update(BB_PATCHES_CONFIG="custom native/selections.json", BB_PATCHES_DIR="custom patches")
+        (self.root / "patches" / "CrashTeamRacingNitroFueled.xml").unlink()
+        result = self.invoke(mode="delayed")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(custom_selection.read_text()),
+                         {"other": True, "disabled": [], "enabled": [PATCH_KEY]})
+        self.assertEqual(standard.read_bytes(), original, "Unselected configuration changed")
+
+    def test_auto_patch_refuses_invalid_settings_without_replacing_them(self):
+        selection = self.root / "patches.json"
+        for text in ['{broken', '[]', '{"enabled":null}', '{"disabled":"wrong"}',
+                     '{"enabled":[7]}', '{"enabled":[],"other":1,"other":2}',
+                     '{"enabled":[],"nested":{"key":1,"key":2}}']:
+            with self.subTest(text=text):
+                selection.write_text(text, encoding="utf-8")
+                before = selection.read_bytes()
+                result = self.invoke()
+                self.assertEqual(result.returncode, 1)
+                self.assertEqual(selection.read_bytes(), before)
+                self.assertFalse((self.root / "provider.jsonl").exists())
+                self.assertFalse((self.root / "launcher.json").exists())
+        selection.write_text('{"enabled":[],"keep":"original"}', encoding="utf-8")
+        before = selection.read_bytes()
+        patch = self.root / "patches" / "CrashTeamRacingNitroFueled.xml"
+        patch.write_text(PATCH_XML.replace("0x00413ec0", "0x00413ec4"), encoding="utf-8")
+        self.assertEqual(self.invoke().returncode, 1)
+        self.assertEqual(selection.read_bytes(), before, "Unsupported XML changed selection")
+        self.assertFalse((self.root / "provider.jsonl").exists())
+
+    def test_auto_patch_unwritable_file_preserves_settings_and_stops_launch(self):
+        selection = self.root / "patches.json"
+        selection.write_text('{"enabled":[],"keep":"original"}', encoding="utf-8")
+        before = selection.read_bytes()
+        selection.chmod(0o444)
+        try:
+            result = self.invoke()
+            self.assertEqual(result.returncode, 1, result.stdout)
+            self.assertEqual(selection.read_bytes(), before)
+            self.assertFalse((self.root / "provider.jsonl").exists())
+            self.assertFalse((self.root / "launcher.json").exists())
+        finally:
+            selection.chmod(0o666)
+
+    def test_probe_does_not_enable_patch(self):
+        selection = self.root / "patches.json"
+        selection.write_text('{"enabled":[],"disabled":[]}', encoding="utf-8")
+        before = selection.read_bytes()
+        result = self.invoke(arguments=("--probe",))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(selection.read_bytes(), before)
+        self.assertFalse((self.root / "launcher.json").exists())
+
     def test_desktop_has_no_console_logs_and_supervises_its_tree(self):
+        (self.root / "patches.json").unlink()
         config = self.root / 'desktop.ini'
         config.write_text(self.config(), encoding='utf-8')
         process = subprocess.Popen([str(self.desktop), '--config', str(config)],
@@ -336,6 +461,7 @@ online_id = {json.dumps(name)}
         try:
             wait_json(self.root / 'host.json')
             wait_json(self.root / 'descendant.json')
+            self.assertEqual(json.loads((self.root / "patches.json").read_text())["enabled"], [PATCH_KEY])
             # An independent console-free process tries attaching to the bridge.
             # ERROR_INVALID_HANDLE (6) is Windows' response when it has no console.
             inspector = subprocess.run([sys.executable, '-c',

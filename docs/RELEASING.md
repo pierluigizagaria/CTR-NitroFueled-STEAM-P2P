@@ -16,7 +16,7 @@ For a self-contained MSVC runtime in the bridge build, configure Release with:
 ```
 
 The provider shared target already selects the static CRT. To package its
-optional tools without a Visual C++ runtime prerequisite, also configure that
+authentication helper without a Visual C++ runtime prerequisite, also configure that
 build with `-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded`.
 Build the server with `go build -trimpath -ldflags "-s -w"`.
 Inspect PE dependencies of the final binaries; do not silently collect DLLs
@@ -24,7 +24,7 @@ from an installed game directory.
 
 ## Independent packages
 
-The provider ZIP contains its DLL, matching public header, optional tools,
+The provider ZIP contains its DLL, matching public header, authentication helper,
 documentation, MIT license and dependency notices. Source consumers of the
 static target should build with CMake; a single static archive is insufficient.
 
@@ -64,6 +64,9 @@ python tools/package_mod.py --bridge-build /path/to/bridge-build --bridge-revisi
 The output includes executable files, example INI, patch XML, operating guides,
 per-component notices, a source manifest and SHA-256 file hashes. It deliberately
 contains no live INI or patches.json that could replace a user's selections.
+The bridge enables the validated signature patch during normal startup.
+Keep internal testing procedures, captures and diagnostic executables out of
+the player package; the CLI entry point remains available for troubleshooting.
 An existing output archive is never overwritten.
 
 Before publishing, inspect archive members, verify hashes after extraction and

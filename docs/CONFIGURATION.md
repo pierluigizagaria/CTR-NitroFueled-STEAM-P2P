@@ -26,7 +26,6 @@ Advanced settings, omitted from the example:
 | session.realm | `ctrnf-p2p`; at most 64 bytes, same for all peers. Matchmaking namespace only: never economy or progression |
 | network.address | `127.0.0.2`; loopback address in 127.0.0.2–254 for the bridge front and the server listeners. Distinct instances on one PC need distinct addresses |
 | network.http_port | `31380`; the native HTTP front; must not collide with the server listeners |
-| lab.enabled, lab.account_id, lab.root, lab.online_id | Off. Explicitly simulated local backend for fixtures/Lab only, never a Steam fallback; all four are required together |
 
 The native adapter fixes the rest of the contract: Demonware title `5760` (the PS4
 asset title CUSA13795 is a different identifier), build `01.21`, the game's UDP

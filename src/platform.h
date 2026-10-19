@@ -7,6 +7,11 @@
 
 namespace bridge {
 fs::path executable_path();
+// Replace a file only after its current bytes match the caller's snapshot.
+// nullopt requires a missing file. A sibling temporary file is flushed before
+// the atomic replacement; failures never truncate the original in place.
+void replace_file_atomically(const fs::path& path, const std::optional<std::string>& expected,
+                             std::string_view replacement);
 class DynamicLibrary {
 public:
     explicit DynamicLibrary(const fs::path& path);

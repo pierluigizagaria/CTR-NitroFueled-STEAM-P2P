@@ -16,20 +16,11 @@ runtime are supplied separately.
 3. Supply steam_api64.dll beside ctrnf-p2p.exe. This package contains no
    Steamworks files. Start Steam with the intended account.
 4. For a new installation, copy ctrnf-p2p.example.ini to ctrnf-p2p.ini.
-5. Enable the signature patch in the port's existing patches.json: add
-   "CrashTeamRacingNitroFueled.xml/CTR:NF Server Signature Patch" to its
-   "enabled" list and remove that key from "disabled" if present. Keep every
-   other patch selection. The XML alone does not enable it.
-6. Optionally run the checks below, then double-click ctrnf-p2p.exe and start
-   the game from the native launcher. No terminal window is needed.
+5. Double-click ctrnf-p2p.exe. The bridge validates the included XML and enables
+   the signature patch automatically, preserving other patch selections and
+   settings. An already enabled patch requires no change.
+6. Start the game from the native launcher. No terminal window is needed.
 
-```powershell
-.\ctrnf-p2p-cli.exe --check
-.\ctrnf-p2p-cli.exe --probe
-```
-
-The checks do not start the game. The probe briefly starts the provider and
-local server; it does not prove multiplayer connectivity.
 Do not start demonware-server.exe separately for this mod.
 
 ## Play with another player
@@ -42,24 +33,29 @@ enter Online, then use the game's friend Join or matchmaking.
 Leave AppID 480 unless your integration is configured for another available
 AppID on both accounts. Normal and unlock-all players use the same namespace.
 The server keeps progression locally; it is not a shared online economy.
-See ctrnf-p2p-docs/TWO_PC.md for the full procedure.
 
 ## Known limits
 
-This is a preview, not a qualified Internet multiplayer release. Game startup,
-Online, Pit Stop and Steam overlay have human confirmation; two-PC Steam
-races still need validation. The host's friend snapshot can require a refresh
+This is an experimental preview. Internet multiplayer compatibility across
+different networks is not guaranteed. The host's friend snapshot can require a refresh
 or restart; native push invitations are not delivered. The P2P room ends if
 its owner leaves. Linux and macOS game launch are unsupported.
 
 Closing the game or launcher ends the session. After Apply and restart, start
 ctrnf-p2p.exe again. Changing Steam account also ends the session.
-Native saves are shared; server progression is keyed by account. Inventory
-and equipped-item behavior across economy changes needs separate validation.
+Native saves are shared; server progression is keyed by account.
 
 Diagnostics are written under ctrnf-p2p/. Keep raw runtime logs private.
 Check ctrnf-p2p-manifest.json for exact component revisions and
 ctrnf-p2p-SHA256SUMS.txt for file hashes.
+
+## Troubleshooting
+
+Run ctrnf-p2p-cli.exe --check from a terminal to check files and configuration
+without starting components. This command is read-only: it may report that the
+patch is disabled before the first normal launch. Run ctrnf-p2p-cli.exe --probe
+to check provider and local-server initialization without starting the game.
+Neither command enables the patch. See ctrnf-p2p-docs/INSTALLATION.md for details.
 
 ## Source and licenses
 

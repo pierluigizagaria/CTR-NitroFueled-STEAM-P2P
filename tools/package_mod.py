@@ -71,7 +71,7 @@ def main():
         for entry, data in payload.items():
             if entry.startswith("licenses/"):
                 files[f"licenses/{name}/third-party/{entry[len('licenses/'):]}"] = data
-    for name in ("INSTALLATION.md", "CONFIGURATION.md", "ARCHITECTURE.md", "TWO_PC.md", "PACKAGE_README.md", "VALIDATION.md"):
+    for name in ("INSTALLATION.md", "CONFIGURATION.md"):
         files[f"ctrnf-p2p-docs/{name}"] = (root / "docs" / name).read_bytes()
     files["CTR-P2P-README.md"] = (root / "docs/PACKAGE_README.md").read_bytes()
     manifest = {
