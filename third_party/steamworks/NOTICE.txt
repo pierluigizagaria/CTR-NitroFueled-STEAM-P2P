@@ -1,0 +1,10 @@
+Steam Client API for Windows x64 (steam_api64.dll)
+Copyright (c) Valve Corporation. All rights reserved.
+
+This unmodified proprietary runtime is distributed with the mod under section
+1.1(b) of the Valve Steamworks SDK Access Agreement:
+https://partner.steamgames.com/documentation/sdk_access_agreement
+
+The runtime retains Valve's license; the mod's MIT license does not cover it.
+See ctrnf-p2p-manifest.json for the SDK version and runtime SHA-256.
+This project is not affiliated with or endorsed by Valve.

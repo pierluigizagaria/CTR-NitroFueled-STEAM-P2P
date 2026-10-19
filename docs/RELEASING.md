@@ -58,11 +58,22 @@ The packager verifies input hashes and selects the runtime files explicitly.
 It never copies a profile or installed port directory:
 
 ```text
-python tools/package_mod.py --bridge-build /path/to/bridge-build --bridge-revision <commit> --provider-package /path/to/provider.zip --server-package /path/to/server.zip --patch-xml /path/to/CrashTeamRacingNitroFueled.xml --patch-license /path/to/patch-LICENSE --patch-revision <commit> --json-license /path/to/json-LICENSE --version v0.1.0-preview.1 --output /path/to/ctrnf-p2p-mod-v0.1.0-preview.1-windows-x64.zip
+python tools/package_mod.py --bridge-build /path/to/bridge-build --bridge-revision <commit> --provider-package /path/to/provider.zip --server-package /path/to/server.zip --patch-xml /path/to/CrashTeamRacingNitroFueled.xml --patch-license /path/to/patch-LICENSE --patch-revision <commit> --json-license /path/to/json-LICENSE --steam-sdk-archive /path/to/steamworks_sdk_165.zip --steam-sdk-version 1.65 --steam-runtime-sha256 <verified-dll-sha256> --version v0.1.0-preview.1 --output /path/to/ctrnf-p2p-mod-v0.1.0-preview.1-windows-x64.zip
 ```
 
-The output includes executable files, a ready-to-use `ctrnf-p2p.ini`, patch XML,
-operating guides, per-component notices, a source manifest and SHA-256 file hashes.
+Supply an SDK archive obtained from Valve under its
+[SDK Access Agreement](https://partner.steamgames.com/documentation/sdk_access_agreement).
+Confirm its version from `sdk/Readme.txt`, verify the Valve Authenticode signature
+of `sdk/redistributable_bin/win64/steam_api64.dll`, and record its SHA-256 as the
+explicit packaging input. The packager reads only that DLL, rejects a duplicate
+entry or a hash mismatch, and records its SDK version, license and hash in the
+manifest. Keep the SDK archive and all Valve binaries outside source control.
+The independent provider and server archives remain free of Steamworks files.
+
+The output includes executable files, the unchanged Steam API redistributable,
+a ready-to-use `ctrnf-p2p.ini`, patch XML, operating guides, per-component notices,
+a source manifest and SHA-256 file hashes. The Valve runtime notice is at
+`licenses/steamworks/NOTICE.txt`; its proprietary license remains separate.
 The packaged INI comes only from the tracked `ctrnf-p2p.example.ini` template:
 Steam, AppID 480, native host and normal progression. Never package an installed
 user's configuration. The update instructions tell users to preserve their

@@ -13,6 +13,17 @@ def digest(data):
     return hashlib.sha256(data).hexdigest()
 
 
+def steam_runtime(sdk_archive, expected_sha256):
+    entry = "sdk/redistributable_bin/win64/steam_api64.dll"
+    with zipfile.ZipFile(sdk_archive) as archive:
+        if archive.namelist().count(entry) != 1:
+            raise ValueError("Steamworks SDK: expected one Windows x64 redistributable")
+        runtime = archive.read(entry)
+    if digest(runtime) != expected_sha256:
+        raise ValueError("Steamworks SDK: runtime hash does not match the verified release input")
+    return runtime
+
+
 def component(path, expected):
     with zipfile.ZipFile(path) as archive:
         names = archive.namelist()
@@ -45,12 +56,17 @@ def main():
     parser.add_argument("--patch-license", type=Path, required=True)
     parser.add_argument("--patch-revision", required=True)
     parser.add_argument("--json-license", type=Path, required=True)
+    parser.add_argument("--steam-sdk-archive", type=Path, required=True)
+    parser.add_argument("--steam-sdk-version", required=True)
+    parser.add_argument("--steam-runtime-sha256", required=True)
     parser.add_argument("--version", required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     for revision in (args.bridge_revision, args.patch_revision):
         if not re.fullmatch(r"[0-9a-f]{40}", revision):
             parser.error("source revisions must be full Git commit IDs")
+    if not re.fullmatch(r"[0-9a-f]{64}", args.steam_runtime_sha256):
+        parser.error("Steam runtime hash must be a lowercase SHA-256 digest")
     root = Path(__file__).resolve().parents[1]
     provider, provider_files = component(args.provider_package, "orbisteamworks")
     server, server_files = component(args.server_package, "demonware-server")
@@ -60,12 +76,14 @@ def main():
     }
     files["orbisteamworks.dll"] = provider_files["orbisteamworks.dll"]
     files["demonware-server.exe"] = server_files["demonware-server.exe"]
+    files["steam_api64.dll"] = steam_runtime(args.steam_sdk_archive, args.steam_runtime_sha256)
     files["ctrnf-p2p.ini"] = (root / "ctrnf-p2p.example.ini").read_bytes()
     files["patches/CrashTeamRacingNitroFueled.xml"] = args.patch_xml.read_bytes()
     files["licenses/ctrnf-p2p/LICENSE"] = (root / "LICENSE").read_bytes()
     files["licenses/ctrnf-p2p/expat.txt"] = (root / "third_party/expat/upstream/COPYING").read_bytes()
     files["licenses/ctrnf-p2p/nlohmann-json.txt"] = args.json_license.read_bytes()
     files["licenses/signature-patch/LICENSE"] = args.patch_license.read_bytes()
+    files["licenses/steamworks/NOTICE.txt"] = (root / "third_party/steamworks/NOTICE.txt").read_bytes()
     for name, payload in (("orbisteamworks", provider_files), ("demonware-server", server_files)):
         files[f"licenses/{name}/LICENSE"] = payload["LICENSE"]
         for entry, data in payload.items():
@@ -83,6 +101,13 @@ def main():
             "orbisteamworks": {k: provider[k] for k in ("revision", "version", "license")},
             "demonware-server": {k: server[k] for k in ("revision", "version", "license")},
             "signature-patch": {"revision": args.patch_revision, "license": "MIT"},
+            "steamworks-runtime": {
+                "sdk_version": args.steam_sdk_version,
+                "license": "Valve Steamworks SDK Access Agreement",
+                "license_url": "https://partner.steamgames.com/documentation/sdk_access_agreement",
+                "sdk_path": "sdk/redistributable_bin/win64/steam_api64.dll",
+                "sha256": args.steam_runtime_sha256,
+            },
         },
         "files": {name: digest(data) for name, data in sorted(files.items())},
     }

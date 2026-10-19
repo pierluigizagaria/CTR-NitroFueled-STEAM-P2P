@@ -18,13 +18,11 @@ before installing.
   at `online` revision `b1b4bf9`.
 - Your own supported PS4 game files: CUSA13795, update 01.21.
 - Steam running and signed in with your account.
-- `steam_api64.dll`, which you supply yourself. It is in the
-  [Steamworks SDK](https://partner.steamgames.com/doc/sdk) under
-  `redistributable_bin/win64/`.
 
 The mod ZIP already contains the
 [CTR:NF Server Signature Patch](https://github.com/pierluigizagaria/ctrnf-server-signature-patch);
-the bridge enables it automatically.
+the bridge enables it automatically. Valve's unmodified `steam_api64.dll`
+runtime is also included; players do not need to download the Steamworks SDK.
 
 ## Install
 
@@ -34,10 +32,9 @@ Download the Windows mod ZIP from [Releases](https://github.com/pierluigizagaria
 2. Close the port, then extract the mod ZIP into the port's root folder (the
    folder containing `CTR-NitroFueled-PC.exe`). The ZIP replaces none of the
    port's settings or saves.
-3. Copy `steam_api64.dll` into that folder.
-4. The included `ctrnf-p2p.ini` is ready for Steam with AppID 480 and normal
+3. The included `ctrnf-p2p.ini` is ready for Steam with AppID 480 and normal
    progression. When updating, keep your existing INI instead of overwriting it.
-5. Double-click `ctrnf-p2p.exe`. On first start it enables the signature patch
+4. Double-click `ctrnf-p2p.exe`. On first start it enables the signature patch
    in the port's patch selection and leaves all other settings unchanged.
 
 The [installation guide](docs/INSTALLATION.md) shows the resulting folder layout
@@ -56,8 +53,11 @@ accounts also ends the session.
 ## Playing together
 
 Each player installs the mod with their own Steam account and game files, using
-the same mod version and settings. Steam shows you as playing **Spacewar**: the
-mod uses Steam's public test AppID 480, so nobody needs to own another Steam game.
+the same mod version and settings. Steam shows you as playing **Spacewar** because
+this experimental preview uses the SDK example's AppID 480. This is not an AppID
+assigned to this mod or confirmation that Valve authorizes a permanent public
+service under 480. Use an AppID authorized for your own integration for production;
+ownership of an unrelated Steam game does not provide that authorization.
 
 Add each other as Steam friends, start the game through the mod, enter Online
 and use the game's friend Join or matchmaking.
@@ -130,4 +130,7 @@ The bridge is [MIT licensed](LICENSE). The bundled Expat parser retains its
 [own license](third_party/expat/upstream/COPYING).
 orbiSteamworks is MIT licensed; Demonware Server uses PolyForm Shield 1.0.0.
 Each component remains a separate project with its own source and license.
-No game, firmware or Steamworks files are included.
+The ZIP also includes Valve's proprietary Steam API runtime under the
+[Steamworks SDK Access Agreement](https://partner.steamgames.com/documentation/sdk_access_agreement);
+see the [runtime notice](third_party/steamworks/NOTICE.txt). It is not MIT licensed.
+No game, firmware, native-port binary or other Steamworks SDK files are included.

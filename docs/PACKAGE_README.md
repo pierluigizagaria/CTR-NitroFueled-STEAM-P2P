@@ -2,8 +2,8 @@
 
 This experimental package adds Steam multiplayer to the native Crash Team Racing
 Nitro-Fueled port. It combines builds of ctrnf-p2p, orbiSteamworks and
-Demonware Server, plus the CTR:NF Server Signature Patch. The native port, your
-game files and the Steam API library are not included.
+Demonware Server, plus the CTR:NF Server Signature Patch and Valve's unmodified
+Steam API runtime. The native port and your game files are not included.
 
 ## Install
 
@@ -12,13 +12,11 @@ game files and the Steam API library are not included.
    files, following the port's instructions.
 2. Close the port. Extract this ZIP into the folder containing
    CTR-NitroFueled-PC.exe. It replaces none of the port's settings or saves.
-3. Copy steam_api64.dll into the same folder. It is in Valve's Steamworks SDK,
-   under redistributable_bin/win64/.
-4. The included ctrnf-p2p.ini is ready for Steam with AppID 480 and normal
+3. The included ctrnf-p2p.ini is ready for Steam with AppID 480 and normal
    progression (unlock_all = false). When updating, keep your existing INI
    instead of overwriting it.
-5. Start Steam and sign in.
-6. Double-click ctrnf-p2p.exe, then start the game from the native launcher.
+4. Start Steam and sign in.
+5. Double-click ctrnf-p2p.exe, then start the game from the native launcher.
    The first start enables the signature patch automatically.
 
 Always start the game through ctrnf-p2p.exe. Do not start demonware-server.exe
@@ -28,7 +26,9 @@ yourself.
 
 Both players install the same mod version on their own PC, with their own Steam
 account and game files, and keep the same settings in ctrnf-p2p.ini. Steam shows
-you as playing Spacewar (AppID 480); nobody needs to own another game.
+you as playing Spacewar because this preview uses the SDK example's AppID 480.
+Valve has not assigned that ID to this mod. Runtime redistribution permission
+does not establish permission to operate a permanent public service under 480.
 
 Add each other as Steam friends, enter Online, then use the game's friend Join
 or matchmaking.
@@ -66,8 +66,12 @@ updating, uninstalling and common problems.
 - [Demonware Server](https://github.com/pierluigizagaria/demonware-server):
   PolyForm Shield 1.0.0. Required Notice: Copyright 2026 Nextendo Network.
 - [Server Signature Patch](https://github.com/pierluigizagaria/ctrnf-server-signature-patch): MIT.
+- Steam Client API (steam_api64.dll): proprietary Valve runtime; see
+  licenses/steamworks/NOTICE.txt and the
+  [Steamworks SDK Access Agreement](https://partner.steamgames.com/documentation/sdk_access_agreement).
 
 ctrnf-p2p-manifest.json lists the exact source revision of each component and
 ctrnf-p2p-SHA256SUMS.txt the file hashes. Full license texts and third-party
 notices are under licenses/. The combined archive does not relicense its
-components. No game, firmware or Steamworks files are included.
+components. No game, firmware, native-port binary or other Steamworks SDK files
+are included. This project is not affiliated with or endorsed by Valve.

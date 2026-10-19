@@ -2,9 +2,9 @@
 
 Download the Windows mod ZIP from
 [Releases](https://github.com/pierluigizagaria/ctrnf-p2p/releases).
-It contains the bridge, orbiSteamworks, Demonware Server, a ready-to-use INI,
-the signature patch XML and the component licenses. `CTR-P2P-README.md` in the
-ZIP is the short version of this guide.
+It contains the bridge, orbiSteamworks, Demonware Server, Valve's Steam API
+runtime, a ready-to-use INI, the signature patch XML and the component licenses.
+`CTR-P2P-README.md` in the ZIP is the short version of this guide.
 
 ## Install
 
@@ -23,17 +23,17 @@ and `patches/`. After installation it looks like this:
 ├── demonware-server.exe          the local server
 ├── demonware-server/             server database (data/ctrnf.db) and logs
 ├── orbisteamworks.dll            the Steam provider
-└── steam_api64.dll               supplied by you
+└── steam_api64.dll               Valve runtime (included)
 ```
 
 1. Set up the port and your game files with the port's own instructions.
 2. Close the port, then extract the ZIP into the port root.
-3. Copy `steam_api64.dll` into the port root. It is part of Valve's
-   [Steamworks SDK](https://partner.steamgames.com/doc/sdk), under
-   `redistributable_bin/win64/`. The mod does not download it and does not need
-   `steam_appid.txt`.
-4. The included `ctrnf-p2p.ini` is ready for Steam with AppID 480 and normal
+3. The included `ctrnf-p2p.ini` is ready for Steam with AppID 480 and normal
    progression (`unlock_all = false`). No copying or editing is needed.
+
+The ZIP includes the unmodified Windows x64 `steam_api64.dll` redistributable.
+No SDK download or `steam_appid.txt` is needed. Its Valve license notice is under
+`licenses/steamworks/NOTICE.txt` in the ZIP.
 
 ### Signature patch
 

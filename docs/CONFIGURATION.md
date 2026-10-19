@@ -11,7 +11,7 @@ The defaults work for normal play.
 | Setting | Default and meaning |
 | --- | --- |
 | `platform.provider` | `steam`, the only supported provider |
-| `steam.app_id` | `480` (Steam's public Spacewar test application). Any other nonzero AppID must be available to every player's Steam account |
+| `steam.app_id` | `480` (the Steamworks SDK example, Spacewar). A different nonzero AppID must be authorized for this integration and available to every player's Steam account; owning an unrelated game is not sufficient authorization |
 | `game.host` | `native`, the only supported game: the GetLostIn native port |
 | `server.unlock_all` | `false`. `true` makes the whole Pit Stop catalog available without spending coins and without recording purchases; see the [README](../README.md#configuration) |
 
