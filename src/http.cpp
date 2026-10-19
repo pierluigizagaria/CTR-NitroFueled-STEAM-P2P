@@ -205,10 +205,24 @@ std::string header(const Headers& headers, std::string_view name) {
     return {};
 }
 std::string api_group(const std::string& value) {
-    auto host = lower(value); auto colon = host.find(':');
-    if (colon != host.npos) host.resize(colon);
+    auto host = lower(value);
+    // The pinned native host preserves the SDK authority marker in Host.
+    // It is an adapter field, not a TCP port or a second destination.
+    const bool sdk = host.starts_with("sdk:");
+    if (sdk) host.erase(0, 4);
+    auto colon = host.find(':');
+    if (colon != host.npos) {
+        auto port = std::string_view(host).substr(colon + 1); unsigned number = 0;
+        auto [end, error] = std::from_chars(port.data(), port.data() + port.size(), number);
+        if (port.empty() || error != std::errc{} || end != port.data() + port.size() || !number || number > 65535)
+            throw std::runtime_error("Invalid HTTP authority port");
+        host.resize(colon);
+    }
     constexpr std::string_view suffix = ".np.community.playstation.net";
-    if (!host.ends_with(suffix)) return {};
+    if (!host.ends_with(suffix)) {
+        if (sdk) throw std::runtime_error("Unsupported SDK authority");
+        return {};
+    }
     auto group = host.substr(0, host.size() - suffix.size());
     if (group.empty() || group.find('.') != group.npos || group.size() > 64) throw std::runtime_error("Invalid platform API host");
     for (unsigned char c : group) if (!std::isalnum(c) && c != '-') throw std::runtime_error("Invalid platform API group");

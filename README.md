@@ -159,7 +159,8 @@ preparation with matching patches. Old BB_*/OSW_*/publisher settings are removed
 from the child environment before the selected mapping is installed.
 
 Upstream forwards HTTP and HTTPS as plain HTTP to this loopback front. Exact
-`<group>.np.community.playstation.net` hosts dispatch OSW_WEBAPI with method, path,
+`<group>.np.community.playstation.net` hosts, including the pinned native host's
+`sdk:` authority prefix, dispatch OSW_WEBAPI with method, path,
 group, headers, content type and opaque binary body. Other hosts go only to the
 configured loopback publisher; the Host/scheme/end-to-end headers are preserved.
 There is no external DNS/proxy destination or redirect following. Hop-by-hop

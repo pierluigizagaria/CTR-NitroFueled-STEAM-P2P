@@ -90,3 +90,24 @@ written deliverable and has not occurred. Further progress on the game gates
 needs reliable game input. No original-game canonical-identity rejection or
 architectural need for a native source edit has been demonstrated.
 macOS and Linux are not compiled or runtime-qualified in this record.
+
+### 2026-10-19 human retest: Online routing
+
+The pinned host preserves `sdk:` in the HTTP authority, for example
+`sdk:userProfile.np.community.playstation.net`. The bridge formerly treated
+that colon as a port separator and forwarded the request to publisher auth,
+which refused it. The native HTTP adapter now recognizes that explicit marker,
+validates the optional port, and dispatches the exact platform suffix to WebAPI.
+No host source change or alternate compatibility route was introduced.
+
+51 contract assertions and 12 integration methods pass. An optional actual
+provider/two-publisher fixture also passes SDK-authority friends, signed owner
+admission, foreign-owner refusal, mixed economies and teardown. The bridge
+SHA-256 is `d6c9e9f8c798d1131fdadb07512ac9abde209edf49dab3f1156de91b6cb7c011`.
+After installing that executable, the human operator confirmed that Lab A's
+Online menu works (H). The remaining B3 gameplay checks are still open.
+
+The second native instance selected port 3104 on this launch, rather than its
+previous 3098. A fixed source-port configuration therefore cannot describe the
+unchanged host reliably. Endpoint registration must use the owned child's
+observed socket before NAT or peer advertisement; this is a separate correction.

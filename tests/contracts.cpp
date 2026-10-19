@@ -35,6 +35,11 @@ int main() {
         auto request = parse_request_head("POST /v1/sessions?x=1 HTTP/1.1\r\nHost: sessionInvitation.np.community.playstation.net\r\nContent-Type: application/octet-stream\r\nContent-Length: 3\r\nX-SacredFire-Scheme: https\r\n\r\n");
         require(request.path == "/v1/sessions?x=1" && request.method == "POST", "Request metadata lost");
         require(api_group(header(request.headers, "host")) == "sessioninvitation", "API group route wrong");
+        require(api_group("sdk:userProfile.np.community.playstation.net") == "userprofile", "Native SDK authority was routed to publisher");
+        require(api_group("sdk:sessionInvitation.np.community.playstation.net:443") == "sessioninvitation", "SDK authority with explicit port misrouted");
+        require(api_group("userProfile.np.community.playstation.net:443") == "userprofile", "Platform authority with port misrouted");
+        for (auto host : {"sdk:publisher.invalid", "sdk:userProfile.np.community.playstation.net.evil", "sdk:sdk:userProfile.np.community.playstation.net", "userProfile.np.community.playstation.net:evil", "userProfile.np.community.playstation.net:443:80"})
+            rejects([&] { api_group(host); });
         require(api_group("session.np.community.playstation.net.evil") == "", "Suffix routing escaped");
         require(api_group("publisher.invalid") == "", "Publisher misrouted");
         for (auto text : {

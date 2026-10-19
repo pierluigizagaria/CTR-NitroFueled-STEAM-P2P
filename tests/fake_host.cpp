@@ -119,7 +119,7 @@ int main(int argc, char** argv) {
             std::this_thread::sleep_for(std::chrono::seconds(45)); return 0;
         }
         const std::string payload("fixture\0binary", 14);
-        auto web = request("userProfile.np.community.playstation.net", "/fixture?x=1", payload);
+        auto web = request("sdk:userProfile.np.community.playstation.net", "/fixture?x=1", payload);
         require(web.status == 201, "WebAPI status");
         require(web.head.find("application/vnd.bridge-fixture+json") != std::string::npos, "WebAPI content type");
         auto result = Json::parse(web.body);
