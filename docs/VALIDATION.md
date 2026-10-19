@@ -145,3 +145,33 @@ These remain fixture results (I). No native source edits were made. Linux and
 macOS code was reviewed against OS APIs but was neither compiled nor exercised
 on those systems. Join, public matchmaking and race results still require the
 human-operated B3 test; B4 in-game checks remain separate.
+
+### Paired human retest and current limitations
+
+With the updated components, both publishers returned canonical NAT endpoints
+for the observed original-game sources. A used3074, B initially3129. The bridge
+stopped that B session because its source observation was absent or changed;
+the combined error category and untraced native socket closes do not establish
+which occurred. No explicit native crash marker was captured. At the user's
+request, B was relaunched and used3091.
+
+The human then confirmed friend Join reaches a shared lobby (H). Public
+matchmaking and a complete race/results still need confirmation. The human
+also reported that A does not list B and B's Pit Stop does not work:
+
+- Current HTTP front reads return one reciprocal online friend on both sides.
+  The original A game had issued one earlier friend-list GET and received an
+  empty list before B was present; B's one GET returned the other player.
+  Pinned native HTTP is a pass-through, but its push registration is a stub.
+  A new guest GET is needed to update that snapshot. Reopening Online or a
+  controlled restart is the next check; no provider/bridge code defect was
+  demonstrated by these observations.
+- B is the intended unlock-all profile. Its publisher replies with801 inventory
+  items (request capacity856) and three currencies, without marketplace errors.
+  The UI symptom still needs clarification before classifying it as expected
+  full ownership or a game-facing failure.
+
+The final bridge/provider/publisher also passed live single-account Steam480
+`--directory-check` with a reserved diagnostic UDP socket and the deferred
+registration contract. No game window was launched; B4 name/Online and live
+peer transport remain distinct unverified checks.
