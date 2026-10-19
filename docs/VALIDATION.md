@@ -7,6 +7,19 @@ contracts and synthetic fixtures; C for owned game bytes/execution; H/U for the
 relevant public host reconstruction. Build/fixture success is not live Steam,
 original-game or WAN acceptance.
 
+### Current gate status
+
+B0 source/build audit is complete with the upstream Windows test limitations
+below. B1 and B2 pass their component and optional integration gates. B3's human
+test now confirms Online, both economy-specific Pit Stop views, friend Join,
+shared lobby and completion of the requested matchmaking/race/results flow.
+The displayed lobby name retains spaces. B4 passes its bounded single-account
+Steam 480 scope: live directory create/read/search/leave plus human-confirmed
+Steam name and Online access. B5's written two-PC procedure is complete. No
+two-account Steam transport or macOS runtime acceptance is implied. Earlier
+sections below retain the chronology of failures and fixes; native startup
+stability and overlay operation are not generally qualified.
+
 - B0 native: pinned upstream b1b4bf9 built from source in an ignored worktree;
   no host source change. Executable SHA-256
   `de03b2a853e2ce9fc335f0027783ab49858e28244d987a5a2ad180907f94d5d0`.
@@ -105,13 +118,15 @@ provider/two-publisher fixture also passes SDK-authority friends, signed owner
 admission, foreign-owner refusal, mixed economies and teardown. The bridge
 SHA-256 is `d6c9e9f8c798d1131fdadb07512ac9abde209edf49dab3f1156de91b6cb7c011`.
 After installing that executable, the human operator confirmed that Lab A's
-Online menu works (H). The remaining B3 gameplay checks are still open.
+Online menu works (C, human-reported game observation). The remaining B3 gameplay
+checks were still open at this stage.
 
 The second native instance selected port 3104 on this launch, rather than its
 previous 3098. A fixed source-port configuration therefore cannot describe the
 unchanged host reliably. Endpoint registration must use the owned child's
 observed socket before NAT or peer advertisement; this is a separate correction.
-The human subsequently confirmed that Pit Stop also opens in Lab A (H).
+The human subsequently confirmed that Pit Stop also opens in Lab A
+(C, human-reported game observation).
 
 ### Owned game endpoint registration
 
@@ -155,8 +170,9 @@ the combined error category and untraced native socket closes do not establish
 which occurred. No explicit native crash marker was captured. At the user's
 request, B was relaunched and used3091.
 
-The human then confirmed friend Join reaches a shared lobby (H). Public
-matchmaking and a complete race/results still need confirmation. The human
+The human then confirmed friend Join reaches a shared lobby
+(C, human-reported game observation). Public matchmaking and a complete
+race/results still needed confirmation at this stage. The human
 also reported that A does not list B and B's Pit Stop does not work:
 
 - Current HTTP front reads return one reciprocal online friend on both sides.
@@ -171,11 +187,12 @@ also reported that A does not list B and B's Pit Stop does not work:
 - B is the intended unlock-all profile. Its publisher replies with801 inventory
   items (request capacity856) and three currencies, without marketplace errors.
   The human clarified that Pit Stop opens but is empty or indicates everything
-  purchased (H). Together with the inventory response, this is consistent with
-  expected full ownership in unlock-all mode. It does not demonstrate an economy
+  purchased (C, human-reported game observation). Together with the inventory
+  response, this is consistent with expected full ownership in unlock-all mode.
+  It does not demonstrate an economy
   failure and needs no database reset or publisher change.
 
-The final bridge/provider/publisher also passed live single-account Steam480
+The final bridge/provider/publisher also passed live single-account Steam 480
 `--directory-check` with a reserved diagnostic UDP socket and the deferred
 registration contract. No game window was launched; B4 name/Online and live
 peer transport remain distinct unverified checks.
@@ -191,3 +208,76 @@ are unchanged. 52 contract assertions and16 integration methods pass, including
 separate absent/changed cases with exact port diagnostics. Candidate SHA-256:
 `2f6b2341450a23ddbf7da92be662b9f7a8621067558049df08a55e673af47eeb`.
 The active pair retains the earlier installed binary until its next update.
+
+### Completed Lab race and Steam game handoff
+
+The human reported "partita conclusa" after the requested public matchmaking and
+race-through-results check, then confirmed that lobby names preserve the space
+in Bridge A/B (C, human-reported game observations). Both retained publisher logs
+record one statistics save; B also records accepted lobby-document syncs. The
+human report establishes completion of the requested game flow; statistics alone
+would not prove a finished race. No track, finishing position or race duration is
+claimed. These are mixed-economy same-PC Lab results, not Steam peer transport.
+
+The lobby label observation agrees with the unchanged UserService name. Source
+inspection separately establishes the native NP online-ID rewrite to underscores
+for spaces; no separate NP-only label was identified on screen, and no host edit
+was made. Both games were then closed normally and their owned publishers and
+bridges exited. Private logs and their hashes were retained before the next test.
+
+The race used bridge a601fa8, provider 6d074ee, publisher 27123aa and pinned native
+b1b4bf9, with the hashes recorded above. The diagnostics-only 4280518 candidate
+was then installed at the same bridge path for B4, retaining the existing Steam
+profile, saves and database. The live Steam game starts and registers its owned
+UDP endpoint; human confirmation of its name and Online menu remains pending.
+
+### Native crash evidence and overlay boundary
+
+Read-only Windows Error Reporting records subsequently identified the earlier
+Lab B process exit as an access violation in libwinpthread-1.dll at offset 0x4323,
+before the bridge reported the lost source socket. The bridge log alone could
+not establish this. The WER evidence corrects that uncertainty without proving
+the underlying mutex failure's cause or requiring a native source modification.
+
+The first two Steam game attempts exited 0xC0000005 after provider readiness and
+successful HTTP responses. WER names ntdll.dll at offsets 0x1ff2a/0x1fe2b in unwind
+code; this is the observed fault location, not a proven root cause. A third run
+displayed a responsive game window, then the human reported a crash immediately
+on opening Steam's overlay. Steam overlay/Vulkan layers and an OBS graphics hook
+were present in those WER module lists despite no injection code in the bridge.
+
+For the next bounded B4 name/Online test, the launch environment alone sets
+`DISABLE_VK_LAYER_VALVE_steam_overlay_1=1`, as declared by the installed Steam
+layer manifest. No global setting or host source is changed. This excludes that
+Vulkan layer; it does not guarantee exclusion of gameoverlayrenderer64.dll.
+Overlay operation is outside this task; this comparison does not qualify it.
+
+### B4 human confirmation and final scope
+
+On the fourth run, the human confirmed the correct Steam-derived name and
+successful Online entry, then also reported that Steam's overlay opened
+successfully (C, human-reported observations). The unchanged native process,
+bridge and publisher remained active. Module inspection confirmed that the
+Steam Vulkan overlay layer was absent while gameoverlayrenderer64.dll, the
+Steam fossilize layer and OBS graphics-hook remained loaded. The third run's
+overlay-triggered exit was recorded by Windows as heap corruption 0xc0000374.
+One successful opening does not resolve that earlier fault or establish overlay
+reliability. The process-local layer setting is an observed test condition,
+not a proven causal fix or a new global/default setting.
+
+This completes the requested B0–B5 local scope, including B5 as a written
+two-PC procedure rather than executed remote multiplayer. B4's directory
+acceptance used the earlier bridge hash with identical directory logic; the
+name/Online check used diagnostics-only 4280518. Provider, publisher and native
+hashes were unchanged and rechecked. Read-only final component audits found no
+missing bridge/provider/publisher contract requirement. Tests were not repeated
+after documentation-only changes. The original native checkout remains
+feat/steam-p2p at 6daed1d with only its pre-existing dirty FSR submodule; the pinned
+worktree has no root source changes. No native commits, publication or push.
+
+The accepted Steam trace also contains one publisher403 for the auxiliary
+Demonware published_messages route (unsupported by the publisher, correctly
+forwarded by the bridge) and one WebAPI404 for a duplicate session leave after
+a successful204. The following session creation returns200. These explicit
+nonblocking failures were reviewed rather than silently counted as successful
+operations; neither requires extending the bridge into publisher reconstruction.

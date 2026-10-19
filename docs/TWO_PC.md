@@ -69,6 +69,18 @@ the other player's bridge remains running. In the Lab retest this forced a
 fresh nonempty friend response; it does not implement live presence updates.
 Restarting exits the current lobby and retains the configured saves/database.
 
+The Windows single-account acceptance run also used the installed Steam Vulkan
+manifest's per-process switch `DISABLE_VK_LAYER_VALVE_steam_overlay_1=1`.
+This setting was limited to the launched process tree; it did not change a user
+or machine setting. It excluded SteamOverlayVulkanLayer64.dll, while the separate
+GameOverlayRenderer module remained present. The human confirmed Online/name
+and one successful overlay opening, following earlier native crashes including
+one triggered by opening the overlay. This is not a proven crash fix or broad
+overlay qualification; overlay injection remains outside the bridge's scope.
+Retain this test condition when comparing Windows results and use only controls
+advertised by the locally installed layer manifest. No equivalent macOS result
+is claimed.
+
 Two loopback-v1 players on one PC are at most a Lab carrier possibility: a third
 can require duplicate canonical binds. The unchanged native host has no
 per-instance source-bind/port setting. The game chooses another port when3074
