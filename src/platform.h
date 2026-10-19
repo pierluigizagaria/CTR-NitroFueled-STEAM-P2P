@@ -7,6 +7,8 @@
 
 namespace bridge {
 fs::path executable_path();
+// Cryptographically random per-launch IPC capability, never persisted or logged.
+std::string private_capability();
 // Replace a file only after its current bytes match the caller's snapshot.
 // nullopt requires a missing file. A sibling temporary file is flushed before
 // the atomic replacement; failures never truncate the original in place.

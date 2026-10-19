@@ -4,6 +4,7 @@
 #include "platform.h"
 #include <orbisteamworks/osw.h>
 #include <mutex>
+#include <optional>
 #include <nlohmann/json.hpp>
 
 namespace bridge {
@@ -23,6 +24,9 @@ public:
     void bind_game_endpoint(const std::string& address, uint16_t port);
     // Signed in as the launch account, with the server still ready.
     bool healthy(uint64_t account);
+    // Copied PSN notification from the provider's opt-in stream; legacy events
+    // remain available to existing health/request handling.
+    std::optional<std::string> psn_event();
 private:
     DynamicLibrary library_;
     osw_context* context_ = nullptr;
@@ -41,5 +45,7 @@ private:
     int32_t (*defer_endpoint_)(osw_context*);
     int32_t (*appid_)(osw_context*, uint32_t);
     int32_t (*persona_)(osw_context*, char*, size_t, size_t*);
+    int32_t (*enable_psn_)(osw_context*, uint32_t) = nullptr;
+    int32_t (*poll_psn_)(osw_context*, char*, size_t, size_t*) = nullptr;
 };
 }

@@ -177,6 +177,8 @@ struct NativePatchPaths {
 };
 NativePatchPaths native_patch_paths(const Config& c, const std::map<std::string, std::string>& inherited) {
     if (!fs::is_regular_file(native_launcher(c))) throw std::runtime_error("Native launcher CTR-NitroFueled-PC.exe is missing beside the bridge");
+    if (c.host == "octr" && !fs::is_regular_file(c.root / "psn-bridge-backend.dll"))
+        throw std::runtime_error("OCTR PSN adapter psn-bridge-backend.dll is missing beside the bridge");
     const auto data = port_path(c, inherited_value(inherited, "BB_DATA_DIR"), c.root);
     const auto selection = port_path(c, inherited_value(inherited, "BB_PATCHES_CONFIG"), data / "patches.json");
     const auto patches = port_path(c, inherited_value(inherited, "BB_PATCHES_DIR"), c.root / "patches");
@@ -184,7 +186,7 @@ NativePatchPaths native_patch_paths(const Config& c, const std::map<std::string,
 }
 bool bridge_owned(const std::string& key) {
     // Keys are already environment_key()-normalized for this OS.
-    for (std::string_view prefix : {"OSW_", "CTR_", "NEXTENDO_", "SHADNET_", "D3_", "DASH_", "BB_ONLINE_"})
+    for (std::string_view prefix : {"OSW_", "CTR_", "NEXTENDO_", "SHADNET_", "D3_", "DASH_", "BB_ONLINE_", "BB_PSN_"})
         if (key.starts_with(prefix)) return true;
     return key == "BB_USER_NAME" || key == "STEAMAPPID" || key == "STEAMGAMEID" ||
            key == "SteamAppId" || key == "SteamGameId";
@@ -201,7 +203,8 @@ fs::path native_launcher(const Config& c) {
 #endif
 }
 std::map<std::string, std::string> native_environment(const Config& c, uint64_t account,
-                                                      const std::map<std::string, std::string>& inherited) {
+                                                      const std::map<std::string, std::string>& inherited,
+                                                      const std::string& psn_capability) {
     if (!account || c.online_id.empty()) throw std::runtime_error("Cannot launch host without provider identity");
     std::map<std::string, std::string> env;
     for (const auto& [name, value] : inherited) {
@@ -218,6 +221,16 @@ std::map<std::string, std::string> native_environment(const Config& c, uint64_t 
     for (const auto& [name, value] : mapped) {
         if (!ascii_printable(value)) throw std::runtime_error("Native mapped environment must be ASCII");
         env[environment_key(name)] = value;
+    }
+    if (c.host == "octr") {
+        if (psn_capability.size() != 64 || psn_capability.find_first_not_of("0123456789abcdef") != std::string::npos)
+            throw std::runtime_error("OCTR requires a private PSN bridge capability");
+        env[environment_key("BB_ONLINE")] = "1";
+        env[environment_key("BB_ONLINE_TUNNEL")] = "0";
+        env[environment_key("BB_PSN_BACKEND")] = path_text(c.root / "psn-bridge-backend.dll");
+        env[environment_key("BB_PSN_BACKEND_CONFIG")] = nlohmann::json({
+            {"url", "http://" + c.address + ":" + std::to_string(c.http_port)},
+            {"token", psn_capability}}).dump();
     }
     // Steam initializes in the bridge, but its overlay attaches to the separate
     // native renderer. Give that process the same configured application identity;

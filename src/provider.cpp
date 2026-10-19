@@ -22,6 +22,10 @@ Provider::Provider(const Config& c, bool companion) : library_(c.provider_librar
     RESOLVE(poll_, "osw_poll_event"); RESOLVE(loopback_, "osw_enable_loopback_endpoints");
     RESOLVE(appid_, "osw_set_app_id"); RESOLVE(persona_, "osw_get_persona_name");
     RESOLVE(defer_endpoint_, "osw_defer_game_endpoint");
+    if (c.host == "octr" && companion) {
+        RESOLVE(enable_psn_, "osw_enable_psn_events");
+        RESOLVE(poll_psn_, "osw_poll_psn_event");
+    }
 #undef RESOLVE
     // All symbols used by this current contract are resolved before startup.
     osw_config_v2 config{}; config.base.size = sizeof(config); config.base.abi_version = OSW_ABI_VERSION_2;
@@ -53,6 +57,7 @@ Provider::Provider(const Config& c, bool companion) : library_(c.provider_librar
         check(appid_(context_, c.app_id), "AppID configuration");
         check(loopback_(context_), "Loopback endpoint configuration");
         if (companion) check(defer_endpoint_(context_), "Deferred game endpoint configuration");
+        if (enable_psn_) check(enable_psn_(context_, 1), "PSN notification stream configuration");
         check(start_(context_), "Provider start");
     }
     catch (...) { destroy_(context_); context_ = nullptr; throw; }
@@ -148,5 +153,20 @@ bool Provider::healthy(uint64_t account) {
     std::lock_guard lock(mutex_);
     for (int i = 0; i < 64; ++i) { osw_event e{}; e.size = sizeof(e); if (poll_(context_, &e) != OSW_OK) break; }
     return true;
+}
+std::optional<std::string> Provider::psn_event() {
+    std::lock_guard lock(mutex_);
+    if (!poll_psn_) throw std::runtime_error("PSN notifications were not negotiated");
+    size_t required = 0;
+    auto status = poll_psn_(context_, nullptr, 0, &required);
+    if (status == OSW_PENDING) return std::nullopt;
+    if (status != OSW_LIMIT || !required || required > 65536)
+        throw std::runtime_error("Provider PSN notification stream failed");
+    std::string value(required, '\0');
+    check(poll_psn_(context_, value.data(), value.size(), &required), "PSN notification read");
+    if (!required || required > value.size() || value[required - 1] != '\0')
+        throw std::runtime_error("Provider PSN notification framing failed");
+    value.resize(required - 1);
+    return value;
 }
 }

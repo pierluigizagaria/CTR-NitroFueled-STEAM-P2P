@@ -13,6 +13,7 @@
 #ifdef _WIN32
 #include <winsock2.h>
 #include <windows.h>
+#include <bcrypt.h>
 #include <iphlpapi.h>
 #else
 #include <arpa/inet.h>
@@ -32,6 +33,23 @@ extern char** environ;
 #endif
 
 namespace bridge {
+std::string private_capability() {
+    std::array<unsigned char, 32> bytes{};
+#ifdef _WIN32
+    if (BCryptGenRandom(nullptr, bytes.data(), static_cast<ULONG>(bytes.size()),
+                        BCRYPT_USE_SYSTEM_PREFERRED_RNG) != 0)
+        throw std::runtime_error("Cannot generate private IPC capability");
+#else
+    std::ifstream random("/dev/urandom", std::ios::binary);
+    if (!random.read(reinterpret_cast<char*>(bytes.data()), bytes.size()))
+        throw std::runtime_error("Cannot generate private IPC capability");
+#endif
+    constexpr char hex[] = "0123456789abcdef";
+    std::string result;
+    result.reserve(64);
+    for (auto byte : bytes) { result += hex[byte >> 4]; result += hex[byte & 15]; }
+    return result;
+}
 namespace {
 constexpr size_t max_socket_bytes = 8 * 1024 * 1024;
 constexpr size_t max_child_fds = 16384;

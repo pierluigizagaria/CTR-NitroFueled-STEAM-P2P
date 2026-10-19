@@ -239,9 +239,9 @@ online_id = {json.dumps(name)}
         self.assertFalse(any(alive(pid) for pid in pids), "A supervised fixture process survived the session")
 
     @contextlib.contextmanager
-    def running_bridge(self):
+    def running_bridge(self, config_text=None):
         config = self.root / "fixture.ini"
-        config.write_text(self.config(), encoding="utf-8")
+        config.write_text(config_text or self.config(), encoding="utf-8")
         process = subprocess.Popen([str(self.bridge), "--config", str(config)],
                                    env=dict(self.env, TEST_HOST_MODE="hold"),
                                    stdout=subprocess.PIPE, stderr=subprocess.PIPE,
@@ -257,6 +257,43 @@ online_id = {json.dumps(name)}
             process.communicate(timeout=10)
             for pid in self.supervised_pids():
                 stop_fixture(pid)
+
+    def test_octr_private_psn_stream_preserves_acknowledgement_and_identity(self):
+        # Existence-only prerequisite; the synthetic host never loads this file.
+        (self.root / "psn-bridge-backend.dll").write_bytes(b"inert fixture")
+        with self.running_bridge(self.config().replace("host = native", "host = octr")):
+            launch = wait_json(self.root / "launcher.json")
+            self.assertEqual(launch["online_enabled"], "1")
+            self.assertEqual(Path(launch["psn_backend"]), self.root / "psn-bridge-backend.dll")
+            config = json.loads(launch["psn_config"])
+            self.assertEqual(config["url"], f"http://{ADDRESS}:{self.http_port}")
+            def call(path, payload=None, authorized=True):
+                connection = http.client.HTTPConnection(ADDRESS, self.http_port, timeout=5)
+                try:
+                    headers = {"Authorization": "Bearer " + config["token"]} if authorized else {}
+                    body = json.dumps(payload) if payload is not None else None
+                    connection.request("POST" if payload is not None else "GET", path, body, headers)
+                    response = connection.getresponse()
+                    return response.status, json.loads(response.read())
+                finally:
+                    connection.close()
+            self.assertEqual(call("/psn/v1/info", authorized=False)[0], 403)
+            status, info = call("/psn/v1/info")
+            self.assertEqual(status, 200)
+            self.assertEqual(info["accountId"], "123456789")
+            status, first = call("/psn/v1/events?after=0")
+            self.assertEqual(status, 200)
+            self.assertEqual(call("/psn/v1/events?after=0")[1], first)
+            event = first["events"][0]
+            self.assertEqual(event["event"]["from"]["accountId"], "76561198012345679")
+            self.assertEqual(event["event"]["kind"], "invitationAccepted")
+            self.assertEqual(call(f'/psn/v1/events?after={event["sequence"]}')[1]["events"], [])
+            self.assertEqual(call("/psn/v1/events?after=0")[0], 409)
+            status, token = call("/psn/v1/token", {"kind": 1, "client_id": "fixture", "scope": "openid"})
+            self.assertEqual(status, 200)
+            self.assertEqual(token["token"], "osw-local-fixture")
+            companion = next(entry for entry in self.events() if entry["event"] == "create" and entry["companion"])
+            self.assertEqual(companion["companion_environment"]["CTR_LOCAL_WEAK_TOKEN"], "0")
 
     @contextlib.contextmanager
     def server(self, handler):

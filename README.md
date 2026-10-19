@@ -9,6 +9,10 @@ matchmaking, Pit Stop and progression.
 The mod starts the port's own launcher. Game settings, preparation and saves stay
 with the port. No native source changes are required.
 
+This source branch also includes an opt-in [OCTR integration](docs/OCTR.md)
+with PSN notifications. It requires OCTR's proposed backend support and is not
+part of the existing native-port release or validated in-game yet.
+
 **Experimental.** See [compatibility and limitations](#compatibility-and-limitations)
 before installing.
 
@@ -115,7 +119,7 @@ adapter and the local server's admission. Maintainers can follow
 - Only the native port at the revision above is supported, with Steam as the
   platform provider.
 - Windows only. Linux and macOS are not supported.
-- Invitations are not delivered to the game; use friend Join or matchmaking.
+- With `host = native`, invitations are not delivered to the game; use friend Join or matchmaking.
   The in-game friend list may need a refresh, or a restart, before a newly
   started friend appears.
 - Rooms do not move to another player when their creator leaves.

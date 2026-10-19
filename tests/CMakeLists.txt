@@ -1,4 +1,7 @@
 find_package(Python3 COMPONENTS Interpreter REQUIRED)
+add_executable(bridge_psn_tests psn.cpp)
+target_link_libraries(bridge_psn_tests PRIVATE bridge_core)
+add_test(NAME bridge-psn-relay COMMAND bridge_psn_tests)
 add_executable(bridge_file_update_tests file_update.cpp)
 target_link_libraries(bridge_file_update_tests PRIVATE bridge_core)
 add_test(NAME bridge-atomic-file-update COMMAND bridge_file_update_tests)

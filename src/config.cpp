@@ -126,11 +126,12 @@ Config parse_config(std::string_view text, const fs::path& root) {
     Config c; c.root = fs::absolute(root).lexically_normal();
     c.provider = get("platform.provider", "steam"); c.host = get("game.host", "native");
     if (c.provider != "steam") throw std::runtime_error("Unsupported platform.provider; only steam is implemented");
-    if (c.host != "native") throw std::runtime_error("Unsupported game.host; only native is implemented");
+    if (c.host != "native" && c.host != "octr") throw std::runtime_error("Unsupported game.host; use native or octr");
     // The native adapter's fixed contract: CTR's Demonware title, the supported
     // game build, the observed source of its wildcard UDP socket, and native
     // token admission (the unchanged host fabricates its sacredfire token).
     c.title = "5760"; c.build = "01.21"; c.game_address = "127.0.0.1"; c.native_token = true;
+    if (c.host == "octr") c.native_token = false;
 #ifdef _WIN32
     c.provider_library = path("platform.library", "orbisteamworks.dll");
     c.steam_library = path("steam.library", "steam_api64.dll");

@@ -4,6 +4,7 @@
 #include "http.h"
 #include "platform.h"
 #include "provider.h"
+#include "psn.h"
 #include <atomic>
 #include <chrono>
 #include <csignal>
@@ -78,7 +79,12 @@ int bridge_main(int argc, char** argv, std::string* failure) {
         if (std::string(id.online_id) != c.online_id) throw std::runtime_error("Provider did not retain the explicit launch name");
         std::cout << (c.lab ? "Simulated Lab" : "Steam") << " provider and local server ready; economy "
                   << (c.unlock_all ? "unlock-all" : "normal") << ".\n";
+        const auto psn_capability = c.host == "octr" ? private_capability() : std::string{};
+        std::unique_ptr<PsnRelay> psn;
+        if (c.host == "octr") psn = std::make_unique<PsnRelay>(provider, psn_capability);
         HttpServer front(c.address, c.http_port, [&](const HttpRequest& request) {
+            if (request.path.starts_with("/psn/"))
+                return psn ? psn->handle(request) : HttpResponse{404, {}, {}};
             auto group = api_group(header(request.headers, "host"));
             return group.empty() ? proxy_request(request, c.address, server_auth_port) : provider.webapi(request, group);
         });
@@ -89,7 +95,7 @@ int bridge_main(int argc, char** argv, std::string* failure) {
             check_directory(provider);
             std::cout << "Directory create/read/search/leave passed; no game or peer transport acceptance implied.\n"; return 0;
         }
-        Process host(native_launcher(c), {}, c.root, native_environment(c, id.account_id, inherited), c.state / "host.log");
+        Process host(native_launcher(c), {}, c.root, native_environment(c, id.account_id, inherited, psn_capability), c.state / "host.log");
         std::cout << "Native launcher started; start the game from it. There is no session cutoff.\n";
         auto next_check = std::chrono::steady_clock::now();
         std::optional<GameEndpoint> bound;

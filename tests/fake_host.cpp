@@ -150,6 +150,11 @@ int launcher(const std::filesystem::path& root, const char* exe, int argc, char*
                                {"steam_app_id", "SteamAppId"}, {"steam_game_id", "SteamGameId"}})
         report[field] = env(name);
     report["account_matches_fixture"] = env("BB_ONLINE_ACCOUNT_ID") == "123456789";
+    // This fixture records only its temporary, randomly generated IPC settings.
+    // Production launch logs never contain backend configuration or capabilities.
+    report["psn_backend"] = env("BB_PSN_BACKEND");
+    report["psn_config"] = env("BB_PSN_BACKEND_CONFIG");
+    report["online_enabled"] = env("BB_ONLINE");
     report["private_inheritance_removed"] = env("BB_ONLINE_STALE_FIXTURE").empty() && env("CTR_STALE_FIXTURE").empty() &&
                                             env("OSW_STALE_FIXTURE").empty();
     bool native_set = false;

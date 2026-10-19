@@ -108,6 +108,17 @@ int main() {
         require(env.at(environment_key("SteamAppId")) == "480" && env.at(environment_key("SteamGameId")) == "480",
                 "Native renderer lost the default Steam application association");
         auto custom_app = named; custom_app.app_id = 12345;
+        auto octr = parse_config("[game]\nhost=octr", root);
+        require(!octr.native_token, "OCTR enabled fabricated-token admission");
+        octr.online_id = "Alice";
+        rejects([&] { native_environment(octr, 42, inherited); });
+        inherited["BB_PSN_BACKEND"] = "stale-adapter";
+        inherited["BB_PSN_BACKEND_CONFIG"] = "stale-capability";
+        require(!native_environment(named, 42, inherited).contains(environment_key("BB_PSN_BACKEND")), "Native host inherited external backend");
+        auto octr_env = native_environment(octr, 42, inherited, std::string(64, 'a'));
+        require(octr_env.at(environment_key("BB_ONLINE")) == "1" && octr_env.at(environment_key("BB_ONLINE_TUNNEL")) == "0", "OCTR local route not selected");
+        require(octr_env.at(environment_key("BB_PSN_BACKEND")) == path_text(root / "psn-bridge-backend.dll"), "OCTR adapter path wrong");
+        require(octr_env.at(environment_key("BB_PSN_BACKEND_CONFIG")).find("stale-capability") == std::string::npos, "OCTR reused stale capability");
         auto custom_env = native_environment(custom_app, 42, inherited);
         require(custom_env.at(environment_key("SteamAppId")) == "12345" && custom_env.at(environment_key("SteamGameId")) == "12345",
                 "Native Steam association differs from the configured provider AppID");

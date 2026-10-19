@@ -34,10 +34,28 @@ struct osw_context {
     unsigned bound_readiness_reads = 0;
     bool room_active = false;
     unsigned directory_searches = 0;
+    bool psn_enabled = false;
+    unsigned psn_index = 0;
     std::map<uint64_t, Result> results;
 };
 
 TEST_EXPORT int32_t osw_create(const osw_config*, osw_context**) { return OSW_NOT_SUPPORTED; }
+TEST_EXPORT int32_t osw_enable_psn_events(osw_context* c, uint32_t version) {
+    if (!c || c->started || version != 1) return OSW_INVALID_ARGUMENT;
+    c->psn_enabled = true; return OSW_OK;
+}
+TEST_EXPORT int32_t osw_poll_psn_event(osw_context* c, char* buffer, size_t capacity, size_t* required) {
+    if (!c || !required || !c->psn_enabled) return OSW_INVALID_ARGUMENT;
+    *required = 0;
+    if (c->psn_index == 1) return OSW_PENDING;
+    auto value = Json({{"version", 1}, {"kind", "invitationAccepted"}, {"sessionId", "123456"},
+        {"invitationId", "fixture-invite"},
+        {"from", {{"accountId", "76561198012345679"}, {"onlineId", "Friend"}}},
+        {"to", {{"accountId", std::to_string(c->config.lab_account_id)}, {"onlineId", c->config.base.online_id}}}}).dump();
+    *required = value.size() + 1;
+    if (!buffer || capacity < *required) return OSW_LIMIT;
+    std::memcpy(buffer, value.c_str(), *required); ++c->psn_index; return OSW_OK;
+}
 TEST_EXPORT int32_t osw_create_v2(const osw_config_v2* config, osw_context** output) {
     if (!config || !output || config->base.size != sizeof(*config) || config->base.abi_version != OSW_ABI_VERSION_2)
         return OSW_INVALID_ARGUMENT;
@@ -97,7 +115,9 @@ TEST_EXPORT int32_t osw_submit(osw_context* c, const osw_request* request, uint6
     auto metadata = Json::parse(request->metadata, request->metadata + request->metadata_size, nullptr, false);
     if (!metadata.is_object()) return OSW_INVALID_ARGUMENT;
     Result value;
-    if (request->operation == OSW_P2P && metadata.value("op", "") == "status") {
+    if (request->operation == OSW_TOKEN) {
+        value.body = "osw-local-fixture"; value.metadata = "{}";
+    } else if (request->operation == OSW_P2P && metadata.value("op", "") == "status") {
         // Registration confirmation and one subsequent health poll succeed.
         // Fail a later health poll with identity deliberately still signed in.
         bool ready = !std::getenv("TEST_PROVIDER_DROP_READY") || c->endpoint_pending || c->bound_readiness_reads < 2;
