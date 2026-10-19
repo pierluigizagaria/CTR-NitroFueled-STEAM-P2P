@@ -17,10 +17,13 @@ API; a future shadPS4 host protocol adapter is a separate concern.
 
 ## Build
 
-C++20 and CMake 3.20 or newer. Dependencies are the provider's public C header
+C and C++20 compilers and CMake 3.20 or newer. External dependencies are the provider's public C header
 (`orbisteamworks/osw.h`) and nlohmann/json headers. Neither dependency needs a
 sibling source checkout: pass their installed include directories explicitly.
 No provider code is linked into the bridge. No Steamworks SDK is needed to build.
+The portable Expat XML parser is included as unmodified upstream source under
+`third_party/expat`, with its license and pinned source provenance. It is linked
+statically; no XML runtime library or system installation is needed.
 
 ```text
 cmake -S . -B build -DOSW_INCLUDE_DIR=/path/to/public-sdk/include -DJSON_INCLUDE_DIR=/path/to/json/include
@@ -53,7 +56,8 @@ installation (the folder with `CTR-NitroFueled-PC.exe`, `run.py`, `bbport.ini` a
 <port root>/
 ├── CTR-NitroFueled-PC.exe        native launcher (unchanged)
 ├── bbport.ini, launcher.ini, user/, out/, patches/, patches.json   native, unchanged
-├── ctrnf-p2p.exe, ctrnf-p2p.ini  this bridge and its configuration
+├── ctrnf-p2p.exe, ctrnf-p2p.ini  desktop bridge and its configuration
+├── ctrnf-p2p-cli.exe             console entry point for diagnostics/scripts
 ├── ctrnf-p2p/                    bridge-owned state and diagnostics only
 ├── demonware-server.exe          the independent local server
 ├── demonware-server/             its data/ctrnf.db and logs/
@@ -76,12 +80,21 @@ documentation); the bridge does not inspect the game files.
 
 ## Run
 
+On Windows, double-click `ctrnf-p2p.exe`. It opens the native launcher without a
+terminal window. Lifecycle messages go to `ctrnf-p2p/bridge.log`; a startup or
+session error appears in a dialog. Close the native launcher to end the session.
+The console entry point runs the same bridge logic and keeps stdout, stderr and
+exit codes available to terminals and scripts:
+
 ```text
-ctrnf-p2p --check
-ctrnf-p2p --probe
-ctrnf-p2p --directory-check
-ctrnf-p2p
+ctrnf-p2p-cli --check
+ctrnf-p2p-cli --probe
+ctrnf-p2p-cli --directory-check
+ctrnf-p2p-cli
 ```
+
+On POSIX the console executable is still named `ctrnf-p2p`; there is no desktop
+entry point, and native game launch remains unsupported there.
 
 Copy `ctrnf-p2p.example.ini` to `ctrnf-p2p.ini` beside the executable. Relative
 paths resolve beside the executable, even with `--config`; `--config path` itself
@@ -190,8 +203,10 @@ Before an ordinary launch (and in `--check`) the bridge reads, without writing, 
 patch selection the native launch script will use: `BB_PATCHES_CONFIG`, else
 `patches.json` in `BB_DATA_DIR` (else the port root), and `BB_PATCHES_DIR`, else
 `patches/`. Relative values resolve from the port root, as the script does. The
-patch must be listed under `enabled` and not under `disabled`, and its file must
-name CUSA13795, AppVer 01.21, `eboot.bin` and the supported write. This is a
+patch must be listed under `enabled` and not under `disabled`. Its XML is parsed
+as a complete document; comments and CDATA cannot supply patch elements, malformed
+documents and DTDs are refused. The selected patch must name CUSA13795, AppVer
+01.21, `eboot.bin` and the supported write. This is a
 configuration diagnostic: the launcher can change the selection afterwards, and
 other selected patches are not inspected for conflicts.
 
@@ -223,7 +238,9 @@ Unsupported provider routes retain explicit HTTP errors.
 Limits: 32 KiB headers, 100 header fields, 1 MiB body, 8 concurrent handlers and 16
 queued connections. Socket operations have a 30-second total deadline; provider
 requests have a 25-second deadline. These per-request limits do not expire sessions.
-Bridge logs contain status/categories only, never bodies or tokens. Native
+Bridge logs contain status/categories only, never bodies or tokens. The Windows
+desktop entry point appends its lifecycle messages to `ctrnf-p2p/bridge.log`.
+Native
 upstream itself logs short body prefixes: keep the port's logs and
 `ctrnf-p2p/host.log` private. Server logs are also private. Do not paste raw
 runtime logs into public issues.

@@ -22,9 +22,12 @@ distributed by this project. Current qualification status belongs to VALIDATION.
 4. Choose normal or unlock-all independently with `server.unlock_all`. This does not
    change the room namespace, the saves or the server database.
 5. Confirm Steam is running and the intended accounts are friends. Never put
-   credentials in bridge configuration. Run `ctrnf-p2p --check` and then `--probe`.
+   credentials in bridge configuration. On Windows run `ctrnf-p2p-cli --check`
+   and then `ctrnf-p2p-cli --probe`.
    Probe success confirms initialization only; it does not establish peer traffic.
-6. Launch ctrnf-p2p on each PC and start the game from the native launcher it opens.
+6. Double-click `ctrnf-p2p.exe` on each Windows PC (no console window) and start
+   the game from the native launcher it opens. Lifecycle logs are in
+   `ctrnf-p2p/bridge.log`; errors appear in a dialog.
    It starts only loopback server/HTTP listeners; do not forward router ports or
    expose these listeners publicly. Do not disable system security to work around a
    failure.

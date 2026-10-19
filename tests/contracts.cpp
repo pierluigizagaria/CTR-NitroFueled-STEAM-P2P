@@ -16,6 +16,7 @@ void rejects(const std::function<void()>& operation) {
 const char* patch_xml = R"(<?xml version='1.0' encoding='utf-8'?>
 <Patch><TitleID><ID>CUSA13795</ID></TitleID><Metadata Title="Crash Team Racing Nitro-Fueled" Name="CTR:NF Server Signature Patch" Author="fixture" PatchVer="0.1" AppVer="01.21" AppElf="eboot.bin" isEnabled="false" Note="fixture"><PatchList><Line Type="bytes" Address="0x00413ec0" Value="909090909090" /></PatchList></Metadata></Patch>)";
 const char* selected = R"({"enabled": ["CrashTeamRacingNitroFueled.xml/CTR:NF Server Signature Patch"], "disabled": []})";
+const char* patch_line = R"(<Line Type="bytes" Address="0x00413ec0" Value="909090909090" />)";
 std::string replaced(std::string text, const std::string& from, const std::string& to) {
     auto at = text.find(from); if (at == text.npos) throw std::runtime_error("fixture text missing");
     return text.replace(at, from.size(), to);
@@ -113,6 +114,16 @@ int main() {
 
         require(signature_patch_problem(patch_xml, selected).empty(), "Supported signature patch refused");
         require(signature_patch_problem(replaced(patch_xml, " AppElf=\"eboot.bin\"", ""), selected).empty(), "Default AppElf refused");
+        require(signature_patch_problem(replaced(patch_xml, "<ID>CUSA13795</ID>", "<ID>  CUSA13795\n</ID>"), selected).empty(),
+                "Title ID whitespace refused");
+        require(signature_patch_problem(replaced(patch_xml, "Name=\"CTR:NF Server Signature Patch\"",
+                "Name = 'CTR:NF Server Signature Patch'"), selected).empty(), "Valid XML attribute quoting refused");
+        require(signature_patch_problem(replaced(patch_xml, "Name=\"CTR:NF Server Signature Patch\"",
+                "Name=\"CTR:NF Server Signature Patc&#104;\""), selected).empty(), "XML character reference refused");
+        require(signature_patch_problem(replaced(patch_xml, patch_line, std::string("<!-- explanatory comment -->") + patch_line), selected).empty(),
+                "Comment beside a real patch write refused");
+        require(signature_patch_problem(replaced(patch_xml, "<ID>CUSA13795</ID>", "<ID><![CDATA[CUSA13795]]></ID>"), selected).empty(),
+                "Real title ID text inside CDATA refused");
         for (auto [xml, selection] : std::initializer_list<std::pair<std::string, std::string>>{
                  {patch_xml, "{}"}, {patch_xml, "[]"}, {patch_xml, R"({"enabled": []})"},
                  {patch_xml, R"({"enabled": ["CrashTeamRacingNitroFueled.xml/CTR:NF Server Signature Patch"], "disabled": ["CrashTeamRacingNitroFueled.xml/CTR:NF Server Signature Patch"]})"},
@@ -125,6 +136,32 @@ int main() {
                  {replaced(patch_xml, "Name=\"CTR:NF Server Signature Patch\"", "Name=\"Other\""), selected},
                  {replaced(patch_xml, "</Metadata>", ""), selected}})
             require(!signature_patch_problem(xml, selection).empty(), "Unsupported signature patch accepted");
+        // A literal match is not a native patch: comments and CDATA are not
+        // elements, and a later parse error invalidates the entire document.
+        for (const auto& [description, xml] : std::initializer_list<std::pair<const char*, std::string>>{
+                 {"Commented patch write accepted", replaced(patch_xml, patch_line, std::string("<!--") + patch_line + "-->")},
+                 {"CDATA patch write accepted", replaced(patch_xml, patch_line, std::string("<![CDATA[") + patch_line + "]]>")},
+                 {"Line-prefixed element accepted", replaced(patch_xml, "<Line ", "<LineIgnored ")},
+                 {"Commented Metadata accepted", replaced(replaced(patch_xml, "<Metadata ", "<!--<Metadata "), "</Metadata>", "</Metadata>-->")},
+                 {"Commented title ID accepted", replaced(patch_xml, "<ID>CUSA13795</ID>", "<!--<ID>CUSA13795</ID>--><ID>CUSA00000</ID>")},
+                 {"CDATA title markup accepted", replaced(patch_xml, "<ID>CUSA13795</ID>", "<![CDATA[<ID>CUSA13795</ID>]]><ID>CUSA00000</ID>")},
+                 {"Mismatched closing tag accepted", replaced(patch_xml, "</Patch>", "</Wrong>")},
+                 {"Trailing second root accepted", std::string(patch_xml) + "<Other/>"},
+                 {"Trailing unterminated comment accepted", std::string(patch_xml) + "<!--"},
+                 {"Duplicate XML attributes accepted", replaced(patch_xml, "AppVer=\"01.21\"", "AppVer=\"01.21\" AppVer=\"01.20\"")},
+                 {"Undefined XML entity accepted", replaced(patch_xml, "Note=\"fixture\"", "Note=\"&undefined;\"")},
+                 {"Invalid XML character reference accepted", replaced(patch_xml, "Note=\"fixture\"", "Note=\"&#0;\"")},
+                 {"XML NUL suffix accepted", std::string(patch_xml) + std::string(1, '\0')},
+                 {"Namespaced patch elements accepted", replaced(patch_xml, "<Patch>", "<Patch xmlns=\"urn:unrecognized\">")},
+                 {"Unbound namespace prefix accepted", replaced(patch_xml, "<Patch>", "<Patch missing:attribute=\"x\">")},
+                 {"Unsupported additional Line accepted", replaced(patch_xml, "</PatchList>", "<Line Type=\"mask\" Address=\"0x00413ec0\" Value=\"90\"/></PatchList>")},
+                 {"Overwriting additional Line accepted", replaced(patch_xml, "</PatchList>", "<Line Type=\"bytes\" Address=\"0x00413ec0\" Value=\"00\"/></PatchList>")},
+                 {"Signature-relocated write accepted", replaced(patch_xml, "Type=\"bytes\"", "Type=\"bytes\" Signature=\"00 11\"")},
+                 {"DTD document accepted", replaced(patch_xml, "<Patch>", "<!DOCTYPE Patch><Patch>")},
+                 {"Entity-declaring DTD accepted", replaced(patch_xml, "<Patch>", "<!DOCTYPE Patch [<!ENTITY ignored 'text'>]><Patch>")},
+                 {"External DTD accepted", replaced(patch_xml, "<Patch>", "<!DOCTYPE Patch SYSTEM 'file:///nonexistent-bridge-fixture'><Patch>")},
+                 {"Oversized XML accepted", std::string(patch_xml) + std::string(1048576, ' ')}})
+            require(!signature_patch_problem(xml, selected).empty(), description);
         rejects([&] { signature_patch_problem(patch_xml, R"({"enabled": "CrashTeamRacingNitroFueled.xml/CTR:NF Server Signature Patch"})"); });
         std::cout << checks << " bridge contract checks passed\n";
         return 0;

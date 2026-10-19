@@ -1,4 +1,5 @@
 #include "config.h"
+#include "app.h"
 #include "host.h"
 #include "http.h"
 #include "platform.h"
@@ -35,7 +36,7 @@ void check_directory(bridge::Provider& provider) {
     if (left.status != OSW_OK) throw std::runtime_error("Directory check could not leave its room");
 }
 }
-int main(int argc, char** argv) {
+int bridge_main(int argc, char** argv, std::string* failure) {
     using namespace bridge;
     // Supervised runs redirect output to a private log. Make lifecycle evidence
     // visible while the host is running, rather than only when the bridge exits.
@@ -45,7 +46,11 @@ int main(int argc, char** argv) {
         bool check_only = false, probe_only = false, directory_only = false;
         for (int i = 1; i < argc; ++i) {
             std::string arg(argv[i]);
-            if (arg == "--config" && i + 1 < argc) file = fs::absolute(argv[++i]);
+            if (arg == "--config" && i + 1 < argc) {
+                const std::string path(argv[++i]);
+                if (!ascii_printable(path)) throw std::runtime_error("Configuration path must be printable ASCII");
+                file = fs::absolute(path);
+            }
             else if (arg == "--check") check_only = true;
             else if (arg == "--probe") probe_only = true;
             else if (arg == "--directory-check") directory_only = true;
@@ -130,6 +135,7 @@ int main(int argc, char** argv) {
     } catch (const std::exception& e) {
         // Only local fixed-category failures and configuration labels reach here.
         // Host/provider response payloads and credentials are never printed.
+        if (failure) *failure = e.what();
         std::cerr << "ctrnf-p2p: " << e.what() << '\n'; return 1;
     }
 }

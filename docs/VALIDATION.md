@@ -1,5 +1,25 @@
 # Validation record
 
+## 2026-10-19, XML prerequisite correction and Windows desktop entry point
+
+The signature prerequisite now uses the statically linked, vendored Expat 2.9.0
+parser. It parses the whole XML document before accepting the supported write;
+comment/CDATA lookalikes, malformed suffixes, duplicate attributes, undefined
+entities, DTDs and extra/relocated writes fail before provider or host startup.
+The dependency retains its upstream source license and pinned archive hash.
+
+Windows builds provide a console-free `ctrnf-p2p.exe` and a console
+`ctrnf-p2p-cli.exe`, sharing the same application and supervision code. The desktop
+entry point writes `ctrnf-p2p/bridge.log` and reports failures in a dialog. POSIX
+retains its console entry point and the existing refusal of native game launch.
+
+Release MSVC build, 130 bridge contract checks and 20 independent integration methods pass.
+The desktop fixture checks from a separate process that Windows cannot attach to
+a console owned by the bridge, observes the session log and verifies termination
+of the simulated launcher/game/descendant tree. Invalid XML cases are exercised
+through both `--check` and ordinary startup without starting the fake provider or
+launcher. These are fixtures, not original-game or overlay acceptance.
+
 ## 2026-10-19, configuration and boundary cleanup
 
 Agreed in a read-only review between Claude and Codex, then implemented at the

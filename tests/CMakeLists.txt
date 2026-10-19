@@ -14,7 +14,8 @@ if(WIN32)
 endif()
 add_test(NAME bridge-process-http-integration
   COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/integration.py
-    --bridge $<TARGET_FILE:ctrnf-p2p>
+    --bridge $<TARGET_FILE:${BRIDGE_CLI_TARGET}>
+    --desktop $<TARGET_FILE:ctrnf-p2p>
     --provider $<TARGET_FILE:bridge_fake_provider>
     --missing-provider $<TARGET_FILE:bridge_missing_provider>
     --host $<TARGET_FILE:bridge_fake_host>

@@ -11,6 +11,7 @@ import shutil
 import signal
 import socket
 import subprocess
+import sys
 import tempfile
 import threading
 import time
@@ -151,6 +152,8 @@ class BridgeIntegration(unittest.TestCase):
         # The installed layout: bridge, native launcher and server at the port root.
         self.bridge = self.root / ("ctrnf-p2p" + EXE)
         shutil.copy2(ARGS.bridge, self.bridge)
+        self.desktop = self.root / ("ctrnf-p2p-desktop" + EXE)
+        shutil.copy2(ARGS.desktop, self.desktop)
         shutil.copy2(ARGS.host, self.root / "CTR-NitroFueled-PC.exe")
         shutil.copy2(ARGS.host, self.root / ("demonware-server" + EXE))
         (self.root / "lab").mkdir()
@@ -258,6 +261,9 @@ online_id = {json.dumps(name)}
     def test_check_and_invalid_configuration_never_launch(self):
         good = self.invoke(arguments=("--check",))
         self.assertEqual(good.returncode, 0, good.stderr)
+        invalid_path = self.invoke(arguments=("--config", "non-ascii-\u00e8.ini", "--check"))
+        self.assertEqual(invalid_path.returncode, 1)
+        self.assertIn("Configuration path must be printable ASCII", invalid_path.stderr)
         for before, after in [
             ("provider = steam", "provider = unsupported"),
             ("unlock_all = false", "unlock_all = 1"),
@@ -285,6 +291,14 @@ online_id = {json.dumps(name)}
             ("missing", lambda: selection.unlink()),
             ("wrong write", lambda: patch.write_text(PATCH_XML.replace("0x00413ec0", "0x00413ec4"))),
             ("other version", lambda: patch.write_text(PATCH_XML.replace('AppVer="01.21"', 'AppVer="01.20"'))),
+            ("commented write", lambda: patch.write_text(PATCH_XML.replace('<Line ', '<!-- <Line ').replace('/></PatchList>', '/> --></PatchList>'))),
+            ("CDATA write", lambda: patch.write_text(PATCH_XML.replace('<Line ', '<![CDATA[<Line ').replace('/></PatchList>', '/>]]></PatchList>'))),
+            ("commented metadata", lambda: patch.write_text(PATCH_XML.replace('<Metadata ', '<!-- <Metadata ').replace('</Metadata>', '</Metadata> -->'))),
+            ("commented title", lambda: patch.write_text(PATCH_XML.replace('<ID>CUSA13795</ID>', '<!-- <ID>CUSA13795</ID> --><ID>CUSA00000</ID>'))),
+            ("malformed tail", lambda: patch.write_text(PATCH_XML.replace('</Patch>', '</Mismatch>'))),
+            ("second root", lambda: patch.write_text(PATCH_XML + '<Patch/>')),
+            ("unsupported extra write", lambda: patch.write_text(PATCH_XML.replace('</PatchList>', '<Line Type="unknown" Address="0x00413ec0" Value="00" /></PatchList>'))),
+            ("doctype", lambda: patch.write_text(PATCH_XML.replace('<Patch>', '<!DOCTYPE Patch [<!ENTITY fixture "unused">]><Patch>'))),
             ("no file", lambda: patch.unlink()),
         ]
         for name, damage in cases:
@@ -312,6 +326,42 @@ online_id = {json.dumps(name)}
         missing = self.invoke(arguments=("--check",))
         self.assertNotEqual(missing.returncode, 0)
         self.assertIn("Native launcher", missing.stderr)
+
+    def test_desktop_has_no_console_logs_and_supervises_its_tree(self):
+        config = self.root / 'desktop.ini'
+        config.write_text(self.config(), encoding='utf-8')
+        process = subprocess.Popen([str(self.desktop), '--config', str(config)],
+                                   env=dict(self.env, TEST_HOST_MODE='hold', TEST_LAUNCHER_LINGER='1'),
+                                   stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        try:
+            wait_json(self.root / 'host.json')
+            wait_json(self.root / 'descendant.json')
+            # An independent console-free process tries attaching to the bridge.
+            # ERROR_INVALID_HANDLE (6) is Windows' response when it has no console.
+            inspector = subprocess.run([sys.executable, '-c',
+                'import ctypes,sys; k=ctypes.WinDLL("kernel32",use_last_error=True); '
+                'k.FreeConsole(); attached=k.AttachConsole(int(sys.argv[1])); '
+                'error=ctypes.get_last_error(); k.FreeConsole(); '
+                'sys.exit(0 if not attached and error==6 else 1)', str(process.pid)],
+                capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW, timeout=5)
+            self.assertEqual(inspector.returncode, 0, 'Desktop entry point owns a console')
+            end = time.monotonic() + 5
+            while not any(e['event'] == 'bind_endpoint' and e['status'] == 0 for e in self.events()):
+                self.assertLess(time.monotonic(), end, 'Desktop did not register fixture endpoint')
+                time.sleep(0.025)
+            stop_fixture(wait_json(self.root / 'host.json')['pid'])
+            self.assertEqual(process.wait(timeout=8), 0)
+            log = (self.root / 'ctrnf-p2p/bridge.log').read_text(encoding='utf-8')
+            self.assertIn('Native launcher started', log)
+            self.assertIn('Game exited; the supervised session is finished.', log)
+            self.assert_tree_stopped()
+            self.assert_clean_shutdown()
+        finally:
+            if process.poll() is None:
+                process.kill()
+            process.wait(timeout=5)
+            for pid in self.supervised_pids():
+                stop_fixture(pid)
 
     def test_portable_diagnostics_do_not_need_launch_prerequisites(self):
         (self.root / "CTR-NitroFueled-PC.exe").unlink()
@@ -592,10 +642,10 @@ online_id = {json.dumps(name)}
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    for key in ["bridge", "provider", "missing-provider", "host", "work-root"]:
+    for key in ["bridge", "desktop", "provider", "missing-provider", "host", "work-root"]:
         parser.add_argument("--" + key, type=Path, required=True)
     ARGS = parser.parse_args()
-    for key in ["bridge", "provider", "missing_provider", "host", "work_root"]:
+    for key in ["bridge", "desktop", "provider", "missing_provider", "host", "work_root"]:
         setattr(ARGS, key, getattr(ARGS, key).resolve())
     ARGS.work_root.mkdir(parents=True, exist_ok=True)
     unittest.main(argv=[__file__], verbosity=2)
