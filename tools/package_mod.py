@@ -7,6 +7,7 @@ import json
 from pathlib import Path, PurePosixPath
 import re
 import zipfile
+from release_support import component, write_zip
 
 
 def digest(data):
@@ -24,28 +25,6 @@ def steam_runtime(sdk_archive, expected_sha256):
     return runtime
 
 
-def component(path, expected):
-    with zipfile.ZipFile(path) as archive:
-        names = archive.namelist()
-        if len(names) != len(set(names)):
-            raise ValueError(f"{expected}: duplicate archive entries")
-        manifest = json.loads(archive.read("manifest.json"))
-        if manifest["component"] != expected:
-            raise ValueError(f"expected {expected} package")
-        payload = {}
-        for name, sha in manifest["files"].items():
-            parts = PurePosixPath(name)
-            if parts.is_absolute() or ".." in parts.parts or "\\" in name:
-                raise ValueError(f"{expected}: unsafe path")
-            data = archive.read(name)
-            if digest(data) != sha:
-                raise ValueError(f"{expected}: hash mismatch for {name}")
-            payload[name] = data
-        if "LICENSE" not in payload or not any(n.startswith("licenses/") for n in payload):
-            raise ValueError(f"{expected}: license notices missing")
-        return manifest, payload
-
-
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--bridge-build", type=Path, required=True)
@@ -56,7 +35,11 @@ def main():
     parser.add_argument("--patch-license", type=Path, required=True)
     parser.add_argument("--patch-revision", required=True)
     parser.add_argument("--json-license", type=Path, required=True)
-    parser.add_argument("--steam-sdk-archive", type=Path, required=True)
+    runtime_input = parser.add_mutually_exclusive_group(required=True)
+    runtime_input.add_argument("--steam-sdk-archive", type=Path)
+    runtime_input.add_argument("--steam-runtime-file", type=Path)
+    parser.add_argument("--release-lock", type=Path)
+    parser.add_argument("--build-info", type=Path)
     parser.add_argument("--steam-sdk-version", required=True)
     parser.add_argument("--steam-runtime-sha256", required=True)
     parser.add_argument("--version", required=True)
@@ -70,13 +53,36 @@ def main():
     root = Path(__file__).resolve().parents[1]
     provider, provider_files = component(args.provider_package, "orbisteamworks")
     server, server_files = component(args.server_package, "demonware-server")
+    lock = json.loads(args.release_lock.read_text()) if args.release_lock else None
+    if lock:
+        component(args.provider_package, "orbisteamworks", lock["components"]["orbisteamworks"])
+        component(args.server_package, "demonware-server", lock["components"]["demonware-server"])
+        for path, pin in ((args.provider_package, lock["components"]["orbisteamworks"]),
+                          (args.server_package, lock["components"]["demonware-server"])):
+            if digest(path.read_bytes()) != pin["sha256"]:
+                raise ValueError("Component archive differs from release lock")
+        patch = lock["components"]["signature-patch"]
+        if (args.patch_revision != patch["revision"] or digest(args.patch_xml.read_bytes()) != patch["xml_sha256"]
+                or digest(args.patch_license.read_bytes()) != patch["license_sha256"]):
+            raise ValueError("Signature patch differs from release lock")
+        if (args.steam_sdk_version != lock["steam_runtime"]["sdk_version"]
+                or args.steam_runtime_sha256 != lock["steam_runtime"]["sha256"]):
+            raise ValueError("Steam runtime differs from release lock")
     files = {
         name: (args.bridge_build / name).read_bytes()
         for name in ("ctrnf-p2p.exe", "ctrnf-p2p-cli.exe")
     }
     files["orbisteamworks.dll"] = provider_files["orbisteamworks.dll"]
     files["demonware-server.exe"] = server_files["demonware-server.exe"]
-    files["steam_api64.dll"] = steam_runtime(args.steam_sdk_archive, args.steam_runtime_sha256)
+    runtime = (args.steam_runtime_file.read_bytes() if args.steam_runtime_file else
+               steam_runtime(args.steam_sdk_archive, args.steam_runtime_sha256))
+    if digest(runtime) != args.steam_runtime_sha256:
+        raise ValueError("Steam runtime hash mismatch")
+    files["steam_api64.dll"] = runtime
+    if args.release_lock:
+        files["ctrnf-p2p-release-lock.json"] = args.release_lock.read_bytes()
+    if args.build_info:
+        files["ctrnf-p2p-build-info.json"] = args.build_info.read_bytes()
     files["ctrnf-p2p.ini"] = (root / "ctrnf-p2p.example.ini").read_bytes()
     files["patches/CrashTeamRacingNitroFueled.xml"] = args.patch_xml.read_bytes()
     files["licenses/ctrnf-p2p/LICENSE"] = (root / "LICENSE").read_bytes()
@@ -111,15 +117,15 @@ def main():
         },
         "files": {name: digest(data) for name, data in sorted(files.items())},
     }
+    if lock:
+        manifest["host"] = lock["host"]
+    if args.build_info:
+        manifest["build"] = json.loads(args.build_info.read_text())
     files["ctrnf-p2p-manifest.json"] = (json.dumps(manifest, indent=2) + "\n").encode()
     files["ctrnf-p2p-SHA256SUMS.txt"] = "".join(
         f"{digest(data)}  {name}\n" for name, data in sorted(files.items())
     ).encode()
-    args.output.parent.mkdir(parents=True, exist_ok=True)
-    # Refuse to replace an existing artifact; releases should be immutable.
-    with zipfile.ZipFile(args.output, "x", compression=zipfile.ZIP_DEFLATED) as archive:
-        for name, data in sorted(files.items()):
-            archive.writestr(name, data)
+    write_zip(args.output, files)
     print(f"{args.output.name}: {len(files)} files; SHA-256 {digest(args.output.read_bytes())}")
 
 

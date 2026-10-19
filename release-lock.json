@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "platform": "windows-x64",
+  "json": {
+    "version": "3.12.0",
+    "header": {
+      "url": "https://raw.githubusercontent.com/nlohmann/json/v3.12.0/single_include/nlohmann/json.hpp",
+      "sha256": "aaf127c04cb31c406e5b04a63f1ae89369fccde6d8fa7cdda1ed4f32dfc5de63"
+    },
+    "license": {
+      "url": "https://raw.githubusercontent.com/nlohmann/json/v3.12.0/LICENSE.MIT",
+      "sha256": "46a65cffd1ea955132d95a8dd921640714a8d6b537d2e4e482d31145ae95b603"
+    }
+  },
+  "host": {
+    "repository": "GetLostIn/CTR-NitroFueled-PC",
+    "revision": "b1b4bf9647132822147e76aeec47390c6cb157bf",
+    "title_id": "CUSA13795",
+    "game_version": "01.21"
+  },
+  "components": {
+    "orbisteamworks": {
+      "version": "v0.0.1-preview.1",
+      "revision": "1f3c78003ae41db90aaa14f40569187f198f36ea",
+      "license": "MIT",
+      "url": "https://github.com/pierluigizagaria/orbisteamworks/releases/download/v0.0.1-preview.1/orbisteamworks-v0.0.1-preview.1-windows-x64.zip",
+      "sha256": "06b7f29dd302adad935e38c250d15b93295c2dcd74a5981b656635d279961a3c"
+    },
+    "demonware-server": {
+      "version": "v0.1.0-preview.1",
+      "revision": "473710716493c615e5ef764ba707c4fa184b75a3",
+      "license": "PolyForm-Shield-1.0.0",
+      "url": "https://github.com/pierluigizagaria/demonware-server/releases/download/v0.1.0-preview.1/demonware-server-v0.1.0-preview.1-windows-x64.zip",
+      "sha256": "2243e858a76269eb19a534216d2b601fdf95150dc4c1cf3d5ecc5624e091c7a9"
+    },
+    "signature-patch": {
+      "version": "v0.1.0",
+      "revision": "b4d6ac7ed0920473508a83d96d949fe5da99f2c9",
+      "license": "MIT",
+      "url": "https://github.com/pierluigizagaria/ctrnf-server-signature-patch/releases/download/v0.1.0/ctrnf-server-signature-patch-CUSA13795-01.21.zip",
+      "sha256": "467ea184f378d84e39655858cbabc893bc37c14166ec2f9186b3291b34a67166",
+      "xml_sha256": "45bc411737d01b0eb07b56d2c10d4bd412f2c787e0f7b5c3e44803f69b63e876",
+      "license_sha256": "3cf1810698eefdcbe91abc62af674ba762f3c5b2b5c5712bc078af3e899f780c"
+    }
+  },
+  "steam_runtime": {
+    "sdk_version": "1.65",
+    "sha256": "e6d9bafb9a41e42fba7b21553db49f8719027af3f0deb23ff86cfc44d60e776d",
+    "original_sdk_archive_sha256": "8c42792e09100988e31e3dc069de2eb1bc60702a0445bb37298ba0c54067c202",
+    "member": "steam_api64.dll",
+    "archive": {
+      "url": "https://github.com/pierluigizagaria/ctrnf-p2p/releases/download/v0.1.0-preview.1/ctrnf-p2p-mod-v0.1.0-preview.1-windows-x64.zip",
+      "sha256": "e873d487e48d265474c7969acdf747c73f771786a1d4d936f7c766d5679c2cc7"
+    }
+  }
+}
