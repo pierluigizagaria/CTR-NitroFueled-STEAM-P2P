@@ -42,6 +42,7 @@ int main() {
             rejects([&] { api_group(host); });
         require(api_group("session.np.community.playstation.net.evil") == "", "Suffix routing escaped");
         require(api_group("publisher.invalid") == "", "Publisher misrouted");
+        rejects([&] { parse_config("[network]\ngame_port=3098", root); });
         for (auto text : {
             "GET / HTTP/1.1\r\nHost: a\r\nHost: b\r\n\r\n",
             "GET / HTTP/1.1\r\nHost: a\r\nContent-Length: 2\r\nContent-Length: 3\r\n\r\n",

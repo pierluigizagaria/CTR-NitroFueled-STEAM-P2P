@@ -63,10 +63,10 @@ packets, bypass identity checks, or modify native source to make this gate pass.
 
 Two loopback-v1 players on one PC are at most a Lab carrier possibility: a third
 can require duplicate canonical binds. The unchanged native host has no
-per-instance source-bind/port setting. In the recorded Windows test, A bound
-wildcard3074 and B, after failing3074, selected wildcard3098 itself. Set
-network.game_port to the actual observed port for each process; this setting
-does not change the game bind. Start A before B for that measured arrangement
-and recheck ports after restart. Both reached the title screen, but same-PC
-proxy traffic, Join and races remain unqualified. One player per PC normally
-starts with3074; verify instead of assuming when another process owns that port.
+per-instance source-bind/port setting. The game chooses another port when3074
+is occupied; observed second-instance ports have differed across launches.
+The bridge now reads the exact owned native process's socket and registers
+that source through the public provider API. No manual port setting is accepted.
+NAT and room/peer operations remain gated until the publisher acknowledges it.
+This discovery never alters the game's bind or its canonical endpoint. Same-PC
+proxy traffic, Join and races remain separate acceptance checks.

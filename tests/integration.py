@@ -184,7 +184,6 @@ server = 127.0.0.2
 game_address = 127.0.0.1
 http_port = {self.http_port}
 auth_port = {self.auth_port}
-game_port = 3074
 """ + (f"""[lab]
 enabled = true
 account_id = 123456789
@@ -278,6 +277,8 @@ root = {json.dumps(str(self.root / 'lab'))}
         self.assertEqual(creates[1]["online_id"], "Fixture _!")
         self.assertTrue(creates[1]["companion"])
         self.assertEqual([e["value"] for e in self.events() if e["event"] == "appid"], [876543, 876543])
+        self.assertEqual(len([e for e in self.events() if e["event"] == "defer_endpoint"]), 1)
+        self.assertFalse(any(e["event"] == "bind_endpoint" for e in self.events()))
         self.assertFalse((self.root / "host.json").exists())
         self.assert_clean_shutdown()
 
@@ -289,6 +290,9 @@ root = {json.dumps(str(self.root / 'lab'))}
         self.assertIn("directory.members", [event["op"] for event in operations])
         self.assertIn("directory.search", [event["op"] for event in operations])
         self.assertEqual(operations[-1]["op"], "directory.leave")
+        events = self.events()
+        self.assertLess(next(i for i, e in enumerate(events) if e["event"] == "bind_endpoint"),
+                        next(i for i, e in enumerate(events) if e["event"] == "directory"))
         self.assertTrue(all(event["status"] == 0 for event in operations))
         self.assertFalse(self.events()[-2]["room_active"])
         self.assertFalse((self.root / "host.json").exists())
@@ -326,6 +330,43 @@ root = {json.dumps(str(self.root / 'lab'))}
         self.assertTrue(report["account_matches_fixture"])
         self.assertFalse(alive(report["pid"]))
         self.assert_clean_shutdown()
+
+    def test_owned_udp_endpoint_waits_for_socket_then_registers_exact_port(self):
+        result = self.invoke(mode="delayed")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        report = wait_json(self.root / "host.json")
+        self.assertTrue(report["endpoint_ready"])
+        binds = [e for e in self.events() if e["event"] == "bind_endpoint"]
+        self.assertEqual(binds, [{"event": "bind_endpoint", "address": "127.0.0.1", "port": report["udp_port"], "status": 0}])
+        self.assert_clean_shutdown()
+
+    def test_ambiguous_or_wrong_address_udp_endpoint_fails_closed(self):
+        for mode in ["ambiguous", "wrong-address"]:
+            with self.subTest(mode=mode):
+                result = self.invoke(mode=mode)
+                self.assertEqual(result.returncode, 1, result.stderr)
+                self.assertIn("UDP", result.stderr)
+                self.assertFalse(alive(wait_json(self.root / "host.json")["pid"]))
+                self.assert_clean_shutdown()
+
+    def test_rejected_endpoint_registration_stops_owned_host(self):
+        self.env["TEST_ENDPOINT_REJECT"] = "1"
+        result = self.invoke(mode="hold")
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertIn("endpoint registration", result.stderr)
+        self.assertFalse(alive(wait_json(self.root / "host.json")["pid"]))
+        self.assert_clean_shutdown()
+
+    def test_closed_or_changed_owned_udp_endpoint_stops_session(self):
+        for mode in ["closed", "changed"]:
+            with self.subTest(mode=mode):
+                result = self.invoke(mode=mode)
+                self.assertEqual(result.returncode, 1, result.stderr)
+                self.assertIn("UDP endpoint closed or changed", result.stderr)
+                report = wait_json(self.root / "host.json")
+                self.assertTrue(report["endpoint_ready"])
+                self.assertFalse(alive(report["pid"]))
+                self.assert_clean_shutdown()
 
     def test_economy_changes_only_local_state(self):
         snapshots = []
@@ -452,6 +493,8 @@ root = {json.dumps(str(self.root / 'lab'))}
         self.env["TEST_PROVIDER_DROP_READY"] = "1"
         result = self.invoke(mode="hold", timeout=10)
         self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Provider or publisher became unavailable", result.stderr)
+        self.assertEqual(len([e for e in self.events() if e["event"] == "bind_endpoint" and e["status"] == 0]), 1)
         host = wait_json(self.root / "host.json")
         child = wait_json(self.root / "descendant.json")
         pids = [host["pid"], child["pid"]]

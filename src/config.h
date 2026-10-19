@@ -15,7 +15,7 @@ struct Config {
     std::string title = "5760", build = "01.21", realm = "ctrnf-p2p";
     std::string server = "127.0.0.2", game_address = "127.0.0.1";
     uint32_t app_id = 480;
-    uint16_t http_port = 31380, auth_port = 8460, game_port = 3074;
+    uint16_t http_port = 31380, auth_port = 8460;
     uint64_t lab_account = 0;
     bool unlock_all = false, weak_admission = false, lab = false;
 };

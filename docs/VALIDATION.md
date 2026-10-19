@@ -111,3 +111,37 @@ The second native instance selected port 3104 on this launch, rather than its
 previous 3098. A fixed source-port configuration therefore cannot describe the
 unchanged host reliably. Endpoint registration must use the owned child's
 observed socket before NAT or peer advertisement; this is a separate correction.
+The human subsequently confirmed that Pit Stop also opens in Lab A (H).
+
+### Owned game endpoint registration
+
+The bridge now requires `osw_defer_game_endpoint` and submits a single
+`game.endpoint.bind` after observing its exact supervised child's IPv4 UDP
+socket. Missing, ambiguous, closed or changed sources cannot remain authorized.
+The publisher acknowledges the source before NAT discovery or peer operations
+are enabled. The manual `network.game_port` key is removed, without a fallback.
+The directory diagnostic holds its own reserved loopback UDP socket instead.
+
+Windows: 52 contract assertions and 16 integration methods pass. Additional
+standalone platform fixtures verify that an unrelated parent socket is excluded,
+wildcard/specific loopback ports are observed, ambiguous/wrong-address sources
+are refused, and diagnostic sockets are released. The bridge executable SHA-256
+is `71df3ee49fb9e62d017b035a30570533ba6ec5d561703018880b6065d9c468fd`.
+The final actual-component HTTP fixture passes SDK-authority friends, signed
+admission, foreign/malformed refusal, owned endpoint registration, separate
+economies and teardown with these independent components:
+
+- Provider `6d074ee2a071509efd5474c5612f5920e3f3c6e4`, DLL SHA-256
+  `ba5b969044b29c7430b03b7e82c98d0015dc48c34371fd3ba2c365697348131d`;
+  49/49 component tests pass.
+- Publisher `27123aa8070fa0fc8a29e92558eace233a85d459`, executable SHA-256
+  `2e1f12d3678683047a9e872448d4a00099493e62a8d2c2ca0a7f291015a90be0`;
+  full Go suite, vet and targeted race tests pass.
+- Optional two-publisher actual-DLL fixtures pass with AppIDs480 and482,
+  pending NAT silence, exact acknowledgement, rebind refusal, preserved
+  CommonAddr, bidirectional canonical UDP and peer departure.
+
+These remain fixture results (I). No native source edits were made. Linux and
+macOS code was reviewed against OS APIs but was neither compiled nor exercised
+on those systems. Join, public matchmaking and race results still require the
+human-operated B3 test; B4 in-game checks remain separate.

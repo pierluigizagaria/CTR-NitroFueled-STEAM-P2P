@@ -68,14 +68,37 @@ int main(int argc, char** argv) {
             return group.empty() ? proxy_request(request, c.server, c.auth_port) : provider.webapi(request, group);
         });
         if (probe_only) { std::cout << "Provider, publisher and HTTP listener probe passed; no game acceptance implied.\n"; return 0; }
-        if (directory_only) { check_directory(provider); std::cout << "Directory create/read/search/leave passed; no game or peer transport acceptance implied.\n"; return 0; }
+        if (directory_only) {
+            DiagnosticDatagram endpoint;
+            provider.bind_game_endpoint(c.game_address, endpoint.port());
+            check_directory(provider);
+            std::cout << "Directory create/read/search/leave passed; no game or peer transport acceptance implied.\n"; return 0;
+        }
         Process host(c.executable, native_arguments(c), c.executable.parent_path(), native_environment(c, id.account_id), c.state / "host.log");
         std::cout << "Native host launched with no session cutoff.\n";
         auto next_check = std::chrono::steady_clock::now();
+        std::optional<uint16_t> endpoint_bound;
         while (!interrupted) {
             if (auto code = host.exit_code()) { std::cout << "Native host exited with code " << *code << ".\n"; return *code == 0 ? 0 : 3; }
+            if (!endpoint_bound) {
+                if (auto port = host.udp_source_port()) {
+                    provider.bind_game_endpoint(c.game_address, *port);
+                    endpoint_bound = *port;
+                    std::cout << "Owned game UDP endpoint registered on port " << *port << ".\n";
+                }
+            }
             if (std::chrono::steady_clock::now() >= next_check) {
                 if (!provider.healthy()) throw std::runtime_error("Provider or publisher became unavailable; supervised session stopped");
+                if (endpoint_bound) {
+                    auto current = host.udp_source_port();
+                    if (!current || *current != *endpoint_bound) {
+                        if (auto code = host.exit_code()) {
+                            std::cout << "Native host exited with code " << *code << ".\n";
+                            return *code == 0 ? 0 : 3;
+                        }
+                        throw std::runtime_error("Owned game UDP endpoint closed or changed; restart the supervised session");
+                    }
+                }
                 next_check = std::chrono::steady_clock::now() + std::chrono::seconds(1);
             }
             std::this_thread::sleep_for(std::chrono::milliseconds(100));

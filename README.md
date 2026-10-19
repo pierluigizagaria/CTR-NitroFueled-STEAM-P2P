@@ -115,13 +115,22 @@ Paths and environment values passed to this native host must be printable ASCII.
 | network.http_port | `31380`; native HTTP front, must not collide with publisher listeners |
 | network.auth_port | `8460`; publisher's plain HTTP auth listener |
 | network.game_address | `127.0.0.1`; measured Windows source of the unchanged wildcard game socket |
-| network.game_port | `3074`; expected observed game source port. This does **not** change the native bind. Other values require actual game evidence |
 | lab.enabled | `false`; explicitly simulated local backend for fixtures/Lab only, never a Steam fallback |
 | lab.account_id | `0`; nonzero synthetic ID required when Lab is enabled |
 | lab.root | Empty; shared private Lab hub directory required when Lab is enabled |
 
 Lab also requires an explicit player.online_id. With Lab disabled, account_id/root
 must remain empty/default. Lab results are not Steam transport acceptance.
+
+The bridge discovers the IPv4 UDP socket of the exact native child it owns.
+It accepts only one distinct port bound to wildcard or `127.0.0.1`; an unrelated
+process cannot supply it. There is no configured game source port. The provider
+starts with `osw_defer_game_endpoint` and requires the publisher's
+`game.endpoint.v1` capability. NAT responses and room/peer advertisement remain
+blocked until `game.endpoint.bind` receives the publisher's correlated
+acknowledgement. A closed, changed or ambiguous source fails closed. Socket discovery
+has no menu-idle timeout. `--directory-check` instead reserves a diagnostic
+loopback UDP socket for its own lifetime; it never claims game acceptance.
 
 ## Identity, persistence and security boundary
 

@@ -28,10 +28,10 @@ struct Result {
 
 struct osw_context {
     osw_config_v2 config{};
-    bool started = false, loopback = false;
+    bool started = false, loopback = false, endpoint_pending = false;
     uint32_t app_id = 480;
     uint64_t next_request = 1;
-    unsigned readiness_reads = 0;
+    unsigned bound_readiness_reads = 0;
     bool room_active = false;
     unsigned directory_searches = 0;
     std::map<uint64_t, Result> results;
@@ -61,6 +61,10 @@ TEST_EXPORT int32_t osw_enable_loopback_endpoints(osw_context* c) {
     c->loopback = true; record({{"event", "loopback"}}); return OSW_OK;
 }
 TEST_EXPORT int32_t osw_enable_virtual_endpoints(osw_context*) { return OSW_NOT_SUPPORTED; }
+TEST_EXPORT int32_t osw_defer_game_endpoint(osw_context* c) {
+    if (!c || c->started || !c->loopback || !c->config.companion_path[0]) return OSW_INVALID_ARGUMENT;
+    c->endpoint_pending = true; record({{"event", "defer_endpoint"}}); return OSW_OK;
+}
 TEST_EXPORT int32_t osw_get_local_endpoint(osw_context*, osw_endpoint*) { return OSW_NOT_SUPPORTED; }
 TEST_EXPORT int32_t osw_route_endpoint(osw_context*, uint32_t, const osw_endpoint*, osw_endpoint*) { return OSW_NOT_SUPPORTED; }
 TEST_EXPORT int32_t osw_start(osw_context* c) {
@@ -92,12 +96,23 @@ TEST_EXPORT int32_t osw_submit(osw_context* c, const osw_request* request, uint6
     if (!metadata.is_object()) return OSW_INVALID_ARGUMENT;
     Result value;
     if (request->operation == OSW_P2P && metadata.value("op", "") == "status") {
-        // Initial readiness and the first post-launch check succeed. The next
-        // check fails while identity deliberately remains signed in.
-        bool ready = !std::getenv("TEST_PROVIDER_DROP_READY") || c->readiness_reads < 2;
-        ++c->readiness_reads;
-        value.metadata = Json({{"ready", ready}}).dump();
+        // Registration confirmation and one subsequent health poll succeed.
+        // Fail a later health poll with identity deliberately still signed in.
+        bool ready = !std::getenv("TEST_PROVIDER_DROP_READY") || c->endpoint_pending || c->bound_readiness_reads < 2;
+        if (!c->endpoint_pending) ++c->bound_readiness_reads;
+        value.metadata = Json({{"ready", ready}, {"game_endpoint_pending", c->endpoint_pending}}).dump();
+    } else if (request->operation == OSW_P2P && metadata.value("op", "") == "game.endpoint.bind") {
+        if (!c->endpoint_pending || metadata.value("address", "") != "127.0.0.1" ||
+            !metadata.contains("port") || !metadata["port"].is_number_unsigned() ||
+            metadata["port"].get<uint64_t>() == 0 || metadata["port"].get<uint64_t>() > 65535)
+            value.status = OSW_INVALID_ARGUMENT;
+        else if (std::getenv("TEST_ENDPOINT_REJECT")) value.status = OSW_UNAVAILABLE;
+        else c->endpoint_pending = false;
+        record({{"event", "bind_endpoint"}, {"address", metadata.value("address", "")},
+                {"port", metadata.value("port", 0)}, {"status", value.status}});
+        value.metadata = "{}";
     } else if (request->operation == OSW_P2P && metadata.value("op", "").starts_with("directory.")) {
+        if (c->endpoint_pending) return OSW_UNAVAILABLE;
         // Only the documented OSW_P2P directory protocol is simulated here.
         const auto operation = metadata.value("op", "");
         const auto configured_failure = std::getenv("TEST_DIRECTORY_FAILURE");
@@ -126,6 +141,9 @@ TEST_EXPORT int32_t osw_submit(osw_context* c, const osw_request* request, uint6
         } else value.status = OSW_NOT_SUPPORTED;
         if (value.status != OSW_OK) value.metadata = R"({"error":"fixture_directory_failure"})";
         record({{"event", "directory"}, {"op", operation}, {"status", value.status}});
+    } else if (request->operation == OSW_WEBAPI && metadata.value("path", "") == "/fixture-ready") {
+        value.http_status = c->endpoint_pending ? 503 : 204;
+        value.metadata = R"({"content_type":"application/json"})";
     } else if (request->operation == OSW_WEBAPI && metadata.value("path", "").starts_with("/fixture")) {
         std::vector<uint8_t> bytes;
         if (request->body_size) bytes.assign(request->body, request->body + request->body_size);

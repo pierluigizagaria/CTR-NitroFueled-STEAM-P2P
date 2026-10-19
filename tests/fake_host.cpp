@@ -5,6 +5,7 @@
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <memory>
 #include <stdexcept>
 #include <string>
 #include <thread>
@@ -113,9 +114,44 @@ int main(int argc, char** argv) {
         save(root / "host.json", report);
         auto mode = env("TEST_HOST_MODE");
         if (mode == "early") return 7;
-        if (mode == "hold") {
+        if (mode == "delayed") std::this_thread::sleep_for(std::chrono::milliseconds(300));
+        Connection udp(SOCK_DGRAM);
+        auto local = address(mode == "wrong-address" ? "127.0.0.2" : "127.0.0.1", 0);
+        require(bind(udp.value, reinterpret_cast<sockaddr*>(&local), sizeof(local)) == 0, "UDP bind");
+#ifdef _WIN32
+        int local_size = sizeof(local);
+#else
+        socklen_t local_size = sizeof(local);
+#endif
+        require(getsockname(udp.value, reinterpret_cast<sockaddr*>(&local), &local_size) == 0, "UDP bound endpoint");
+        report["udp_port"] = ntohs(local.sin_port);
+        std::unique_ptr<Connection> extra;
+        if (mode == "ambiguous") {
+            extra = std::make_unique<Connection>(SOCK_DGRAM);
+            auto other = address("127.0.0.1", 0);
+            require(bind(extra->value, reinterpret_cast<sockaddr*>(&other), sizeof(other)) == 0, "Second UDP bind");
+        }
+        save(root / "host.json", report);
+        if (mode == "hold" || mode == "ambiguous" || mode == "wrong-address") {
             auto child = descendant(argv[0]); report["child_pid"] = child;
             save(root / "host.json", report);
+            std::this_thread::sleep_for(std::chrono::seconds(45)); return 0;
+        }
+        auto ready_end = std::chrono::steady_clock::now() + std::chrono::seconds(8);
+        for (;;) {
+            if (request("sdk:userProfile.np.community.playstation.net", "/fixture-ready", "").status == 204) break;
+            require(std::chrono::steady_clock::now() < ready_end, "Endpoint readiness deadline");
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        }
+        if (mode == "delayed") { report["endpoint_ready"] = true; save(root / "host.json", report); return 0; }
+        if (mode == "closed" || mode == "changed") {
+            if (mode == "changed") {
+                extra = std::make_unique<Connection>(SOCK_DGRAM);
+                auto other = address("127.0.0.1", 0);
+                require(bind(extra->value, reinterpret_cast<sockaddr*>(&other), sizeof(other)) == 0, "Changed UDP bind");
+            }
+            close_socket(udp.value); udp.value = invalid_socket;
+            report["endpoint_ready"] = true; save(root / "host.json", report);
             std::this_thread::sleep_for(std::chrono::seconds(45)); return 0;
         }
         const std::string payload("fixture\0binary", 14);
@@ -137,9 +173,6 @@ int main(int argc, char** argv) {
         require(echo["body_bytes"] == Json(std::vector<uint8_t>(payload.begin(), payload.end())), "Publisher binary body");
         auto unsupported = request("userProfile.np.community.playstation.net", "/unsupported", "");
         require(unsupported.status == 503, "Unsupported provider operation is explicit");
-        Connection udp(SOCK_DGRAM);
-        auto local = address("127.0.0.1", 0);
-        require(bind(udp.value, reinterpret_cast<sockaddr*>(&local), sizeof(local)) == 0, "UDP bind");
         auto target = address("127.0.0.1", std::stoul(env("TEST_UDP_PORT")));
         require(sendto(udp.value, payload.data(), static_cast<int>(payload.size()), 0,
                        reinterpret_cast<sockaddr*>(&target), sizeof(target)) == static_cast<int>(payload.size()), "UDP send");

@@ -20,6 +20,7 @@ public:
     Reply request(uint32_t operation, const nlohmann::json& metadata, const std::string& body = {}, uint32_t timeout = 25000);
     HttpResponse webapi(const HttpRequest& request, const std::string& group);
     void wait_ready();
+    void bind_game_endpoint(const std::string& address, uint16_t port);
     bool healthy();
 private:
     DynamicLibrary library_;
@@ -36,6 +37,7 @@ private:
     decltype(&osw_release) release_;
     decltype(&osw_poll_event) poll_;
     int32_t (*loopback_)(osw_context*);
+    int32_t (*defer_endpoint_)(osw_context*);
     int32_t (*appid_)(osw_context*, uint32_t);
     int32_t (*persona_)(osw_context*, char*, size_t, size_t*);
 };

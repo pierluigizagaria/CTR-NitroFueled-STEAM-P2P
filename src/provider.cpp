@@ -21,12 +21,16 @@ Provider::Provider(const Config& c, bool companion) : library_(c.provider_librar
     RESOLVE(result_, "osw_get_result"); RESOLVE(cancel_, "osw_cancel"); RESOLVE(release_, "osw_release");
     RESOLVE(poll_, "osw_poll_event"); RESOLVE(loopback_, "osw_enable_loopback_endpoints");
     RESOLVE(appid_, "osw_set_app_id"); RESOLVE(persona_, "osw_get_persona_name");
+    RESOLVE(defer_endpoint_, "osw_defer_game_endpoint");
 #undef RESOLVE
     // All symbols used by this current contract are resolved before startup.
     osw_config_v2 config{}; config.base.size = sizeof(config); config.base.abi_version = OSW_ABI_VERSION_2;
     copy(config.base.library_path, path_text(c.steam_library)); copy(config.base.online_id, c.online_id);
     copy(config.base.title, c.title); copy(config.base.build, c.build); copy(config.base.realm, c.realm);
-    config.backend = c.lab ? 1 : 0; config.game_port = c.game_port; config.lab_account_id = c.lab_account;
+    config.backend = c.lab ? 1 : 0; config.lab_account_id = c.lab_account;
+    // ABI v2 requires a nonzero initial port. Deferred mode suppresses this
+    // placeholder; only a subsequently confirmed owned socket becomes active.
+    config.game_port = 3074;
     copy(config.game_bind, c.game_address); copy(config.lab_root, path_text(c.lab_root));
     if (companion) {
         copy(config.companion_path, path_text(c.publisher)); copy(config.companion_working_dir, path_text(c.data));
@@ -52,7 +56,12 @@ Provider::Provider(const Config& c, bool companion) : library_(c.provider_librar
         copy(config.companion_environment, env.dump());
     }
     check(create_(&config, &context_), "Provider creation");
-    try { check(appid_(context_, c.app_id), "AppID configuration"); check(loopback_(context_), "Loopback endpoint configuration"); check(start_(context_), "Provider start"); }
+    try {
+        check(appid_(context_, c.app_id), "AppID configuration");
+        check(loopback_(context_), "Loopback endpoint configuration");
+        if (companion) check(defer_endpoint_(context_), "Deferred game endpoint configuration");
+        check(start_(context_), "Provider start");
+    }
     catch (...) { destroy_(context_); context_ = nullptr; throw; }
 }
 Provider::~Provider() {
@@ -130,6 +139,14 @@ void Provider::wait_ready() {
         std::this_thread::sleep_for(std::chrono::milliseconds(50));
     }
     throw std::runtime_error("Publisher did not acknowledge loopback readiness");
+}
+void Provider::bind_game_endpoint(const std::string& address, uint16_t port) {
+    auto reply = request(OSW_P2P, {{"op", "game.endpoint.bind"}, {"address", address}, {"port", port}});
+    check(reply.status, "Owned game endpoint registration");
+    auto state = request(OSW_P2P, {{"op", "status"}}, {}, 2000);
+    if (state.status != OSW_OK || !state.metadata.is_object() ||
+        !state.metadata.value("ready", false) || state.metadata.value("game_endpoint_pending", true))
+        throw std::runtime_error("Provider did not confirm the owned game endpoint");
 }
 bool Provider::healthy() {
     auto id = identity(); if (!id.signed_in) return false;

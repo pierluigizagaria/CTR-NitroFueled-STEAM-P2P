@@ -10,7 +10,7 @@ add_library(bridge_core src/config.cpp src/http.cpp src/platform.cpp src/provide
 target_include_directories(bridge_core PUBLIC src ${OSW_INCLUDE_DIR} ${JSON_INCLUDE_DIR})
 target_link_libraries(bridge_core PUBLIC Threads::Threads ${CMAKE_DL_LIBS})
 if(WIN32)
-  target_link_libraries(bridge_core PUBLIC ws2_32)
+  target_link_libraries(bridge_core PUBLIC ws2_32 iphlpapi)
   target_compile_definitions(bridge_core PUBLIC WIN32_LEAN_AND_MEAN NOMINMAX)
 endif()
 if(MSVC)

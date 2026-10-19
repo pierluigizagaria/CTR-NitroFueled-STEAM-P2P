@@ -85,7 +85,7 @@ Config parse_config(std::string_view text, const fs::path& root) {
         {"game", {"host", "profile", "executable", "game_dir", "prepared_dir", "patches_dir", "profile_dir", "runtime_dir", "config", "normal_saves", "unlock_all_saves"}},
         {"publisher", {"executable", "signing_key", "weak_admission", "runtime_dir"}},
         {"session", {"title", "build", "realm"}},
-        {"network", {"server", "http_port", "auth_port", "game_address", "game_port"}},
+        {"network", {"server", "http_port", "auth_port", "game_address"}},
         {"lab", {"enabled", "account_id", "root"}}
     };
     std::map<std::string, std::string> values;
@@ -161,7 +161,6 @@ Config parse_config(std::string_view text, const fs::path& root) {
     if (c.game_address != "127.0.0.1") throw std::runtime_error("The upstream native wildcard socket is observed as network.game_address=127.0.0.1");
     c.http_port = static_cast<uint16_t>(number(get("network.http_port", "31380"), 1, 65535, "network.http_port"));
     c.auth_port = static_cast<uint16_t>(number(get("network.auth_port", "8460"), 1, 65535, "network.auth_port"));
-    c.game_port = static_cast<uint16_t>(number(get("network.game_port", "3074"), 1, 65535, "network.game_port"));
     if (c.http_port == c.auth_port || (c.http_port >= 3074 && c.http_port <= 3080) || c.http_port == 8093)
         throw std::runtime_error("HTTP front port conflicts with publisher listeners");
     if ((c.auth_port >= 3074 && c.auth_port <= 3080) || c.auth_port == 8093)
