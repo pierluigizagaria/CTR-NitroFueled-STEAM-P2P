@@ -86,12 +86,13 @@ int main() {
             "GET http://external/ HTTP/1.1\r\nHost: a\r\n\r\n", "GET / HTTP/1.1\r\n\r\n",
             "GET / HTTP/1.1\r\nHost: a\r\n folded: bad\r\n\r\n"}) rejects([&] { parse_request_head(text); });
 
-        // Online identity only; native settings pass through, stale online values never do.
+        // Online identity and application association; native settings pass through.
         auto named = c; named.online_id = "Alice";
         std::map<std::string, std::string> inherited = {
             {"PATH", "fixture-path"}, {"BB_DATA_DIR", "native-data"}, {"BB_NEO", "1"},
             {"BB_ONLINE_SERVER", "203.0.113.9"}, {"BB_ONLINE_ALLOW", "203.0.113.9"}, {"CTR_UNLOCK_ALL", "1"},
-            {"OSW_STALE", "x"}, {"STEAMAPPID", "1"}};
+            {"OSW_STALE", "x"}, {"STEAMAPPID", "1"}, {"STEAMGAMEID", "2"},
+            {"SteamAppId", "3"}, {"SteamGameId", "4"}};
 #ifdef _WIN32
         inherited["bb_user_name"] = "stale"; inherited["bb_online_id"] = "stale";
 #endif
@@ -102,8 +103,17 @@ int main() {
                 env.at(environment_key("BB_ONLINE_ALLOW")) == "127.0.0.1", "Online routing wrong");
         require(env.at(environment_key("BB_DATA_DIR")) == "native-data" && env.at(environment_key("BB_NEO")) == "1" &&
                 env.at(environment_key("PATH")) == "fixture-path", "Native settings were not passed through");
-        require(!env.contains(environment_key("CTR_UNLOCK_ALL")) && !env.contains(environment_key("OSW_STALE")) &&
-                !env.contains(environment_key("STEAMAPPID")), "Private inheritance leaked");
+        require(!env.contains(environment_key("CTR_UNLOCK_ALL")) && !env.contains(environment_key("OSW_STALE")),
+                "Private inheritance leaked");
+        require(env.at(environment_key("SteamAppId")) == "480" && env.at(environment_key("SteamGameId")) == "480",
+                "Native renderer lost the default Steam application association");
+        auto custom_app = named; custom_app.app_id = 12345;
+        auto custom_env = native_environment(custom_app, 42, inherited);
+        require(custom_env.at(environment_key("SteamAppId")) == "12345" && custom_env.at(environment_key("SteamGameId")) == "12345",
+                "Native Steam association differs from the configured provider AppID");
+        auto lab_env = native_environment(lab, 42, inherited);
+        for (auto key : {"SteamAppId", "SteamGameId", "STEAMAPPID", "STEAMGAMEID"})
+            require(!lab_env.contains(environment_key(key)), "Simulated Lab inherited a Steam application association");
         for (auto name : {"BB_USER_DIR", "BB_GAME_DIR", "BB_CONFIG", "BB_FPS", "BB_TIMEOUT", "BB_PATCHES_DIR", "BB_GAME_PROFILE"})
             require(!env.contains(environment_key(name)), "Bridge set a native path or preference");
         size_t names = 0;

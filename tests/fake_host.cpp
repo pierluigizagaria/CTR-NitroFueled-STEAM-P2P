@@ -146,7 +146,8 @@ int launcher(const std::filesystem::path& root, const char* exe, int argc, char*
     for (int i = 1; i < argc; ++i) report["arguments"].push_back(argv[i]);
     for (auto [field, name] : std::initializer_list<std::pair<const char*, const char*>>{{"online_server", "BB_ONLINE_SERVER"}, {"http_port", "BB_ONLINE_HTTP_PORT"},
                                {"online_id", "BB_ONLINE_ID"}, {"user_name", "BB_USER_NAME"}, {"allow", "BB_ONLINE_ALLOW"},
-                               {"native_fixture", "BB_NATIVE_FIXTURE"}})
+                               {"native_fixture", "BB_NATIVE_FIXTURE"},
+                               {"steam_app_id", "SteamAppId"}, {"steam_game_id", "SteamGameId"}})
         report[field] = env(name);
     report["account_matches_fixture"] = env("BB_ONLINE_ACCOUNT_ID") == "123456789";
     report["private_inheritance_removed"] = env("BB_ONLINE_STALE_FIXTURE").empty() && env("CTR_STALE_FIXTURE").empty() &&
@@ -174,7 +175,7 @@ int game(const std::filesystem::path& root, const char* exe) {
 #ifdef _WIN32
     WSADATA data{}; require(WSAStartup(MAKEWORD(2,2), &data) == 0, "Winsock startup");
 #endif
-    Json report{{"pid", process_id()}};
+    Json report{{"pid", process_id()}, {"steam_app_id", env("SteamAppId")}, {"steam_game_id", env("SteamGameId")}};
     if (env("TEST_RESTARTED") == "1") {
         auto udp = bound_udp("127.0.0.1", std::stoul(env("TEST_RESTART_PORT")), report, "udp_port");
         save(root / "restarted.json", report);

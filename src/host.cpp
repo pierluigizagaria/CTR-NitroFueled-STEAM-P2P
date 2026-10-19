@@ -147,7 +147,8 @@ bool bridge_owned(const std::string& key) {
     // Keys are already environment_key()-normalized for this OS.
     for (std::string_view prefix : {"OSW_", "CTR_", "NEXTENDO_", "SHADNET_", "D3_", "DASH_", "BB_ONLINE_"})
         if (key.starts_with(prefix)) return true;
-    return key == "BB_USER_NAME" || key == "STEAMAPPID" || key == "STEAMGAMEID";
+    return key == "BB_USER_NAME" || key == "STEAMAPPID" || key == "STEAMGAMEID" ||
+           key == "SteamAppId" || key == "SteamGameId";
 }
 }
 fs::path native_launcher(const Config& c) {
@@ -178,6 +179,13 @@ std::map<std::string, std::string> native_environment(const Config& c, uint64_t 
     for (const auto& [name, value] : mapped) {
         if (!ascii_printable(value)) throw std::runtime_error("Native mapped environment must be ASCII");
         env[environment_key(name)] = value;
+    }
+    // Steam initializes in the bridge, but its overlay attaches to the separate
+    // native renderer. Give that process the same configured application identity;
+    // never inherit an unrelated app/shortcut ID or associate simulated Lab runs.
+    if (!c.lab && c.provider == "steam") {
+        env[environment_key("SteamAppId")] = std::to_string(c.app_id);
+        env[environment_key("SteamGameId")] = std::to_string(c.app_id);
     }
     return env;
 }

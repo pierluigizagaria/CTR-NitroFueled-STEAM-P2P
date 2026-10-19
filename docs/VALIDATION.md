@@ -1,5 +1,29 @@
 # Validation record
 
+## 2026-10-19, native renderer Steam application association
+
+The human reported that Shift+Tab showed only Friends after double-clicking the
+bridge. Existing local Steam logs identify the native renderer with GameID and
+OverlayGameID 0, while tracking the bridge under the configured AppID 480. The
+overlay UI repeatedly reported that its base panel did not know the game ID.
+The configuration cleanup removed Steam application variables from the native
+launch environment and took its inherited snapshot before provider startup.
+No bridge path explicitly requested the Friends overlay.
+
+The native launch environment now replaces inherited `SteamAppId` and
+`SteamGameId` with `steam.app_id` for Steam sessions. Simulated Lab sessions
+receive neither. No native source, provider API, overlay injection, client
+setting or rendering code changed. Windows release validation passed 136
+contract checks and 21 independent integration methods. The new fixture verifies
+the configured non-default AppID in both launcher and game descendant and its
+absence in Lab mode, including conflicting inherited values.
+
+The environment defect is fixed; complete overlay rendering remains a hypothesis
+to verify manually. No actual game, native launcher or Steam session was started
+by this investigation. Existing traces and fixture behavior are not live overlay
+acceptance. The manual comparison should check the full toolbar/browser and the
+renderer log's GameID/OverlayGameID, using the same double-click launch path.
+
 ## 2026-10-19, XML prerequisite correction and Windows desktop entry point
 
 The signature prerequisite now uses the statically linked, vendored Expat 2.9.0

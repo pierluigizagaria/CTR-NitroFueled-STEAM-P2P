@@ -459,6 +459,20 @@ online_id = {json.dumps(name)}
         self.assert_tree_stopped()
         self.assert_clean_shutdown()
 
+    def test_native_process_tree_receives_configured_steam_association(self):
+        self.env.update(steamappid="111", STEAMGAMEID="222")
+        for lab in (False, True):
+            with self.subTest(lab=lab):
+                result = self.invoke(self.config(lab=lab))
+                self.assertEqual(result.returncode, 3, result.stderr)
+                expected = "" if lab else "876543"
+                for name in ("launcher.json", "host.json"):
+                    report = wait_json(self.root / name)
+                    self.assertEqual(report["steam_app_id"], expected)
+                    self.assertEqual(report["steam_game_id"], expected)
+                self.assertFalse(any(alive(pid) for pid in self.supervised_pids()))
+                self.assert_clean_shutdown()
+
     def test_apply_and_restart_ends_session_without_survivors(self):
         result = self.invoke(mode="restart", launcher="restart", timeout=20)
         self.assertEqual(result.returncode, 0, result.stderr)

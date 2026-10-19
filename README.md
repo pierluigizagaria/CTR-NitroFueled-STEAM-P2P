@@ -199,6 +199,14 @@ launch script lets these environment values win over `bbport.ini`; the explicit
 loopback allow list keeps `bbport.ini` `online_allow` from widening the game's
 reachable addresses. The native launcher may still show its own online fields.
 
+For Steam sessions the bridge also sets `SteamAppId` and `SteamGameId` to the
+configured `steam.app_id` for the launcher and its descendants. Steam initializes
+in the bridge, while its overlay attaches to the separate native renderer; both
+processes need the same application association. Inherited app/shortcut IDs are
+still discarded, and simulated Lab sessions receive neither variable. This does
+not inject an overlay DLL, call Steam from the native host or guarantee complete
+overlay rendering; that requires a manual game check.
+
 Before an ordinary launch (and in `--check`) the bridge reads, without writing, the
 patch selection the native launch script will use: `BB_PATCHES_CONFIG`, else
 `patches.json` in `BB_DATA_DIR` (else the port root), and `BB_PATCHES_DIR`, else
