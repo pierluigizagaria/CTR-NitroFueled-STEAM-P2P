@@ -163,13 +163,17 @@ also reported that A does not list B and B's Pit Stop does not work:
   The original A game had issued one earlier friend-list GET and received an
   empty list before B was present; B's one GET returned the other player.
   Pinned native HTTP is a pass-through, but its push registration is a stub.
-  A new guest GET is needed to update that snapshot. Reopening Online or a
-  controlled restart is the next check; no provider/bridge code defect was
-  demonstrated by these observations.
+  A new guest GET is needed to update that snapshot. A was subsequently closed
+  normally and restarted while B remained present. The native host then received
+  the populated250-byte HTTP200 response instead of the earlier53-byte empty
+  response. UI visibility still needs human confirmation; no provider/bridge
+  code defect was demonstrated by these observations.
 - B is the intended unlock-all profile. Its publisher replies with801 inventory
   items (request capacity856) and three currencies, without marketplace errors.
-  The UI symptom still needs clarification before classifying it as expected
-  full ownership or a game-facing failure.
+  The human clarified that Pit Stop opens but is empty or indicates everything
+  purchased (H). Together with the inventory response, this is consistent with
+  expected full ownership in unlock-all mode. It does not demonstrate an economy
+  failure and needs no database reset or publisher change.
 
 The final bridge/provider/publisher also passed live single-account Steam480
 `--directory-check` with a reserved diagnostic UDP socket and the deferred
