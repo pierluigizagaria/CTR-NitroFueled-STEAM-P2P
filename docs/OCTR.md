@@ -29,8 +29,12 @@ the OCTR adapter does not initialize a second Steam client context.
 
 The OCTR route uses the existing companion capability for admission. It disables
 the fabricated-token admission needed by the unmodified native host. RyuNET
-nickname claims, tunnels and synthetic friend lists are disabled only when
-OCTR explicitly selects this external backend; ordinary OCTR startup is unchanged.
+nickname claims and synthetic friend lists are disabled when OCTR selects an
+external PSN backend. Transport is configured separately: the bridge sets
+`BB_ONLINE=1`, `BB_ONLINE_TUNNEL=0` and `BB_NET_PRESERVE_ENDPOINTS=1` so its route
+uses the guest's endpoints without OCTR port remapping or UPnP-body rewriting.
+Selecting a PSN backend alone does not change OCTR's socket policy; ordinary
+OCTR startup is unchanged.
 
 The scope is live presence invalidations and delivery of invitations accepted
 through Steam while the supervised session is running. This does not implement

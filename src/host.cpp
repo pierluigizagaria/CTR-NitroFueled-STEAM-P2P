@@ -188,7 +188,8 @@ bool bridge_owned(const std::string& key) {
     // Keys are already environment_key()-normalized for this OS.
     for (std::string_view prefix : {"OSW_", "CTR_", "NEXTENDO_", "SHADNET_", "D3_", "DASH_", "BB_ONLINE_", "BB_PSN_"})
         if (key.starts_with(prefix)) return true;
-    return key == "BB_USER_NAME" || key == "STEAMAPPID" || key == "STEAMGAMEID" ||
+    return key == "BB_USER_NAME" || key == "BB_NET_PRESERVE_ENDPOINTS" ||
+           key == "STEAMAPPID" || key == "STEAMGAMEID" ||
            key == "SteamAppId" || key == "SteamGameId";
 }
 }
@@ -227,6 +228,7 @@ std::map<std::string, std::string> native_environment(const Config& c, uint64_t 
             throw std::runtime_error("OCTR requires a private PSN bridge capability");
         env[environment_key("BB_ONLINE")] = "1";
         env[environment_key("BB_ONLINE_TUNNEL")] = "0";
+        env[environment_key("BB_NET_PRESERVE_ENDPOINTS")] = "1";
         env[environment_key("BB_PSN_BACKEND")] = path_text(c.root / "psn-bridge-backend.dll");
         env[environment_key("BB_PSN_BACKEND_CONFIG")] = nlohmann::json({
             {"url", "http://" + c.address + ":" + std::to_string(c.http_port)},

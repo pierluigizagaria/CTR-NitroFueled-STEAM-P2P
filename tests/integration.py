@@ -264,6 +264,8 @@ online_id = {json.dumps(name)}
         with self.running_bridge(self.config().replace("host = native", "host = octr")):
             launch = wait_json(self.root / "launcher.json")
             self.assertEqual(launch["online_enabled"], "1")
+            self.assertEqual(launch["online_tunnel"], "0")
+            self.assertEqual(launch["preserve_endpoints"], "1")
             self.assertEqual(Path(launch["psn_backend"]), self.root / "psn-bridge-backend.dll")
             config = json.loads(launch["psn_config"])
             self.assertEqual(config["url"], f"http://{ADDRESS}:{self.http_port}")

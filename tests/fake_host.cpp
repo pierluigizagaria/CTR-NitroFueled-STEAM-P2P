@@ -155,6 +155,8 @@ int launcher(const std::filesystem::path& root, const char* exe, int argc, char*
     report["psn_backend"] = env("BB_PSN_BACKEND");
     report["psn_config"] = env("BB_PSN_BACKEND_CONFIG");
     report["online_enabled"] = env("BB_ONLINE");
+    report["online_tunnel"] = env("BB_ONLINE_TUNNEL");
+    report["preserve_endpoints"] = env("BB_NET_PRESERVE_ENDPOINTS");
     report["private_inheritance_removed"] = env("BB_ONLINE_STALE_FIXTURE").empty() && env("CTR_STALE_FIXTURE").empty() &&
                                             env("OSW_STALE_FIXTURE").empty();
     bool native_set = false;

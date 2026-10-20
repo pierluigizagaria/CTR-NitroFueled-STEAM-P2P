@@ -114,9 +114,12 @@ int main() {
         rejects([&] { native_environment(octr, 42, inherited); });
         inherited["BB_PSN_BACKEND"] = "stale-adapter";
         inherited["BB_PSN_BACKEND_CONFIG"] = "stale-capability";
+        inherited["BB_NET_PRESERVE_ENDPOINTS"] = "0";
         require(!native_environment(named, 42, inherited).contains(environment_key("BB_PSN_BACKEND")), "Native host inherited external backend");
+        require(!native_environment(named, 42, inherited).contains(environment_key("BB_NET_PRESERVE_ENDPOINTS")), "Native host inherited OCTR transport policy");
         auto octr_env = native_environment(octr, 42, inherited, std::string(64, 'a'));
         require(octr_env.at(environment_key("BB_ONLINE")) == "1" && octr_env.at(environment_key("BB_ONLINE_TUNNEL")) == "0", "OCTR local route not selected");
+        require(octr_env.at(environment_key("BB_NET_PRESERVE_ENDPOINTS")) == "1", "OCTR endpoint preservation not selected");
         require(octr_env.at(environment_key("BB_PSN_BACKEND")) == path_text(root / "psn-bridge-backend.dll"), "OCTR adapter path wrong");
         require(octr_env.at(environment_key("BB_PSN_BACKEND_CONFIG")).find("stale-capability") == std::string::npos, "OCTR reused stale capability");
         auto custom_env = native_environment(custom_app, 42, inherited);
