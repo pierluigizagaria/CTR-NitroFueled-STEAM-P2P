@@ -52,8 +52,50 @@ def asset_record(path):
     return {'name': path.name, 'sha256': digest.hexdigest(), 'size': path.stat().st_size}
 
 
+def validate_components(files, components, plan, release_lock):
+    expected_names = set(release_lock['components']) | {'ctrnf-p2p', 'steamworks-runtime'}
+    if (set(components) != expected_names
+            or components['ctrnf-p2p'] != {'revision': plan['candidate_revision'], 'license': 'MIT'}):
+        raise ValueError('Mod component identity differs from the tested plan')
+    for name, expected in release_lock['components'].items():
+        actual = components[name]
+        for field in ('revision', 'license'):
+            if actual.get(field) != expected[field]:
+                raise ValueError('Component differs from release-lock.json: ' + name)
+        if name != 'signature-patch' and actual.get('version') != expected['version']:
+            raise ValueError('Component version differs from release-lock.json: ' + name)
+    steam = release_lock['steam_runtime']
+    if (sha256(files['steam_api64.dll']) != steam['sha256']
+            or components['steamworks-runtime']['sha256'] != steam['sha256']
+            or components['steamworks-runtime'].get('sdk_version') != steam['sdk_version']):
+        raise ValueError('Steam runtime differs from the permitted locked DLL')
+
+
+def validate_standalone_mod(directory, plan, release_lock):
+    name = f"ctrnf-p2p-mod-{plan['version']}-windows-x64-{plan['candidate_revision'][:12]}.zip"
+    path = Path(directory) / name
+    if sorted(Path(directory).glob('ctrnf-p2p-mod-*.zip')) != [path]:
+        raise ValueError('Exactly the tested standalone mod archive is required')
+    files = read_zip(path)
+    manifest = verify_manifest(files, 'ctrnf-p2p-manifest.json')
+    if (manifest.get('component') != 'ctrnf-p2p-mod' or manifest.get('platform') != 'windows-x64'
+            or manifest.get('version') != plan['version'] or manifest.get('host') != release_lock['host']
+            or manifest.get('build', {}).get('source_dirty') is not False
+            or set(files) != set(manifest['files']) | {'ctrnf-p2p-manifest.json', 'ctrnf-p2p-SHA256SUMS.txt'}
+            or json.loads(files['ctrnf-p2p-release-lock.json']) != release_lock
+            or json.loads(files['ctrnf-p2p-build-info.json']) != manifest['build']):
+        raise ValueError('Standalone mod identity, clean build or complete payload differs from the tested plan')
+    validate_components(files, manifest['components'], plan, release_lock)
+    checksum = path.with_suffix('.zip.sha256')
+    digest = asset_record(path)['sha256']
+    if checksum.read_text(encoding='utf-8').strip() != digest + '  ' + name:
+        raise ValueError('Standalone mod external archive checksum mismatch')
+    return files, manifest, digest, [path, checksum]
+
+
 def validate_assets(directory, plan, release_lock):
     """Bind every payload, source companion and pinned component to the trusted plan."""
+    standalone_files, standalone, mod_digest, mod_assets = validate_standalone_mod(directory, plan, release_lock)
     assets = validate_distributions(directory, plan['version'], plan['candidate_revision'])
     for binary in sorted(Path(directory).glob('*-windows-x64.zip')):
         files = read_zip(binary)
@@ -88,17 +130,16 @@ def validate_assets(directory, plan, release_lock):
         if (mod['components'] != manifest['components'] or mod['host'] != pin
                 or mod['version'] != plan['version'] or mod.get('build', {}).get('source_dirty') is not False):
             raise ValueError('Embedded mod identity differs from the tested plan')
-        for name, expected in release_lock['components'].items():
-            actual = manifest['components'][name]
-            for field in ('revision', 'license'):
-                if actual.get(field) != expected[field]:
-                    raise ValueError('Component differs from release-lock.json: ' + name)
-            if name != 'signature-patch' and actual.get('version') != expected['version']:
-                raise ValueError('Component version differs from release-lock.json: ' + name)
-        steam = release_lock['steam_runtime']
-        if (sha256(files['steam_api64.dll']) != steam['sha256']
-                or manifest['components']['steamworks-runtime']['sha256'] != steam['sha256']):
-            raise ValueError('Steam runtime differs from the permitted locked DLL')
+        if (manifest.get('input_archives', {}).get('mod') != mod_digest
+                or mod.get('assembly', {}).get('input_mod_sha256') != mod_digest
+                or mod['components'] != standalone['components'] or mod['build'] != standalone['build']
+                or set(mod['files']) != set(standalone['files'])):
+            raise ValueError('Complete distribution does not use the exact standalone mod build')
+        adapted_files = {'ctrnf-p2p.ini', 'CTR-P2P-README.md', 'ctrnf-p2p-docs/INSTALLATION.md'}
+        for name in set(standalone['files']) - adapted_files:
+            if files[name] != standalone_files[name]:
+                raise ValueError('Embedded mod payload differs from the standalone build: ' + name)
+        validate_components(files, manifest['components'], plan, release_lock)
         source_name = manifest['sources']['archive']
         if source_name != prefix + '-source.zip':
             raise ValueError('Source filename differs from the tested plan')
@@ -113,8 +154,9 @@ def validate_assets(directory, plan, release_lock):
                 or json.loads(source_files['build-recipes/release-lock.json']) != release_lock
                 or sha256(source_files['source-manifest.json']) != manifest['sources']['manifest_sha256']):
             raise ValueError('Corresponding source evidence differs from the tested plan')
-    if len({path.name for path in assets}) != 8:
-        raise ValueError('Exactly eight distinct channel/source/checksum assets are required')
+    assets.extend(mod_assets)
+    if len({path.name for path in assets}) != 10:
+        raise ValueError('Exactly ten distinct channel/source/standalone-mod/checksum assets are required')
     return sorted(assets, key=lambda path: (0 if '-source.zip' in path.name else 1, path.name))
 
 
@@ -288,7 +330,12 @@ def release_block(slug, plan, receipt_name):
         prefix = f"ctrnf-p2p-{channel}-{plan['version']}-{plan['candidate_revision'][:12]}"
         lines += [f"- {channel}: [Windows x64]({base}{prefix}-windows-x64.zip), "
                   f"[corresponding sources]({base}{prefix}-source.zip)."]
-    lines += ['', f'[Completion receipt and asset hashes]({base}{receipt_name}).', '',
+    mod_name = f"ctrnf-p2p-mod-{plan['version']}-windows-x64-{plan['candidate_revision'][:12]}.zip"
+    lines += [f'- [Standalone compiled mod for manual installation]({base}{mod_name}).', '',
+              'The standalone mod requires a compatible host and the matching installation guide. '
+              'The psn/octr modes require an adapter-enabled host and `psn-bridge-backend.dll`; '
+              'the complete channel packages include both.', '',
+              f'[Completion receipt and asset hashes]({base}{receipt_name}).', '',
               'Both channels passed offline build, adapter and package checks. '
               'Live multiplayer acceptance remains separate. Earlier preview assets remain available.', BLOCK_END]
     return '\n'.join(lines)

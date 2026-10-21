@@ -48,7 +48,25 @@ class AssetTests(unittest.TestCase):
             'orbisteamworks': {'revision': 'c' * 40, 'version': 'v0.0.1', 'license': 'MIT'},
             'demonware-server': {'revision': 'd' * 40, 'version': 'v0.1.0', 'license': 'Shield'},
             'signature-patch': {'revision': 'e' * 40, 'version': 'v0.1.0', 'license': 'MIT'}},
-            'steam_runtime': {'sha256': sha256(b'permitted runtime')}}
+            'host': {'repository': 'example/legacy-host', 'revision': '6' * 40},
+            'steam_runtime': {'sha256': sha256(b'permitted runtime'), 'sdk_version': '1.65'}}
+        components = copy.deepcopy(self.release_lock['components'])
+        components.update({'ctrnf-p2p': {'revision': self.plan['candidate_revision'], 'license': 'MIT'},
+                           'steamworks-runtime': {'sha256': sha256(b'permitted runtime'), 'sdk_version': '1.65'}})
+        self.standalone_files = {'ctrnf-p2p.exe': b'bridge', 'steam_api64.dll': b'permitted runtime',
+                                 'ctrnf-p2p.ini': b'[game]\nhost=native\n',
+                                 'ctrnf-p2p-release-lock.json': json_bytes(self.release_lock),
+                                 'ctrnf-p2p-build-info.json': json_bytes({'source_dirty': False})}
+        self.standalone_manifest = {'component': 'ctrnf-p2p-mod', 'platform': 'windows-x64',
+                                    'host': self.release_lock['host'], 'components': components,
+                                    'version': self.plan['version'], 'build': {'source_dirty': False},
+                                    'files': {name: sha256(data) for name, data in self.standalone_files.items()}}
+        self.standalone_files['ctrnf-p2p-manifest.json'] = json_bytes(self.standalone_manifest)
+        self.standalone_files['ctrnf-p2p-SHA256SUMS.txt'] = b'checksums'
+        mod_name = f"ctrnf-p2p-mod-{self.plan['version']}-windows-x64-{self.plan['candidate_revision'][:12]}.zip"
+        self.standalone_path = self.root / mod_name
+        archive(self.standalone_path, self.standalone_files)
+        mod_digest = sha256(self.standalone_path.read_bytes())
         self.sources, self.binaries = {}, {}
         for channel in publisher.CHANNELS:
             pin = self.plan['new_lock']['channels'][channel]
@@ -67,18 +85,15 @@ class AssetTests(unittest.TestCase):
                             'bin/bb-gpu-capabilities.exe': b'caps', 'psn-bridge-backend.dll': b'backend'}
             build = {'source_revision': pin['revision'], 'shared_psn_tree': pin['psn_tree'],
                      'clean_source': True, 'binaries': {name: sha256(data) for name, data in native_files.items()}}
-            components = copy.deepcopy(self.release_lock['components'])
-            components.update({'ctrnf-p2p': {'revision': self.plan['candidate_revision'], 'license': 'MIT'},
-                               'steamworks-runtime': {'sha256': sha256(b'permitted runtime')}})
-            files = native_files | {'steam_api64.dll': b'permitted runtime',
-                                    'p2p-host-build.json': json_bytes(build)}
-            mod = {'host': pin, 'components': components, 'version': self.plan['version'],
-                   'build': {'source_dirty': False}, 'files': {'steam_api64.dll': sha256(b'permitted runtime')}}
+            files = native_files | self.standalone_files | {'p2p-host-build.json': json_bytes(build)}
+            mod = copy.deepcopy(self.standalone_manifest)
+            mod.update(host=pin, assembly={'input_mod_sha256': mod_digest})
             files['ctrnf-p2p-manifest.json'] = json_bytes(mod)
             manifest = {'component': 'ctrnf-p2p-distribution', 'channel': channel, 'host': pin,
                         'version': self.plan['version'], 'platform': 'windows-x64', 'host_build': build,
                         'components': components, 'build': {'source_dirty': False}, 'redistribution_ready': True,
                         'unresolved_runtime_dependencies': [],
+                        'input_archives': {'mod': mod_digest},
                         'sources': {'archive': source_path.name, 'sha256': sha256(source_path.read_bytes()),
                                     'manifest_sha256': sha256(source_payload['source-manifest.json'])},
                         'files': {name: sha256(data) for name, data in files.items()}}
@@ -91,8 +106,10 @@ class AssetTests(unittest.TestCase):
 
     def test_validates_two_complete_channels_sources_first(self):
         assets = publisher.validate_assets(self.root, self.plan, self.release_lock)
-        self.assertEqual(len(assets), 8)
+        self.assertEqual(len(assets), 10)
         self.assertTrue(all('-source.zip' in asset.name for asset in assets[:4]))
+        self.assertIn(self.standalone_path, assets)
+        self.assertIn(self.standalone_path.with_suffix('.zip.sha256'), assets)
 
     def test_rejects_self_consistent_package_for_a_different_host_plan(self):
         plan = copy.deepcopy(self.plan)
@@ -107,10 +124,11 @@ class AssetTests(unittest.TestCase):
             publisher.validate_assets(self.root, self.plan, self.release_lock)
 
     def test_rejects_an_unreviewed_component_even_with_valid_package_hashes(self):
-        different_lock = copy.deepcopy(self.release_lock)
-        different_lock['components']['orbisteamworks']['revision'] = '0' * 40
+        self.standalone_manifest['components']['orbisteamworks']['revision'] = '0' * 40
+        self.standalone_files['ctrnf-p2p-manifest.json'] = json_bytes(self.standalone_manifest)
+        archive(self.standalone_path, self.standalone_files)
         with self.assertRaisesRegex(ValueError, 'Component differs'):
-            publisher.validate_assets(self.root, self.plan, different_lock)
+            publisher.validate_assets(self.root, self.plan, self.release_lock)
 
     def test_rejects_binary_receipt_not_bound_to_payload(self):
         path, files = self.binaries['channel-a']
@@ -119,6 +137,91 @@ class AssetTests(unittest.TestCase):
         files['p2p-distribution-manifest.json'] = json_bytes(manifest)
         archive(path, files)
         with self.assertRaisesRegex(ValueError, 'Host binary differs'):
+            publisher.validate_assets(self.root, self.plan, self.release_lock)
+
+    def rewrite_binary(self, channel):
+        path, files = self.binaries[channel]
+        manifest = json.loads(files['p2p-distribution-manifest.json'])
+        manifest['files'] = {name: sha256(data) for name, data in files.items()
+                             if name not in {'p2p-distribution-manifest.json', 'p2p-SHA256SUMS.txt'}}
+        files['p2p-distribution-manifest.json'] = json_bytes(manifest)
+        archive(path, files)
+
+    def test_missing_standalone_mod_stops_the_complete_release(self):
+        self.standalone_path.unlink()
+        with self.assertRaisesRegex(ValueError, 'standalone mod archive is required'):
+            publisher.validate_assets(self.root, self.plan, self.release_lock)
+
+    def test_standalone_mod_tampering_and_external_checksum_are_rejected(self):
+        archive(self.standalone_path, self.standalone_files | {'ctrnf-p2p.exe': b'tampered bridge'})
+        with self.assertRaisesRegex(ValueError, 'Manifest checksum mismatch'):
+            publisher.validate_assets(self.root, self.plan, self.release_lock)
+        archive(self.standalone_path, self.standalone_files)
+        self.standalone_path.with_suffix('.zip.sha256').write_text('0' * 64 + '  ' + self.standalone_path.name)
+        with self.assertRaisesRegex(ValueError, 'external archive checksum mismatch'):
+            publisher.validate_assets(self.root, self.plan, self.release_lock)
+
+    def test_standalone_mod_must_keep_its_locked_legacy_host_identity(self):
+        self.standalone_manifest['host'] = self.plan['new_lock']['channels']['channel-a']
+        self.standalone_files['ctrnf-p2p-manifest.json'] = json_bytes(self.standalone_manifest)
+        archive(self.standalone_path, self.standalone_files)
+        with self.assertRaisesRegex(ValueError, 'Standalone mod identity'):
+            publisher.validate_assets(self.root, self.plan, self.release_lock)
+
+    def test_standalone_mod_must_use_the_tested_clean_bridge_revision(self):
+        self.standalone_manifest['components']['ctrnf-p2p']['revision'] = '0' * 40
+        self.standalone_files['ctrnf-p2p-manifest.json'] = json_bytes(self.standalone_manifest)
+        archive(self.standalone_path, self.standalone_files)
+        with self.assertRaisesRegex(ValueError, 'Mod component identity'):
+            publisher.validate_assets(self.root, self.plan, self.release_lock)
+
+    def test_dirty_or_unmanifested_standalone_mod_is_rejected(self):
+        archive(self.standalone_path, self.standalone_files | {'extra.exe': b'unmanifested'})
+        with self.assertRaisesRegex(ValueError, 'Standalone mod identity'):
+            publisher.validate_assets(self.root, self.plan, self.release_lock)
+        self.standalone_manifest['build']['source_dirty'] = True
+        self.standalone_files['ctrnf-p2p-manifest.json'] = json_bytes(self.standalone_manifest)
+        archive(self.standalone_path, self.standalone_files)
+        with self.assertRaisesRegex(ValueError, 'Standalone mod identity'):
+            publisher.validate_assets(self.root, self.plan, self.release_lock)
+
+    def test_both_full_archive_and_embedded_mod_bind_the_exact_standalone_zip(self):
+        for channel in publisher.CHANNELS:
+            for target in ('outer', 'embedded'):
+                with self.subTest(channel=channel, target=target):
+                    _, files = self.binaries[channel]
+                    original = dict(files)
+                    if target == 'outer':
+                        manifest = json.loads(files['p2p-distribution-manifest.json'])
+                        manifest['input_archives']['mod'] = '0' * 64
+                        files['p2p-distribution-manifest.json'] = json_bytes(manifest)
+                    else:
+                        mod = json.loads(files['ctrnf-p2p-manifest.json'])
+                        mod['assembly']['input_mod_sha256'] = '0' * 64
+                        files['ctrnf-p2p-manifest.json'] = json_bytes(mod)
+                    self.rewrite_binary(channel)
+                    with self.assertRaisesRegex(ValueError, 'exact standalone mod build'):
+                        publisher.validate_assets(self.root, self.plan, self.release_lock)
+                    files.clear()
+                    files.update(original)
+                    self.rewrite_binary(channel)
+
+    def test_matching_hash_claims_cannot_substitute_a_different_compiled_mod(self):
+        self.standalone_files['ctrnf-p2p.exe'] = b'different compilation of the same source'
+        self.standalone_manifest['files']['ctrnf-p2p.exe'] = sha256(self.standalone_files['ctrnf-p2p.exe'])
+        self.standalone_files['ctrnf-p2p-manifest.json'] = json_bytes(self.standalone_manifest)
+        archive(self.standalone_path, self.standalone_files)
+        digest = sha256(self.standalone_path.read_bytes())
+        for channel in publisher.CHANNELS:
+            _, files = self.binaries[channel]
+            manifest = json.loads(files['p2p-distribution-manifest.json'])
+            manifest['input_archives']['mod'] = digest
+            files['p2p-distribution-manifest.json'] = json_bytes(manifest)
+            mod = json.loads(files['ctrnf-p2p-manifest.json'])
+            mod['assembly']['input_mod_sha256'] = digest
+            files['ctrnf-p2p-manifest.json'] = json_bytes(mod)
+            self.rewrite_binary(channel)
+        with self.assertRaisesRegex(ValueError, 'Embedded mod payload differs'):
             publisher.validate_assets(self.root, self.plan, self.release_lock)
 
 
@@ -357,6 +460,9 @@ class RemoteAssetTests(unittest.TestCase):
         self.assertTrue(updated.startswith('Original author notices.\n\n'))
         self.assertTrue(updated.endswith('\nHuman footer.'))
         self.assertEqual(updated.count(publisher.BLOCK_START), 1)
+        self.assertIn('Standalone compiled mod for manual installation', updated)
+        self.assertIn('requires a compatible host', updated)
+        self.assertIn('ctrnf-p2p-mod-v0.1.0-preview.1-windows-x64-' + 'b' * 12 + '.zip', updated)
 
 
 class WriteAccessTests(unittest.TestCase):

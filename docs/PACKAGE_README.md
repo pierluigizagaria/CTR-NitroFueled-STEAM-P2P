@@ -1,26 +1,44 @@
-# CTR:NF P2P mod for Windows x64
+# CTR-NitroFueled-STEAM-P2P: standalone Windows mod
 
-This experimental package adds Steam multiplayer to the native Crash Team Racing
-Nitro-Fueled port. It combines builds of ctrnf-p2p, orbiSteamworks and
+This experimental standalone mod adds Steam multiplayer to a compatible native
+Crash Team Racing Nitro-Fueled port. It combines builds of ctrnf-p2p, orbiSteamworks and
 Demonware Server, plus the CTR:NF Server Signature Patch and Valve's unmodified
-Steam API runtime. The native port and your game files are not included.
+Steam API runtime. This ZIP contains no native host, psn-bridge-backend.dll or
+its runtime dependencies. Your game files are not included.
 
-## Install
+For a complete host and mod installation, download a channel-a or channel-b
+package from [Releases](https://github.com/pierluigizagaria/CTR-NitroFueled-STEAM-P2P/releases)
+and follow its included guide. The executable and configuration filenames remain
+ctrnf-p2p for compatibility.
+
+## Install manually on the legacy host
 
 1. Set up the GetLostIn native port at online revision
    b1b4bf9647132822147e76aeec47390c6cb157bf with your own CUSA13795 01.21 game
    files, following the port's instructions.
 2. Close the port. Extract this ZIP into the folder containing
    CTR-NitroFueled-PC.exe. It replaces none of the port's settings or saves.
-3. The included ctrnf-p2p.ini is ready for Steam with AppID 480 and normal
-   progression (unlock_all = false). When updating, keep your existing INI
-   instead of overwriting it.
+3. The included ctrnf-p2p.ini selects host = native for this legacy build,
+   Steam AppID 480 and normal progression (unlock_all = false). When updating,
+   keep your existing INI instead of overwriting it.
 4. Start Steam and sign in.
 5. Double-click ctrnf-p2p.exe, then start the game from the native launcher.
    The first start enables the signature patch automatically.
 
 Always start the game through ctrnf-p2p.exe. Do not start demonware-server.exe
 yourself.
+
+## Install manually on an integrated host
+
+The psn and octr modes require the corresponding integrated GetLostIn or OCTR
+host, psn-bridge-backend.dll and all of that DLL's runtime dependencies. Supply
+those files separately or use the complete channel package. Place the backend
+beside CTR-NitroFueled-PC.exe, then select host = psn for channel-a or host = octr
+for channel-b in the INI's [game] section. Keep that mode when updating the mod.
+
+Stock upstream releases currently lack this backend interface. Changing the INI
+cannot add it. See the [PSN integration guide](https://github.com/pierluigizagaria/CTR-NitroFueled-STEAM-P2P/blob/main/docs/OCTR.md)
+for compatibility requirements and the proposed upstream interfaces.
 
 ## Play with a friend
 
@@ -41,7 +59,8 @@ Players using either setting can race together.
 ## Known limits
 
 - Experimental preview: play between different networks is not guaranteed.
-- Invitations are not delivered to the game; use friend Join or matchmaking.
+- With host = native, invitations are not delivered to the game; use friend Join
+  or matchmaking. The newer PSN integrations still need in-game validation.
 - The friend list may need a refresh or restart before a friend appears.
 - A room ends when the player who created it leaves.
 - Closing the game or launcher, Apply and restart, or switching Steam account
@@ -53,7 +72,8 @@ Run these from a terminal in the port folder; neither starts the game:
 
 - ctrnf-p2p-cli.exe --check checks files and settings without changing them.
   Before the first normal start it reports that the patch is not enabled yet.
-- ctrnf-p2p-cli.exe --probe also starts Steam and the local server briefly.
+- ctrnf-p2p-cli.exe --probe also starts the provider and local server briefly;
+  Steam must already be running and signed in.
 
 Logs are under ctrnf-p2p/ and demonware-server/logs/. They can contain account
 details, so do not post them unedited. ctrnf-p2p-docs/INSTALLATION.md covers
@@ -61,7 +81,7 @@ updating, uninstalling and common problems.
 
 ## Source and licenses
 
-- [ctrnf-p2p](https://github.com/pierluigizagaria/ctrnf-p2p): MIT.
+- [CTR-NitroFueled-STEAM-P2P](https://github.com/pierluigizagaria/CTR-NitroFueled-STEAM-P2P): MIT bridge.
 - [orbiSteamworks](https://github.com/pierluigizagaria/orbisteamworks): MIT.
 - [Demonware Server](https://github.com/pierluigizagaria/demonware-server):
   PolyForm Shield 1.0.0. Required Notice: Copyright 2026 Nextendo Network.

@@ -174,7 +174,7 @@ def export(args):
         'original executable modes and symlinks (120000) for restoration on Unix.\n'
         'Dependency source/notice coverage is recorded separately; consult redistribution_ready.\n'
     ).encode()
-    recipe = {'repository': 'https://github.com/pierluigizagaria/ctrnf-p2p',
+    recipe = {'repository': 'https://github.com/pierluigizagaria/CTR-NitroFueled-STEAM-P2P',
               'revision': git(ROOT, 'rev-parse', 'HEAD'),
               'source_dirty': bool(git(ROOT, 'status', '--porcelain'))}
     manifest = {'schema_version': 1, 'component': 'ctrnf-p2p-host-source', 'channel': args.channel,

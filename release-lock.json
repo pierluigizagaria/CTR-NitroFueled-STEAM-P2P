@@ -49,7 +49,7 @@
     "original_sdk_archive_sha256": "8c42792e09100988e31e3dc069de2eb1bc60702a0445bb37298ba0c54067c202",
     "member": "steam_api64.dll",
     "archive": {
-      "url": "https://github.com/pierluigizagaria/ctrnf-p2p/releases/download/v0.1.0-preview.1/ctrnf-p2p-mod-v0.1.0-preview.1-windows-x64.zip",
+      "url": "https://github.com/pierluigizagaria/CTR-NitroFueled-STEAM-P2P/releases/download/v0.1.0-preview.1/ctrnf-p2p-mod-v0.1.0-preview.1-windows-x64.zip",
       "sha256": "e873d487e48d265474c7969acdf747c73f771786a1d4d936f7c766d5679c2cc7"
     }
   }

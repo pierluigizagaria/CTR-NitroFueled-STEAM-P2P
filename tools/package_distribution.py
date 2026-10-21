@@ -11,7 +11,7 @@ from release_support import version, write_zip
 
 
 def player_guide(channel, tag, pin, source_name):
-    return f'''# CTR:NF P2P complete preview — {channel}
+    return f'''# CTR-NitroFueled-STEAM-P2P — {channel} complete preview
 
 This package includes the rebuilt native host, its PSN adapter, the independent
 Steam P2P bridge, provider and local publisher server. Game and firmware files

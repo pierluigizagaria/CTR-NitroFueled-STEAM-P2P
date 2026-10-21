@@ -20,13 +20,13 @@ std::string utf8(const wchar_t* value) {
 }
 
 void show_failure(const std::string& reason) {
-    const std::string message = "CTR:NF P2P stopped.\n\n" + reason +
+    const std::string message = "CTR-NitroFueled-STEAM-P2P stopped.\n\n" + reason +
         "\n\nSession log: ctrnf-p2p\\bridge.log beside the application.";
     const int count = MultiByteToWideChar(CP_UTF8, 0, message.c_str(), -1, nullptr, 0);
     std::wstring wide(static_cast<size_t>(count), L'\0');
     if (count) MultiByteToWideChar(CP_UTF8, 0, message.c_str(), -1, wide.data(), count);
-    MessageBoxW(nullptr, count ? wide.c_str() : L"CTR:NF P2P could not start.",
-                L"CTR:NF P2P", MB_OK | MB_ICONERROR | MB_SETFOREGROUND);
+    MessageBoxW(nullptr, count ? wide.c_str() : L"CTR-NitroFueled-STEAM-P2P could not start.",
+                L"CTR-NitroFueled-STEAM-P2P", MB_OK | MB_ICONERROR | MB_SETFOREGROUND);
 }
 
 class LogStreams {
@@ -48,7 +48,7 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
         std::filesystem::create_directories(state);
         std::ofstream log(state / "bridge.log", std::ios::app);
         if (!log) throw std::runtime_error("Cannot open the private session log");
-        log << "\nStarting CTR:NF P2P desktop session.\n";
+        log << "\nStarting CTR-NitroFueled-STEAM-P2P desktop session.\n";
         LogStreams streams(log);
         int count = 0;
         auto args = CommandLineToArgvW(GetCommandLineW(), &count);

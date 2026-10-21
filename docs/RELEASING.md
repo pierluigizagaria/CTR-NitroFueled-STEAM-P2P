@@ -238,9 +238,17 @@ The final job validates both archives against the external plan, uploads sources
 before binaries, atomically advances the two host branches with explicit leases,
 and advances bridge `main` with a lease. Old and new host revisions receive
 immutable source tags. Existing release tags and assets are never replaced.
-A completion receipt lists the exact inputs, revisions and eight asset hashes;
+A completion receipt lists the exact inputs, revisions and ten asset hashes;
 the release notes link the latest completed build. Independent provider/server
 pins and compiler/dependency pins remain reviewed inputs, not floating updates.
+
+Each automatic publication also keeps the compiled standalone mod ZIP and its
+checksum. It is the exact input used by both complete channel packages, validated
+against their assembly receipts and component pins. Its default configuration
+targets the supported legacy native host; manual PSN/OCTR installation requires
+a compatible host with the PSN adapter and backend dependencies described in
+`OCTR.md`. An unmodified current upstream binary does not gain that interface
+by copying the mod files alone.
 
 Only the publisher has `contents: write` and the Actions secret
 `P2P_HOST_DEPLOY_KEY`. That dedicated write deploy key belongs only to the host
