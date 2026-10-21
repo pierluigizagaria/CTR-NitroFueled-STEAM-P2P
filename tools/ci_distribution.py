@@ -55,8 +55,17 @@ def main():
     if package is None:
         if source_dirty:
             raise ValueError('Start host build from a clean checkout with initialized submodules')
-        env = os.environ | {'BB_P2P_DISTRIBUTION': 'ON', 'MSYS2_ROOT': str(args.msys_root.resolve())}
-        run('bash', 'build.sh', '--test', cwd=host, env=env)
+        msys = args.msys_root.resolve()
+        compiler_bin = msys / 'clang64/bin'
+        # Native Python can resolve System32/bash.exe (WSL), even from an MSYS
+        # workflow shell. Select the reviewed installation explicitly.
+        bash = msys / 'usr/bin/bash.exe'
+        cmake = compiler_bin / 'cmake.exe'
+        ctest = compiler_bin / 'ctest.exe'
+        env = os.environ | {'BB_P2P_DISTRIBUTION': 'ON', 'MSYS2_ROOT': str(msys),
+                            'MSYSTEM': 'CLANG64',
+                            'PATH': os.pathsep.join((str(compiler_bin), str(msys / 'usr/bin'), os.environ['PATH']))}
+        run(bash, 'build.sh', '--test', cwd=host, env=env)
         # Test the local-shader preservation change; the upstream broad suite has
         # separately documented unrelated baseline failures on Windows.
         if (host / 'tests/test_ultrawide_local_shaders.py').exists():
@@ -65,12 +74,13 @@ def main():
         release_lock = json.loads((ROOT / 'release-lock.json').read_text())
         from release_support import download
         header = download(release_lock['json']['header'], deps / 'json/include/nlohmann/json.hpp')
-        run('cmake', '-S', host / 'platform/psn', '-B', backend.parent, '-G', 'Ninja',
+        run(cmake, '-S', host / 'platform/psn', '-B', backend.parent, '-G', 'Ninja',
             '-DCMAKE_BUILD_TYPE=Release', '-DPSN_BRIDGE_BACKEND=ON', '-DPSN_HOST_TESTS=ON',
-            '-DCMAKE_C_COMPILER=clang', '-DCMAKE_CXX_COMPILER=clang++',
+            '-DCMAKE_C_COMPILER=' + str(compiler_bin / 'clang.exe'),
+            '-DCMAKE_CXX_COMPILER=' + str(compiler_bin / 'clang++.exe'),
             '-DPSN_JSON_INCLUDE_DIR=' + str(header.parent.parent), env=env)
-        run('cmake', '--build', backend.parent, '--parallel', '2', env=env)
-        run('ctest', '--test-dir', backend.parent, '--output-on-failure', '--timeout', '60', env=env)
+        run(cmake, '--build', backend.parent, '--parallel', '2', env=env)
+        run(ctest, '--test-dir', backend.parent, '--output-on-failure', '--timeout', '60', env=env)
         portable_dir = deps / 'portable'
         run(sys.executable, host / 'packaging/windows/make_portable.py', '--version', args.version,
             '--dist', portable_dir, cwd=host, env=env)
