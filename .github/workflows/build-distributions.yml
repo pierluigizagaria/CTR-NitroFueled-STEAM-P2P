@@ -1,0 +1,140 @@
+name: Prepare complete P2P distributions
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Existing preview version (asset filenames also contain the source revision)
+        required: true
+        default: v0.1.0-preview.1
+      create_draft:
+        description: Create a new draft prerelease after both channels pass; never replace an existing release
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: full-p2p-${{ github.ref }}-${{ inputs.version }}
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - id: plan
+        run: echo "matrix=$(python3 tools/ci_distribution.py --matrix)" >> "$GITHUB_OUTPUT"
+      - run: python3 -m unittest discover -s tests -p 'test_release*.py' -v
+
+  mod:
+    needs: plan
+    runs-on: windows-2022
+    timeout-minutes: 35
+    env:
+      PYTHONUTF8: '1'
+      RELEASE_VERSION: ${{ inputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.11.9'
+      - run: python -m pip install cmake==3.31.10
+      - run: python tools/ci_build.py --package --revision-asset --version $env:RELEASE_VERSION
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: complete-distribution-mod-input
+          path: dist/ctrnf-p2p-mod-*.zip
+          if-no-files-found: error
+          retention-days: 14
+
+  host:
+    needs: [plan, mod]
+    runs-on: windows-2022
+    timeout-minutes: 100
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    env:
+      PYTHONUTF8: '1'
+      RELEASE_VERSION: ${{ inputs.version }}
+      RELEASE_CHANNEL: ${{ matrix.channel }}
+    steps:
+      - run: git config --global core.autocrlf false
+      - run: git config --global core.longpaths true
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: ${{ matrix.repository }}
+          ref: ${{ matrix.revision }}
+          path: out/host
+          fetch-depth: 0
+          submodules: recursive
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.11.9'
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: complete-distribution-mod-input
+          path: out/mod-input
+      - uses: msys2/setup-msys2@ec48f7c5447b3140e2b088413ae3a55687bccb6e # v2
+        id: msys
+        with:
+          msystem: CLANG64
+          release: false
+          update: false
+          path-type: inherit
+      - name: Install reviewed compiler and library archives
+        env:
+          MSYS2_ROOT: ${{ steps.msys.outputs.msys2-location }}
+        run: python tools/lock_msys2.py install --msys-root $env:MSYS2_ROOT --lock tools/msys2-packages.json
+      - name: Build host, test contracts, export sources and assemble
+        shell: msys2 {0}
+        env:
+          MSYS2_ROOT: ${{ steps.msys.outputs.msys2-location }}
+        run: |
+          python tools/ci_distribution.py --channel "$RELEASE_CHANNEL" \
+            --version "$RELEASE_VERSION" --host-source out/host \
+            --msys-root "$MSYS2_ROOT" --mod-package out/mod-input/*.zip \
+            --require-redistribution-ready
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: complete-${{ matrix.channel }}
+          path: |
+            dist/ctrnf-p2p-${{ matrix.channel }}-*.zip
+            dist/ctrnf-p2p-${{ matrix.channel }}-*.zip.sha256
+          if-no-files-found: error
+          retention-days: 14
+
+  draft:
+    if: ${{ inputs.create_draft }}
+    needs: host
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          pattern: complete-channel-*
+          merge-multiple: true
+          path: dist
+      - name: Validate both channels and create draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: python3 tools/draft_distributions.py --version "$RELEASE_VERSION" --revision "$GITHUB_SHA" --dist dist

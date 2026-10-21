@@ -1,0 +1,37 @@
+name: Check upstream host releases
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 6 * * *'
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Compare official release tags with reviewed pins
+        run: |
+          mkdir -p out/upstream-check
+          python3 tools/prepare_upstream_update.py --lock distribution-lock.json --channel channel-a --check-latest > out/upstream-check/channel-a.json
+          python3 tools/prepare_upstream_update.py --lock distribution-lock.json --channel channel-b --check-latest > out/upstream-check/channel-b.json
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8') as summary:
+              for path in sorted(Path('out/upstream-check').glob('*.json')):
+                  item = json.loads(path.read_text())
+                  summary.write(f"- {item['channel']}: {item['status']} — {item['upstream_tag']} ({item['upstream_revision']})\n")
+              summary.write('\nChanged releases need a candidate replay, build/tests and reviewed lock update before distribution.\n')
+          PY
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: upstream-release-check
+          path: out/upstream-check/*.json
+          retention-days: 14

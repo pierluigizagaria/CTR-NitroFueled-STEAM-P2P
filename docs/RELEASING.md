@@ -131,4 +131,113 @@ To update a component, publish its independent tested package, update its URL,
 archive hash, source revision and version in the lock, and open a PR. Merging an
 updated lock does not release the mod automatically. Run the manual workflow to
 prepare the selected combination. Never substitute `latest` or a branch URL.
-The native host and original game are compatibility requirements, not build inputs.
+For this mod-only workflow, the native host and original game are compatibility
+requirements. The complete distribution workflow below also builds the host.
+
+## Complete P2P distributions
+
+`distribution-lock.json` pins two independent integration branches,
+`p2p/channel-a` and `p2p/channel-b`, in the contribution repository. Neutral channel
+names do not remove the upstream identity: each lock and package records the
+original repository, release tag, upstream commit, integration commit and shared
+PSN module tree. Both branches must expose the same reviewed PSN contract tree.
+
+Run **Prepare complete P2P distributions** with the existing preview version.
+Each channel is rebuilt from its exact commit and recursively initialized
+submodules. The bridge/provider/server keep their independent builds and public
+interfaces. The host uses its own MSYS2 build and portable packager; the optional
+PSN backend is built and tested independently before assembly. Stock updater
+replacement is disabled in the integration build.
+
+The complete workflow installs the compiler/library archives pinned by URL and
+SHA-256 in `tools/msys2-packages.json`. It uses the runner's existing MSYS base and
+records source/build evidence; runner images and system tools remain external
+inputs, so this is not a claim of bit-identical builds. It never follows a floating
+host branch or downloads a `latest` release during a build. The embedded Python
+and iced-x86 archives remain pinned by the host's committed portable recipe.
+
+The Windows package contains the host, backend and its DLL closure, mod, default
+configuration and per-component notices. `p2p-distribution-manifest.json` binds
+every payload hash to the selected channel and source companion. A separate
+`host-build-manifest.json` input binds the launcher, runtime, capabilities helper
+and backend hashes to the actual clean build receipt; the assembler rejects stale
+or mismatched binaries. Sources and binaries have channel-specific filenames and
+the bridge source suffix, preserving existing preview assets and versions.
+
+The companion `*-source.zip` contains the exact host Git tree, recursively pinned
+submodule trees, original licenses, tracked patch recipes, the distribution build
+scripts and the pinned JSON header. The host build applies its recorded FSR
+patches to the original submodule source. Neither modified working-tree files nor
+installed profiles are copied. Original Git file modes are recorded in its
+manifest; ZIP stores symbolic-link targets as text for explicit restoration when
+building on Unix. This workflow qualifies only Windows builds.
+
+`tools/msys2-source-lock.json` pins corresponding-source archives for bundled
+copyleft DLLs and directly compiled host dependencies, including their MSYS2
+recipes and patches. It also pins complete license texts, extracted from the
+installed packages or source archives. Those texts accompany both binary and
+source packages. Missing source evidence, an unknown runtime DLL, changed hashes
+or a dirty build recipe make a package ineligible for release. The host's original
+GPL-2.0-or-later notice remains; the build linked to GPLv3 FFmpeg is distributed
+under GPLv3 or later. Independent MIT, PolyForm Shield and Valve components retain
+their own licenses.
+
+Known optional upstream game artwork and original cached HUD shader blobs are
+omitted, with hashes and reasons recorded. Licensed fonts/backgrounds and AMD FSR
+shaders remain. The integration obtains original HUD shaders from the player's
+own game cache when needed. No game dumps, saves, databases or installed settings
+are accepted as packaging input. When a portable archive supplies `bbport.ini`,
+its bytes must match the committed portable defaults exactly; current channels
+ship `bbport.default.ini` instead. Players preserve their existing settings when
+updating.
+
+Use explicit local build inputs without rebuilding the host:
+
+```text
+python tools/ci_distribution.py --channel channel-a --version v0.1.0-preview.1 --host-source /path/to/pinned-host --msys-root /path/to/msys64 --host-package /path/to/host-portable.zip --host-build-manifest /path/to/host-build-manifest.json --backend-dir /path/to/backend-dlls --mod-package /path/to/verified-mod.zip --require-redistribution-ready
+```
+
+Commit the reviewed recipes and locks before producing releasable source archives.
+For a local source/assembly inspection before that commit, omit the final flag;
+the manifest reports incomplete release readiness rather than claiming a clean
+recipe. Outputs are never overwritten. `--ninja` and `--revision-asset` on
+`tools/ci_build.py` support an initialized local MSVC environment and additive
+mod assets without changing the preview version.
+
+With `create_draft` selected, both channels and their matching source companions
+must pass validation before the workflow creates a draft prerelease. Existing
+tags/releases are never replaced by that helper. Additive publication to the
+existing first preview is a separate explicit maintainer action after reviewing
+the exact assets. Ordinary workflow runs produce downloadable CI artifacts only.
+Offline tests are separate from live Steam and multi-PC game acceptance.
+
+To refresh the toolchain or dependency evidence, use `tools/lock_msys2.py capture`
+and `tools/msys2_source_evidence.py capture` against a reviewed local toolchain
+and the clean host/backend DLL directories. Review the resulting JSON changes,
+including new source URLs, package versions and hashes, before committing them.
+`materialize` and ordinary CI consume only those checked-in pins.
+
+## Following upstream releases
+
+**Check upstream host releases** compares official GitHub release tags and their
+exact commit IDs with the lock daily and on manual dispatch. This read-only job
+publishes a JSON report; it does not promote moving upstream code into a release.
+For a changed release, prepare an isolated candidate from the checked-out host:
+
+```text
+python tools/prepare_upstream_update.py --lock distribution-lock.json --channel channel-a --host-source /path/to/host-checkout --upstream-tag <new-tag> --upstream-revision <full-commit>
+```
+
+The helper verifies the official tag, creates a new candidate branch/worktree,
+then replays the integration commits. Commits already adopted upstream are
+dropped. A conflict stops the replay and preserves the candidate for resolution;
+the existing channel and lock remain intact. The result includes the commands
+needed to continue or abort and the checks required before promoting the candidate.
+
+After reviewing and testing the candidate, update the channel's integration and
+upstream pins, preserve the common PSN contract and refresh dependency evidence
+when the runtime closure changes. Run the complete distribution workflow for
+that reviewed combination. The bridge repository's ordinary GitHub token cannot
+push another repository: no cross-repository credential or automatic host-branch
+write is configured by these workflows. Candidate preparation and complete builds
+are automated; promotion to the maintained host branches is an explicit step.

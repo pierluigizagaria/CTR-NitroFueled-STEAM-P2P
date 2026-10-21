@@ -1,0 +1,1757 @@
+{
+  "license_files": {
+    "mingw-w64-clang-x86_64-aom/aom/LICENSE": {
+      "installed_path": "clang64/share/licenses/aom/LICENSE",
+      "sha256": "4764a286d8b2faeaf42f4418e7d7a28d58fc8fd4d00a3d0a7f44b0a4099de7f2"
+    },
+    "mingw-w64-clang-x86_64-aom/aom/PATENTS": {
+      "installed_path": "clang64/share/licenses/aom/PATENTS",
+      "sha256": "661fb8e504744e95587b556b94a58343448300606a41bea8c7a9b97125696e61"
+    },
+    "mingw-w64-clang-x86_64-boost/boost/LICENSE": {
+      "installed_path": "clang64/share/licenses/boost/LICENSE",
+      "sha256": "c9bff75738922193e67fa726fa225535870d2aa1059f91452c411736284ad566"
+    },
+    "mingw-w64-clang-x86_64-brotli/brotli/LICENSE": {
+      "installed_path": "clang64/share/licenses/brotli/LICENSE",
+      "sha256": "3d180008e36922a4e8daec11c34c7af264fed5962d07924aea928c38e8663c94"
+    },
+    "mingw-w64-clang-x86_64-bzip2/bzip2/LICENSE": {
+      "installed_path": "clang64/share/licenses/bzip2/LICENSE",
+      "sha256": "c6dbbf828498be844a89eaa3b84adbab3199e342eb5cb2ed2f0d4ba7ec0f38a3"
+    },
+    "mingw-w64-clang-x86_64-cairo/cairo/COPYING": {
+      "installed_path": "clang64/share/licenses/cairo/COPYING",
+      "sha256": "67228a9f7c5f9b67c58f556f1be178f62da4d9e2e6285318d8c74d567255abdf"
+    },
+    "mingw-w64-clang-x86_64-cairo/cairo/COPYING-LGPL-2.1": {
+      "installed_path": "clang64/share/licenses/cairo/COPYING-LGPL-2.1",
+      "sha256": "9e9e8608c4cdda51a78cc3a385f4ec9a2e4c96d5ecad74ac8bca5fca3e563b7d"
+    },
+    "mingw-w64-clang-x86_64-cairo/cairo/COPYING-MPL-1.1": {
+      "installed_path": "clang64/share/licenses/cairo/COPYING-MPL-1.1",
+      "sha256": "53692a2ed6c6a2c6ec9b32dd0b820dfae91e0a1fcdf625ca9ed0bdf8705fcc4f"
+    },
+    "mingw-w64-clang-x86_64-curl/curl/LICENSE": {
+      "installed_path": "clang64/share/licenses/curl/LICENSE",
+      "sha256": "82f2f4427d6545ee5aaac4f0b80428da6cc8ba41c2cf5da3a03680ec327b9681"
+    },
+    "mingw-w64-clang-x86_64-dav1d/dav1d/COPYING": {
+      "installed_path": "clang64/share/licenses/dav1d/COPYING",
+      "sha256": "dd92c3c2247c5651606fc23a5e2d6a1ebc5ace9a3e49cbde0e12f05ad1cb1ee5"
+    },
+    "mingw-w64-clang-x86_64-dav1d/dav1d/PATENTS": {
+      "installed_path": "clang64/share/licenses/dav1d/PATENTS",
+      "sha256": "335eca574598bf4ca181b12f708d6669e5a5e78c8e1513e5b35fa1f03901484b"
+    },
+    "mingw-w64-clang-x86_64-expat/expat/COPYING": {
+      "installed_path": "clang64/share/licenses/expat/COPYING",
+      "sha256": "31b15de82aa19a845156169a17a5488bf597e561b2c318d159ed583139b25e87"
+    },
+    "mingw-w64-clang-x86_64-ffmpeg/ffmpeg-9.0.2.tar.xz/ffmpeg-9.0.2/COPYING.GPLv2": {
+      "archive": "mingw-w64-ffmpeg-9.0.2-1.src.tar.zst",
+      "inner_member": "ffmpeg-9.0.2/COPYING.GPLv2",
+      "member": "mingw-w64-ffmpeg/ffmpeg-9.0.2.tar.xz",
+      "sha256": "8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643"
+    },
+    "mingw-w64-clang-x86_64-ffmpeg/ffmpeg-9.0.2.tar.xz/ffmpeg-9.0.2/COPYING.GPLv3": {
+      "archive": "mingw-w64-ffmpeg-9.0.2-1.src.tar.zst",
+      "inner_member": "ffmpeg-9.0.2/COPYING.GPLv3",
+      "member": "mingw-w64-ffmpeg/ffmpeg-9.0.2.tar.xz",
+      "sha256": "8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903"
+    },
+    "mingw-w64-clang-x86_64-ffmpeg/ffmpeg-9.0.2.tar.xz/ffmpeg-9.0.2/COPYING.LGPLv2.1": {
+      "archive": "mingw-w64-ffmpeg-9.0.2-1.src.tar.zst",
+      "inner_member": "ffmpeg-9.0.2/COPYING.LGPLv2.1",
+      "member": "mingw-w64-ffmpeg/ffmpeg-9.0.2.tar.xz",
+      "sha256": "246041b6ecf9bc32d718a62c57877c78b5eb397b6467e74ed7ae2626ab189c30"
+    },
+    "mingw-w64-clang-x86_64-ffmpeg/ffmpeg-9.0.2.tar.xz/ffmpeg-9.0.2/COPYING.LGPLv3": {
+      "archive": "mingw-w64-ffmpeg-9.0.2-1.src.tar.zst",
+      "inner_member": "ffmpeg-9.0.2/COPYING.LGPLv3",
+      "member": "mingw-w64-ffmpeg/ffmpeg-9.0.2.tar.xz",
+      "sha256": "da7eabb7bafdf7d3ae5e9f223aa5bdc1eece45ac569dc21b3b037520b4464768"
+    },
+    "mingw-w64-clang-x86_64-ffmpeg/ffmpeg-9.0.2.tar.xz/ffmpeg-9.0.2/LICENSE.md": {
+      "archive": "mingw-w64-ffmpeg-9.0.2-1.src.tar.zst",
+      "inner_member": "ffmpeg-9.0.2/LICENSE.md",
+      "member": "mingw-w64-ffmpeg/ffmpeg-9.0.2.tar.xz",
+      "sha256": "2e1d16c72fd74e12063776371da757322f8b77589386532f4fd8634bde7de1af"
+    },
+    "mingw-w64-clang-x86_64-fmt/fmt/LICENSE": {
+      "installed_path": "clang64/share/licenses/fmt/LICENSE",
+      "sha256": "a65fcc5a1095fc33cc37e4fff69366e49d7e92f613558a2b95ed1b70e33758b4"
+    },
+    "mingw-w64-clang-x86_64-fontconfig/fontconfig/COPYING": {
+      "installed_path": "clang64/share/licenses/fontconfig/COPYING",
+      "sha256": "51a51aa9823704fd90bccc616cdd17ebabb5b2b3e9cbde886ca02c7002288067"
+    },
+    "mingw-w64-clang-x86_64-freetype/freetype/FTL.TXT": {
+      "installed_path": "clang64/share/licenses/freetype/FTL.TXT",
+      "sha256": "5a5ee54c5001bbad1cdc1a57cc3dd4c42199b2da09d39c7ee41fab002d02967f"
+    },
+    "mingw-w64-clang-x86_64-freetype/freetype/GPLv2.TXT": {
+      "installed_path": "clang64/share/licenses/freetype/GPLv2.TXT",
+      "sha256": "c4120c6752c910c299e3bd9cb3a46ff262c268303ca2069b61f92f10a5656c18"
+    },
+    "mingw-w64-clang-x86_64-fribidi/fribidi/COPYING": {
+      "installed_path": "clang64/share/licenses/fribidi/COPYING",
+      "sha256": "20e50fe7aae3e56378ebf0417d9de904f55a0e61e4df315333e632a4d3555d95"
+    },
+    "mingw-w64-clang-x86_64-gdk-pixbuf2/gdk-pixbuf2/COPYING": {
+      "installed_path": "clang64/share/licenses/gdk-pixbuf2/COPYING",
+      "sha256": "dc626520dcd53a22f727af3ee42c770e56c97a64fe3adb063799d8ab032fe551"
+    },
+    "mingw-w64-clang-x86_64-gettext-runtime/gettext-runtime/COPYING": {
+      "installed_path": "clang64/share/licenses/gettext-runtime/COPYING",
+      "sha256": "7ef2cdfe58e0c0460657b6598b49af29d4e03c1e41cbaf0e1da1eb8ad74b95d0"
+    },
+    "mingw-w64-clang-x86_64-gettext-runtime/gettext-runtime/intl/COPYING.LIB": {
+      "installed_path": "clang64/share/licenses/gettext-runtime/intl/COPYING.LIB",
+      "sha256": "20e50fe7aae3e56378ebf0417d9de904f55a0e61e4df315333e632a4d3555d95"
+    },
+    "mingw-w64-clang-x86_64-gettext-runtime/gettext-runtime/libasprintf/COPYING": {
+      "installed_path": "clang64/share/licenses/gettext-runtime/libasprintf/COPYING",
+      "sha256": "03133addae5b99a6148c538300e6d97074453089be1423b741bd081f18e2b298"
+    },
+    "mingw-w64-clang-x86_64-gettext-runtime/gettext-runtime/libasprintf/COPYING.LIB": {
+      "installed_path": "clang64/share/licenses/gettext-runtime/libasprintf/COPYING.LIB",
+      "sha256": "20e50fe7aae3e56378ebf0417d9de904f55a0e61e4df315333e632a4d3555d95"
+    },
+    "mingw-w64-clang-x86_64-glib2/glib2/COPYING": {
+      "installed_path": "clang64/share/licenses/glib2/COPYING",
+      "sha256": "fa6f36630bb1e0c571d34b2bbdf188d08495c9dbf58f28cac112f303fc1f58fb"
+    },
+    "mingw-w64-clang-x86_64-glslang/glslang/LICENSE.txt": {
+      "installed_path": "clang64/share/licenses/glslang/LICENSE.txt",
+      "sha256": "17e70c676e1521ff3e4686f04a2053d93a7e28a33be8de7ec37ab0ff72feb677"
+    },
+    "mingw-w64-clang-x86_64-gmp/gmp-6.3.0.tar.xz/gmp-6.3.0/COPYING": {
+      "archive": "mingw-w64-gmp-6.3.0-2.src.tar.zst",
+      "inner_member": "gmp-6.3.0/COPYING",
+      "member": "mingw-w64-gmp/gmp-6.3.0.tar.xz",
+      "sha256": "8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903"
+    },
+    "mingw-w64-clang-x86_64-gmp/gmp-6.3.0.tar.xz/gmp-6.3.0/COPYING.LESSERv3": {
+      "archive": "mingw-w64-gmp-6.3.0-2.src.tar.zst",
+      "inner_member": "gmp-6.3.0/COPYING.LESSERv3",
+      "member": "mingw-w64-gmp/gmp-6.3.0.tar.xz",
+      "sha256": "a853c2ffec17057872340eee242ae4d96cbf2b520ae27d903e1b2fef1a5f9d1c"
+    },
+    "mingw-w64-clang-x86_64-gmp/gmp-6.3.0.tar.xz/gmp-6.3.0/COPYINGv2": {
+      "archive": "mingw-w64-gmp-6.3.0-2.src.tar.zst",
+      "inner_member": "gmp-6.3.0/COPYINGv2",
+      "member": "mingw-w64-gmp/gmp-6.3.0.tar.xz",
+      "sha256": "8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643"
+    },
+    "mingw-w64-clang-x86_64-gmp/gmp-6.3.0.tar.xz/gmp-6.3.0/COPYINGv3": {
+      "archive": "mingw-w64-gmp-6.3.0-2.src.tar.zst",
+      "inner_member": "gmp-6.3.0/COPYINGv3",
+      "member": "mingw-w64-gmp/gmp-6.3.0.tar.xz",
+      "sha256": "e6037104443f9a7829b2aa7c5370d0789a7bda3ca65a0b904cdc0c2e285d9195"
+    },
+    "mingw-w64-clang-x86_64-gnutls/gnutls-3.8.13.tar.xz/gnutls-3.8.13/COPYING": {
+      "archive": "mingw-w64-gnutls-3.8.13-3.src.tar.zst",
+      "inner_member": "gnutls-3.8.13/COPYING",
+      "member": "mingw-w64-gnutls/gnutls-3.8.13.tar.xz",
+      "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+    },
+    "mingw-w64-clang-x86_64-gnutls/gnutls-3.8.13.tar.xz/gnutls-3.8.13/COPYING.LESSERv2": {
+      "archive": "mingw-w64-gnutls-3.8.13-3.src.tar.zst",
+      "inner_member": "gnutls-3.8.13/COPYING.LESSERv2",
+      "member": "mingw-w64-gnutls/gnutls-3.8.13.tar.xz",
+      "sha256": "20e50fe7aae3e56378ebf0417d9de904f55a0e61e4df315333e632a4d3555d95"
+    },
+    "mingw-w64-clang-x86_64-graphite2/graphite2/COPYING": {
+      "installed_path": "clang64/share/licenses/graphite2/COPYING",
+      "sha256": "2c272829ff23f182c8bf7ea12fedea69b0ae148663123ed5240c117cb129c9c1"
+    },
+    "mingw-w64-clang-x86_64-graphite2/graphite2/LICENSE": {
+      "installed_path": "clang64/share/licenses/graphite2/LICENSE",
+      "sha256": "cab46cd45adbfea4b1d0f14b033c70062c73074fa0b56532c2f351576ddf455e"
+    },
+    "mingw-w64-clang-x86_64-gsm/gsm/license.txt": {
+      "installed_path": "clang64/share/licenses/gsm/license.txt",
+      "sha256": "81c68a3374937ed9b5e4929c709e81a2c4b35b5d1f450ecf8c473e2daea46ff6"
+    },
+    "mingw-w64-clang-x86_64-harfbuzz/harfbuzz/COPYING": {
+      "installed_path": "clang64/share/licenses/harfbuzz/COPYING",
+      "sha256": "ba8f810f2455c2f08e2d56bb49b72f37fcf68f1f4fade38977cfd7372050ad64"
+    },
+    "mingw-w64-clang-x86_64-highway/highway/LICENSE": {
+      "installed_path": "clang64/share/licenses/highway/LICENSE",
+      "sha256": "e340270d4f64384569a91d546acb5b094d69ce47f0c015db77abb74dc6f815af"
+    },
+    "mingw-w64-clang-x86_64-jbigkit/jbigkit/COPYING": {
+      "installed_path": "clang64/share/licenses/jbigkit/COPYING",
+      "sha256": "91df39d1816bfb17a4dda2d3d2c83b1f6f2d38d53e53e41e8f97ad5ac46a0cad"
+    },
+    "mingw-w64-clang-x86_64-lame/lame-3.100.tar.gz/lame-3.100/COPYING": {
+      "archive": "mingw-w64-lame-3.100-3.src.tar.zst",
+      "inner_member": "lame-3.100/COPYING",
+      "member": "mingw-w64-lame/lame-3.100.tar.gz",
+      "sha256": "bfe4a52dc4645385f356a8e83cc54216a293e3b6f1cb4f79f5fc0277abf937fd"
+    },
+    "mingw-w64-clang-x86_64-lame/lame-3.100.tar.gz/lame-3.100/LICENSE": {
+      "archive": "mingw-w64-lame-3.100-3.src.tar.zst",
+      "inner_member": "lame-3.100/LICENSE",
+      "member": "mingw-w64-lame/lame-3.100.tar.gz",
+      "sha256": "7a40cbd8818c57e5285e83c772a459a996d1662c824a879836b97b473c07cae4"
+    },
+    "mingw-w64-clang-x86_64-lcms2/lcms2/LICENSE": {
+      "installed_path": "clang64/share/licenses/lcms2/LICENSE",
+      "sha256": "6dbd60437f8ef91d8de1f08ad75882547fd4931bfcc3566a0735f28db1484d31"
+    },
+    "mingw-w64-clang-x86_64-lcms2/lcms2/LICENSE-fast_float": {
+      "installed_path": "clang64/share/licenses/lcms2/LICENSE-fast_float",
+      "sha256": "c53a65c2fd561c87eaabf1072ef5dcab8653042bc15308465f52413585eb6271"
+    },
+    "mingw-w64-clang-x86_64-lerc/lerc/LICENSE": {
+      "installed_path": "clang64/share/licenses/lerc/LICENSE",
+      "sha256": "77a8b761727c75e2167b15bfdf61b2c0bcf8792271228bebe80779106ad00671"
+    },
+    "mingw-w64-clang-x86_64-libbluray/libbluray/COPYING": {
+      "installed_path": "clang64/share/licenses/libbluray/COPYING",
+      "sha256": "b3aa400aca6d2ba1f0bd03bd98d03d1fe7489a3bbb26969d72016360af8a5c9d"
+    },
+    "mingw-w64-clang-x86_64-libc++/libc++/LICENSE": {
+      "installed_path": "clang64/share/licenses/libc++/LICENSE",
+      "sha256": "539dd7aed86e8a4f12cbdd0e6c50c189c7d74847e4fecc64ce2c6ee3a01da38b"
+    },
+    "mingw-w64-clang-x86_64-libdatrie/libdatrie/COPYING": {
+      "installed_path": "clang64/share/licenses/libdatrie/COPYING",
+      "sha256": "a9bdde5616ecdd1e980b44f360600ee8783b1f99b8cc83a2beb163a0a390e861"
+    },
+    "mingw-w64-clang-x86_64-libdeflate/libdeflate/COPYING": {
+      "installed_path": "clang64/share/licenses/libdeflate/COPYING",
+      "sha256": "4ad69099cb4374836fd27583d9991e2838cd86b6e4666ab26b2d32582c91e73a"
+    },
+    "mingw-w64-clang-x86_64-libffi/libffi/LICENSE": {
+      "installed_path": "clang64/share/licenses/libffi/LICENSE",
+      "sha256": "17b64dc60f3b6897a60f971e288b973f655c2edcdf08b25f3c3dd5549857881c"
+    },
+    "mingw-w64-clang-x86_64-libgme/libgme/license.txt": {
+      "installed_path": "clang64/share/licenses/libgme/license.txt",
+      "sha256": "d2efc89fbb7533572a472d34e07964951810a3a4f8d3159ecc2dcaa1452c5c26"
+    },
+    "mingw-w64-clang-x86_64-libiconv/libiconv/COPYING": {
+      "installed_path": "clang64/share/licenses/libiconv/COPYING",
+      "sha256": "8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903"
+    },
+    "mingw-w64-clang-x86_64-libiconv/libiconv/COPYING.LIB": {
+      "installed_path": "clang64/share/licenses/libiconv/COPYING.LIB",
+      "sha256": "20e50fe7aae3e56378ebf0417d9de904f55a0e61e4df315333e632a4d3555d95"
+    },
+    "mingw-w64-clang-x86_64-libiconv/libiconv/README": {
+      "installed_path": "clang64/share/licenses/libiconv/README",
+      "sha256": "4ae66e61d1c6593c84c47105b368d579bcee1af566dbb959ec63a0c48425dcf4"
+    },
+    "mingw-w64-clang-x86_64-libiconv/libiconv/libcharset/COPYING.LIB": {
+      "installed_path": "clang64/share/licenses/libiconv/libcharset/COPYING.LIB",
+      "sha256": "20e50fe7aae3e56378ebf0417d9de904f55a0e61e4df315333e632a4d3555d95"
+    },
+    "mingw-w64-clang-x86_64-libidn2/libidn2-2.3.8.tar.gz/libidn2-2.3.8/COPYING": {
+      "archive": "mingw-w64-libidn2-2.3.8-4.src.tar.zst",
+      "inner_member": "libidn2-2.3.8/COPYING",
+      "member": "mingw-w64-libidn2/libidn2-2.3.8.tar.gz",
+      "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+    },
+    "mingw-w64-clang-x86_64-libidn2/libidn2-2.3.8.tar.gz/libidn2-2.3.8/COPYING.LESSERv3": {
+      "archive": "mingw-w64-libidn2-2.3.8-4.src.tar.zst",
+      "inner_member": "libidn2-2.3.8/COPYING.LESSERv3",
+      "member": "mingw-w64-libidn2/libidn2-2.3.8.tar.gz",
+      "sha256": "e3a994d82e644b03a792a930f574002658412f62407f5fee083f2555c5f23118"
+    },
+    "mingw-w64-clang-x86_64-libidn2/libidn2-2.3.8.tar.gz/libidn2-2.3.8/COPYING.unicode": {
+      "archive": "mingw-w64-libidn2-2.3.8-4.src.tar.zst",
+      "inner_member": "libidn2-2.3.8/COPYING.unicode",
+      "member": "mingw-w64-libidn2/libidn2-2.3.8.tar.gz",
+      "sha256": "01d621eef165cf4d3d3dbb737aa0699178d94c6f18cf87e9dde6db3ca7790f46"
+    },
+    "mingw-w64-clang-x86_64-libidn2/libidn2-2.3.8.tar.gz/libidn2-2.3.8/COPYINGv2": {
+      "archive": "mingw-w64-libidn2-2.3.8-4.src.tar.zst",
+      "inner_member": "libidn2-2.3.8/COPYINGv2",
+      "member": "mingw-w64-libidn2/libidn2-2.3.8.tar.gz",
+      "sha256": "edaef632cbb643e4e7a221717a6c441a4c1a7c918e6e4d56debc3d8739b233f6"
+    },
+    "mingw-w64-clang-x86_64-libjpeg-turbo/libjpeg-turbo/LICENSE.md": {
+      "installed_path": "clang64/share/licenses/libjpeg-turbo/LICENSE.md",
+      "sha256": "ba6bceebcba0fdd35488477c2cca8c4632ce82c74dbfbc87d886ce6fc4433579"
+    },
+    "mingw-w64-clang-x86_64-libjpeg-turbo/libjpeg-turbo/README.ijg": {
+      "installed_path": "clang64/share/licenses/libjpeg-turbo/README.ijg",
+      "sha256": "75815e3bf6484201a3c3d17a1bbf10f2e8e3237f84df10a2357ea896db2a81d6"
+    },
+    "mingw-w64-clang-x86_64-libjpeg-turbo/libjpeg-turbo/README.md": {
+      "installed_path": "clang64/share/licenses/libjpeg-turbo/README.md",
+      "sha256": "a44ba17ac66c57edaf0ea7c6e4b31358f08322c780e4e6af092082abb3e20793"
+    },
+    "mingw-w64-clang-x86_64-libjpeg-turbo/libjpeg-turbo/simd/jsimdext.inc": {
+      "installed_path": "clang64/share/licenses/libjpeg-turbo/simd/jsimdext.inc",
+      "sha256": "68c5d236785edf75344cebe8b9bec36568bd35c96eb72cc67ffecd66c17dbd74"
+    },
+    "mingw-w64-clang-x86_64-libjxl/libjxl/LICENSE": {
+      "installed_path": "clang64/share/licenses/libjxl/LICENSE",
+      "sha256": "8405932022a556380c2d8c272eff154a923feb197233f348ce5f7334fb0a5ede"
+    },
+    "mingw-w64-clang-x86_64-liblc3/liblc3/LICENSE": {
+      "installed_path": "clang64/share/licenses/liblc3/LICENSE",
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    "mingw-w64-clang-x86_64-libmodplug/libmodplug/LICENSE": {
+      "installed_path": "clang64/share/licenses/libmodplug/LICENSE",
+      "sha256": "49942e7b3b175f549e751feb08b5270ca6f6c5fb7a1be9f9517db275ec32c92e"
+    },
+    "mingw-w64-clang-x86_64-libogg/libogg/COPYING": {
+      "installed_path": "clang64/share/licenses/libogg/COPYING",
+      "sha256": "d2ab5758336489da61c12cc5bb757da5339c4ae9001f9bb0562b4370249af814"
+    },
+    "mingw-w64-clang-x86_64-libpng/libpng/LICENSE": {
+      "installed_path": "clang64/share/licenses/libpng/LICENSE",
+      "sha256": "bdb0a645ea18c60507d0368379b1ac5474b92255fcc2d115e07486a7672ba526"
+    },
+    "mingw-w64-clang-x86_64-libpsl/libpsl/COPYING": {
+      "installed_path": "clang64/share/licenses/libpsl/COPYING",
+      "sha256": "322392e6001b2b3b0fca705dc9f11f26e12441188ecde50eb1d22909980b2925"
+    },
+    "mingw-w64-clang-x86_64-librsvg/librsvg/COPYING.LIB": {
+      "installed_path": "clang64/share/licenses/librsvg/COPYING.LIB",
+      "sha256": "dc626520dcd53a22f727af3ee42c770e56c97a64fe3adb063799d8ab032fe551"
+    },
+    "mingw-w64-clang-x86_64-libsoxr/libsoxr/COPYING.LGPL": {
+      "installed_path": "clang64/share/licenses/libsoxr/COPYING.LGPL",
+      "sha256": "f2f118b9029ec1871b953639ecc46651b2fc7b62e295e6cf3ef2ac4c9a058b33"
+    },
+    "mingw-w64-clang-x86_64-libsoxr/libsoxr/LICENSE": {
+      "installed_path": "clang64/share/licenses/libsoxr/LICENSE",
+      "sha256": "dc98676341fdcd29d9f279c9679d6a75288785b174ded8d1b2e316c366166135"
+    },
+    "mingw-w64-clang-x86_64-libsoxr/libsoxr/LICENSE-PFFFT": {
+      "installed_path": "clang64/share/licenses/libsoxr/LICENSE-PFFFT",
+      "sha256": "a9f3d236f3c14a41a1293f176d4c7c46d85404403417fcb8df6d6c9707104e42"
+    },
+    "mingw-w64-clang-x86_64-libssh/libssh-0.12.2.tar.xz/libssh-0.12.2/COPYING": {
+      "archive": "mingw-w64-libssh-0.12.2-1.src.tar.zst",
+      "inner_member": "libssh-0.12.2/COPYING",
+      "member": "mingw-w64-libssh/libssh-0.12.2.tar.xz",
+      "sha256": "1656186e951db1c010a8485481fa94587f7e53a26d24976bef97945ad0c4df5a"
+    },
+    "mingw-w64-clang-x86_64-libssh2/libssh2/LICENSE": {
+      "installed_path": "clang64/share/licenses/libssh2/LICENSE",
+      "sha256": "f7f9633cf9ff2f1333f3d7ce46973a8716a4d2a2815ad56f30d437d5fea7bafe"
+    },
+    "mingw-w64-clang-x86_64-libtasn1/libtasn1/COPYING": {
+      "installed_path": "clang64/share/licenses/libtasn1/COPYING",
+      "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+    },
+    "mingw-w64-clang-x86_64-libtasn1/libtasn1/COPYING.LESSERv2": {
+      "installed_path": "clang64/share/licenses/libtasn1/COPYING.LESSERv2",
+      "sha256": "20e50fe7aae3e56378ebf0417d9de904f55a0e61e4df315333e632a4d3555d95"
+    },
+    "mingw-w64-clang-x86_64-libthai/libthai/COPYING": {
+      "installed_path": "clang64/share/licenses/libthai/COPYING",
+      "sha256": "20e50fe7aae3e56378ebf0417d9de904f55a0e61e4df315333e632a4d3555d95"
+    },
+    "mingw-w64-clang-x86_64-libtheora/libtheora-1.2.0.tar.gz/libtheora-1.2.0/COPYING": {
+      "archive": "mingw-w64-libtheora-1.2.0-1.src.tar.zst",
+      "inner_member": "libtheora-1.2.0/COPYING",
+      "member": "mingw-w64-libtheora/libtheora-1.2.0.tar.gz",
+      "sha256": "8417fad7da775735564e209484a2e011e0fa201e94f01fdbee6e4977e478e6fc"
+    },
+    "mingw-w64-clang-x86_64-libtheora/libtheora-1.2.0.tar.gz/libtheora-1.2.0/LICENSE": {
+      "archive": "mingw-w64-libtheora-1.2.0-1.src.tar.zst",
+      "inner_member": "libtheora-1.2.0/LICENSE",
+      "member": "mingw-w64-libtheora/libtheora-1.2.0.tar.gz",
+      "sha256": "2c902950c73a63cd285dc0c36573de9c5fefe66d49312949c51d941f33e92932"
+    },
+    "mingw-w64-clang-x86_64-libtiff/libtiff/LICENSE.md": {
+      "installed_path": "clang64/share/licenses/libtiff/LICENSE.md",
+      "sha256": "0e27c2382d7b8147972bbb746e04059a1152c8d0fda9d03ef1399d1a433c4ade"
+    },
+    "mingw-w64-clang-x86_64-libunistring/libunistring/LICENSE": {
+      "installed_path": "clang64/share/licenses/libunistring/LICENSE",
+      "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+    },
+    "mingw-w64-clang-x86_64-libunistring/libunistring/LICENSE.LIB": {
+      "installed_path": "clang64/share/licenses/libunistring/LICENSE.LIB",
+      "sha256": "a853c2ffec17057872340eee242ae4d96cbf2b520ae27d903e1b2fef1a5f9d1c"
+    },
+    "mingw-w64-clang-x86_64-libunwind/libunwind/LICENSE": {
+      "installed_path": "clang64/share/licenses/libunwind/LICENSE",
+      "sha256": "b5efebcaca80879234098e52d1725e6d9eb8fb96a19fce625d39184b705f7b6d"
+    },
+    "mingw-w64-clang-x86_64-libva/libva/COPYING": {
+      "installed_path": "clang64/share/licenses/libva/COPYING",
+      "sha256": "c86a782ee845b52472dae9b9d79fb915d333628ac0efe49cdce63644814931de"
+    },
+    "mingw-w64-clang-x86_64-libvorbis/libvorbis-1.3.7.tar.gz/libvorbis-1.3.7/COPYING": {
+      "archive": "mingw-w64-libvorbis-1.3.7-3.src.tar.zst",
+      "inner_member": "libvorbis-1.3.7/COPYING",
+      "member": "mingw-w64-libvorbis/libvorbis-1.3.7.tar.gz",
+      "sha256": "ec1815db59fcd302846df949d7424876cb2e2dc5ed1606c5fb0b36787b1cf43a"
+    },
+    "mingw-w64-clang-x86_64-libvpl/libvpl/LICENSE": {
+      "installed_path": "clang64/share/licenses/libvpl/LICENSE",
+      "sha256": "bf1cfac2e2792b6e1e995ce103d70796aecaf2ec7e4c5fe5474f7acec7b4a677"
+    },
+    "mingw-w64-clang-x86_64-libvpx/libvpx-1.17.0.tar.gz/libvpx-1.17.0/LICENSE": {
+      "archive": "mingw-w64-libvpx-1.17.0-1.src.tar.zst",
+      "inner_member": "libvpx-1.17.0/LICENSE",
+      "member": "mingw-w64-libvpx/libvpx-1.17.0.tar.gz",
+      "sha256": "8267348d5af1262c11d1a08de2f5afc77457755f1ac658627dd9acf71011d615"
+    },
+    "mingw-w64-clang-x86_64-libwebp/libwebp/COPYING": {
+      "installed_path": "clang64/share/licenses/libwebp/COPYING",
+      "sha256": "5aec868f669e384a22372a4e8a1a6cd7d44c64cd451f960ca69cc170d1e13acf"
+    },
+    "mingw-w64-clang-x86_64-libwinpthread/libwinpthread/COPYING": {
+      "installed_path": "clang64/share/licenses/libwinpthread/COPYING",
+      "sha256": "63263614cdd29f2f93cba85e992f041b31f9fc7b4033692f31269489a8a1b177"
+    },
+    "mingw-w64-clang-x86_64-libx264/x264/COPYING": {
+      "archive": "mingw-w64-x264-0.165.r3222.b35605a-3.src.tar.zst",
+      "inner_member": "git:b35605ace3ddf7c1a5d67a2eb553f034aef41d55:COPYING",
+      "member": "mingw-w64-x264/x264",
+      "sha256": "32b1062f7da84967e7019d01ab805935caa7ab7321a7ced0e30ebe75e5df1670"
+    },
+    "mingw-w64-clang-x86_64-libxml2/libxml2/COPYING": {
+      "installed_path": "clang64/share/licenses/libxml2/COPYING",
+      "sha256": "5d4873884a890122a4b9b20ad56ac6f7da1d796a5bfcf04a427970ac96217626"
+    },
+    "mingw-w64-clang-x86_64-llvm-openmp/openmp/LICENSE": {
+      "installed_path": "clang64/share/licenses/openmp/LICENSE",
+      "sha256": "fdad1758a9e1f9d5a81e18879b3406772115edc92c24bfa36b70c654f325e8e4"
+    },
+    "mingw-w64-clang-x86_64-nettle/nettle-4.0.tar.gz/nettle-4.0/COPYING.LESSERv3": {
+      "archive": "mingw-w64-nettle-4.0-1.src.tar.zst",
+      "inner_member": "nettle-4.0/COPYING.LESSERv3",
+      "member": "mingw-w64-nettle/nettle-4.0.tar.gz",
+      "sha256": "e3a994d82e644b03a792a930f574002658412f62407f5fee083f2555c5f23118"
+    },
+    "mingw-w64-clang-x86_64-nettle/nettle-4.0.tar.gz/nettle-4.0/COPYINGv2": {
+      "archive": "mingw-w64-nettle-4.0-1.src.tar.zst",
+      "inner_member": "nettle-4.0/COPYINGv2",
+      "member": "mingw-w64-nettle/nettle-4.0.tar.gz",
+      "sha256": "8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643"
+    },
+    "mingw-w64-clang-x86_64-nettle/nettle-4.0.tar.gz/nettle-4.0/COPYINGv3": {
+      "archive": "mingw-w64-nettle-4.0-1.src.tar.zst",
+      "inner_member": "nettle-4.0/COPYINGv3",
+      "member": "mingw-w64-nettle/nettle-4.0.tar.gz",
+      "sha256": "e6037104443f9a7829b2aa7c5370d0789a7bda3ca65a0b904cdc0c2e285d9195"
+    },
+    "mingw-w64-clang-x86_64-nghttp2/nghttp2/COPYING": {
+      "installed_path": "clang64/share/licenses/nghttp2/COPYING",
+      "sha256": "6b94f3abc1aabd0c72a7c7d92a77f79dda7c8a0cb3df839a97890b4116a2de2a"
+    },
+    "mingw-w64-clang-x86_64-nghttp3/nghttp3/COPYING": {
+      "installed_path": "clang64/share/licenses/nghttp3/COPYING",
+      "sha256": "58cc3fc8c6d6cb2485ab35eb5918e849b5bf1e56522974e106d7a39a88d61dcd"
+    },
+    "mingw-w64-clang-x86_64-ngtcp2/ngtcp2/COPYING": {
+      "installed_path": "clang64/share/licenses/ngtcp2/COPYING",
+      "sha256": "542dd526d2ea23565f0571cc68df6f05ed11248a90ff0f32de19d8ba589db513"
+    },
+    "mingw-w64-clang-x86_64-opencore-amr/opencore-amr-0.1.6.tar.gz/opencore-amr-0.1.6/LICENSE": {
+      "archive": "mingw-w64-opencore-amr-0.1.6-1.src.tar.zst",
+      "inner_member": "opencore-amr-0.1.6/LICENSE",
+      "member": "mingw-w64-opencore-amr/opencore-amr-0.1.6.tar.gz",
+      "sha256": "8b3f1762349248d444ab9acbafe73941254e36e1064954da56bb9ddbd5873ddb"
+    },
+    "mingw-w64-clang-x86_64-openjpeg2/openjpeg/LICENSE": {
+      "installed_path": "clang64/share/licenses/openjpeg/LICENSE",
+      "sha256": "a6af136f3e15038a666b61f376612a07d9a4e48cb7c01adbf3e33b3f14ab49b6"
+    },
+    "mingw-w64-clang-x86_64-openssl/openssl/LICENSE": {
+      "installed_path": "clang64/share/licenses/openssl/LICENSE",
+      "sha256": "7d5450cb2d142651b8afa315b5f238efc805dad827d91ba367d8516bc9d49e7a"
+    },
+    "mingw-w64-clang-x86_64-opus/opus/COPYING": {
+      "installed_path": "clang64/share/licenses/opus/COPYING",
+      "sha256": "01e1167d54a096d123cf6dfbbeb19587278845c6481d2d66d545669846079551"
+    },
+    "mingw-w64-clang-x86_64-p11-kit/p11-kit-0.26.5.tar.xz/p11-kit-0.26.5/COPYING": {
+      "archive": "mingw-w64-p11-kit-0.26.5-1.src.tar.zst",
+      "inner_member": "p11-kit-0.26.5/COPYING",
+      "member": "mingw-w64-p11-kit/p11-kit-0.26.5.tar.xz",
+      "sha256": "2e1ba993904df807a10c3eda1e5c272338edc35674b679773a8b3ad460731054"
+    },
+    "mingw-w64-clang-x86_64-pango/pango/COPYING": {
+      "installed_path": "clang64/share/licenses/pango/COPYING",
+      "sha256": "d245807f90032872d1438d741ed21e2490e1175dc8aa3afa5ddb6c8e529b58e5"
+    },
+    "mingw-w64-clang-x86_64-pcre2/pcre2/COPYING": {
+      "installed_path": "clang64/share/licenses/pcre2/COPYING",
+      "sha256": "99272c55f3dcfa07a8a7e15a5c1a33096e4727de74241d65fa049fccfdd59507"
+    },
+    "mingw-w64-clang-x86_64-pcre2/pcre2/LICENCE.md": {
+      "installed_path": "clang64/share/licenses/pcre2/LICENCE.md",
+      "sha256": "197d8a73ffee0d6b09adba2f9c677b5f5aede24edf89258a68e48248d010d811"
+    },
+    "mingw-w64-clang-x86_64-pixman/pixman/COPYING": {
+      "installed_path": "clang64/share/licenses/pixman/COPYING",
+      "sha256": "fac9270f0987b96ff4533fca3548c633e02083cbba4a0172a3b149b2e4019793"
+    },
+    "mingw-w64-clang-x86_64-rav1e/rav1e/LICENSE": {
+      "installed_path": "clang64/share/licenses/rav1e/LICENSE",
+      "sha256": "2dd0a109751e939dec3f80ddcfbc1ba91553f18c574399e85c159632182a2c0a"
+    },
+    "mingw-w64-clang-x86_64-rav1e/rav1e/PATENTS": {
+      "installed_path": "clang64/share/licenses/rav1e/PATENTS",
+      "sha256": "7b14a70c194b19dbd0625e7eac839a63200f67484521ce5e8d8244b127e8907a"
+    },
+    "mingw-w64-clang-x86_64-robin-map/robin-map/LICENSE": {
+      "installed_path": "clang64/share/licenses/robin-map/LICENSE",
+      "sha256": "11f2c685ba565a31aef1219f63a7a8845602c97bff70016b9e3278dfe51a2ec5"
+    },
+    "mingw-w64-clang-x86_64-rtmpdump/rtmpdump/COPYING": {
+      "archive": "mingw-w64-rtmpdump-2.6-2.src.tar.zst",
+      "inner_member": "git:138fdb258d9fc26f1843fd1b891180416c9dc575:COPYING",
+      "member": "mingw-w64-rtmpdump/rtmpdump",
+      "sha256": "ab15fd526bd8dd18a9e77ebc139656bf4d33e97fc7238cd11bf60e2b9b8666c6"
+    },
+    "mingw-w64-clang-x86_64-sdl3/SDL3/LICENSE.txt": {
+      "installed_path": "clang64/share/licenses/SDL3/LICENSE.txt",
+      "sha256": "1c040b8271b37e5076359f8fd54240e371114112924d2df81ef87c7d6a1dfdfd"
+    },
+    "mingw-w64-clang-x86_64-speex/speex/LICENSE": {
+      "installed_path": "clang64/share/licenses/speex/LICENSE",
+      "sha256": "2654a4264b2bfe298dedc508748d140111840c315cc8eb646a3a68c13fa75b01"
+    },
+    "mingw-w64-clang-x86_64-spirv-cross/spirv-cross/LICENSE": {
+      "installed_path": "clang64/share/licenses/spirv-cross/LICENSE",
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    "mingw-w64-clang-x86_64-spirv-headers/spirv-headers/LICENSE": {
+      "installed_path": "clang64/share/licenses/spirv-headers/LICENSE",
+      "sha256": "ea43b1de38a6f90c488800d66dec1ed671e68cda530266bc96951fb5b6307613"
+    },
+    "mingw-w64-clang-x86_64-spirv-tools/spirv-tools/LICENSE": {
+      "installed_path": "clang64/share/licenses/spirv-tools/LICENSE",
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    "mingw-w64-clang-x86_64-srt/srt/LICENSE": {
+      "installed_path": "clang64/share/licenses/srt/LICENSE",
+      "sha256": "fab3dd6bdab226f1c08630b1dd917e11fcb4ec5e1e020e2c16f83a0a13863e85"
+    },
+    "mingw-w64-clang-x86_64-svt-av1/svt-av1/LICENSE": {
+      "installed_path": "clang64/share/licenses/svt-av1/LICENSE",
+      "sha256": "0acc2fcb27472bdc9aaf8b71f37055bbdac4f54671b7d922f241bd7fcd0dd3e6"
+    },
+    "mingw-w64-clang-x86_64-svt-av1/svt-av1/PATENTS.md": {
+      "installed_path": "clang64/share/licenses/svt-av1/PATENTS.md",
+      "sha256": "20678ab10402659106dc4c147c97b2a6e94b5c0695415e15a8f195ebc3547922"
+    },
+    "mingw-w64-clang-x86_64-vulkan-headers/vulkan-headers/LICENSE": {
+      "installed_path": "clang64/share/licenses/vulkan-headers/LICENSE",
+      "sha256": "95ad366d23fadf701d355bc45fb8b82ae2d700239471d35d41286ac3b08ff903"
+    },
+    "mingw-w64-clang-x86_64-vulkan-loader/vulkan-loader/LICENSE": {
+      "installed_path": "clang64/share/licenses/vulkan-loader/LICENSE",
+      "sha256": "43c0a37e6a0fa7ff3c843b3ec5a4fac84b712558ddac103fbd4c1649662a9ece"
+    },
+    "mingw-w64-clang-x86_64-vulkan-memory-allocator/VulkanMemoryAllocator/LICENSE": {
+      "installed_path": "clang64/share/licenses/VulkanMemoryAllocator/LICENSE",
+      "sha256": "52df2c03d6cfc9ffec13c9d3626c530fc9ce0cbe41d5ea3d10cd46edeb1aeb38"
+    },
+    "mingw-w64-clang-x86_64-x265/x265-4.3.tar.gz/x265_4.3/COPYING": {
+      "archive": "mingw-w64-x265-4.3-1.src.tar.zst",
+      "inner_member": "x265_4.3/COPYING",
+      "member": "mingw-w64-x265/x265-4.3.tar.gz",
+      "sha256": "d8afb1bcc7a2cfc603683b168d6987ef0a48e59e0da3693bf55c5d33b67e2b49"
+    },
+    "mingw-w64-clang-x86_64-xvidcore/xvidcore-1.3.7.tar.bz2/xvidcore/LICENSE": {
+      "archive": "mingw-w64-xvidcore-1.3.7-5.src.tar.zst",
+      "inner_member": "xvidcore/LICENSE",
+      "member": "mingw-w64-xvidcore/xvidcore-1.3.7.tar.bz2",
+      "sha256": "2ab06d2335f9781f1a485c78a557e6c61b6c24e118caad4d4210c46426bbce95"
+    },
+    "mingw-w64-clang-x86_64-xxhash/xxhash/LICENSE": {
+      "installed_path": "clang64/share/licenses/xxhash/LICENSE",
+      "sha256": "6ffedbc0f7878612d2b23589f1ff2ab15633e1df7963a5d9fc750ec5500c7e7a"
+    },
+    "mingw-w64-clang-x86_64-xz/xz/COPYING": {
+      "installed_path": "clang64/share/licenses/xz/COPYING",
+      "sha256": "616a3ad264ce29b8f1cb97e53037b139d406899ca8d1f799651e17bfa09830b8"
+    },
+    "mingw-w64-clang-x86_64-xz/xz/COPYING.0BSD": {
+      "installed_path": "clang64/share/licenses/xz/COPYING.0BSD",
+      "sha256": "0b01625d853911cd0e2e088dcfb743261034a091bb379246cb25a14cc4c74bf1"
+    },
+    "mingw-w64-clang-x86_64-xz/xz/COPYING.GPLv2": {
+      "installed_path": "clang64/share/licenses/xz/COPYING.GPLv2",
+      "sha256": "edaef632cbb643e4e7a221717a6c441a4c1a7c918e6e4d56debc3d8739b233f6"
+    },
+    "mingw-w64-clang-x86_64-xz/xz/COPYING.GPLv3": {
+      "installed_path": "clang64/share/licenses/xz/COPYING.GPLv3",
+      "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+    },
+    "mingw-w64-clang-x86_64-xz/xz/COPYING.LGPLv2.1": {
+      "installed_path": "clang64/share/licenses/xz/COPYING.LGPLv2.1",
+      "sha256": "20e50fe7aae3e56378ebf0417d9de904f55a0e61e4df315333e632a4d3555d95"
+    },
+    "mingw-w64-clang-x86_64-zlib/zlib/LICENSE": {
+      "installed_path": "clang64/share/licenses/zlib/LICENSE",
+      "sha256": "e32ff4e00d9d94930537635291da39e7e612703334bf6fde8c7f1686fe8a45a2"
+    },
+    "mingw-w64-clang-x86_64-zstd/zstd/LICENSE": {
+      "installed_path": "clang64/share/licenses/zstd/LICENSE",
+      "sha256": "7055266497633c9025b777c78eb7235af13922117480ed5c674677adc381c9d8"
+    },
+    "mingw-w64-clang-x86_64-zvbi/zvbi/COPYING.md": {
+      "installed_path": "clang64/share/licenses/zvbi/COPYING.md",
+      "sha256": "6d679539253897582d38fcd1eabfa670c01c0ece73d8cd3dc97869fcf723f106"
+    },
+    "mingw-w64-clang-x86_64-zydis/zydis/LICENSE": {
+      "installed_path": "clang64/share/licenses/zydis/LICENSE",
+      "sha256": "e5e99718209e94baaf3e9cbf6f64aa3329c9e73c63b1ab47e10f29d81974e6f3"
+    }
+  },
+  "packages": {
+    "mingw-w64-clang-x86_64-aom@3.15.2-1": {
+      "basis_note": "Exact installed package license and notice files; license metadata: BSD-2-Clause",
+      "license_files": [
+        "mingw-w64-clang-x86_64-aom/aom/LICENSE",
+        "mingw-w64-clang-x86_64-aom/aom/PATENTS"
+      ],
+      "redistribution_basis": "permissive-license",
+      "source_archives": []
+    },
+    "mingw-w64-clang-x86_64-boost@1.92.0-4": {
+      "basis_note": "Exact MSYS2 source package, including build recipe, patches and upstream source archive.",
+      "license_files": [
+        "mingw-w64-clang-x86_64-boost/boost/LICENSE"
+      ],
+      "redistribution_basis": "corresponding-source",
+      "source_archives": [
+        "mingw-w64-boost-1.92.0-4.src.tar.zst"
+      ]
+    },
+    "mingw-w64-clang-x86_64-brotli@1.2.0-1": {
+      "basis_note": "Exact installed package license and notice files; license metadata: MIT",
+      "license_files": [
+        "mingw-w64-clang-x86_64-brotli/brotli/LICENSE"
+      ],
+      "redistribution_basis": "permissive-license",
+      "source_archives": []
+    },
+    "mingw-w64-clang-x86_64-bzip2@1.0.8-4": {
+      "basis_note": "Exact MSYS2 source package, including build recipe, patches and upstream source archive.",
+      "license_files": [
+        "mingw-w64-clang-x86_64-bzip2/bzip2/LICENSE"
+      ],
+      "redistribution_basis": "corresponding-source",
+      "source_archives": [
+        "mingw-w64-bzip2-1.0.8-4.src.tar.zst"
+      ]
+    },
+    "mingw-w64-clang-x86_64-cairo@1.18.6-2": {
+      "basis_note": "Exact MSYS2 source package, including build recipe, patches and upstream source archive.",
+      "license_files": [
+        "mingw-w64-clang-x86_64-cairo/cairo/COPYING",
+        "mingw-w64-clang-x86_64-cairo/cairo/COPYING-LGPL-2.1",
+        "mingw-w64-clang-x86_64-cairo/cairo/COPYING-MPL-1.1"
+      ],
+      "redistribution_basis": "corresponding-source",
+      "source_archives": [
+        "mingw-w64-cairo-1.18.6-2.src.tar.zst"
+      ]
+    },
+    "mingw-w64-clang-x86_64-curl@8.23.0-1": {
+      "basis_note": "Exact installed package license and notice files; license metadata: MIT",
+      "license_files": [
+        "mingw-w64-clang-x86_64-curl/curl/LICENSE"
+      ],
+      "redistribution_basis": "permissive-license",
+      "source_archives": []
+    },
+    "mingw-w64-clang-x86_64-dav1d@1.5.4-1": {
+      "basis_note": "Exact installed package license and notice files; license metadata: BSD-2-Clause",
+      "license_files": [
+        "mingw-w64-clang-x86_64-dav1d/dav1d/COPYING",
+        "mingw-w64-clang-x86_64-dav1d/dav1d/PATENTS"
+      ],
+      "redistribution_basis": "permissive-license",
+      "source_archives": []
+    },
+    "mingw-w64-clang-x86_64-expat@2.9.0-1": {
+      "basis_note": "Exact installed package license and notice files; license metadata: MIT",
+      "license_files": [
+        "mingw-w64-clang-x86_64-expat/expat/COPYING"
+      ],
+      "redistribution_basis": "permissive-license",
+      "source_archives": []
+    },
+    "mingw-w64-clang-x86_64-ffmpeg@9.0.2-1": {
+      "basis_note": "Exact MSYS2 source package, including build recipe, patches and upstream source archive.",
+      "license_files": [
+        "mingw-w64-clang-x86_64-ffmpeg/ffmpeg-9.0.2.tar.xz/ffmpeg-9.0.2/COPYING.LGPLv2.1",
+        "mingw-w64-clang-x86_64-ffmpeg/ffmpeg-9.0.2.tar.xz/ffmpeg-9.0.2/COPYING.GPLv2",
+        "mingw-w64-clang-x86_64-ffmpeg/ffmpeg-9.0.2.tar.xz/ffmpeg-9.0.2/COPYING.LGPLv3",
+        "mingw-w64-clang-x86_64-ffmpeg/ffmpeg-9.0.2.tar.xz/ffmpeg-9.0.2/COPYING.GPLv3",
+        "mingw-w64-clang-x86_64-ffmpeg/ffmpeg-9.0.2.tar.xz/ffmpeg-9.0.2/LICENSE.md"
+      ],
+      "redistribution_basis": "corresponding-source",
+      "source_archives": [
+        "mingw-w64-ffmpeg-9.0.2-1.src.tar.zst"
+      ]
+    },
+    "mingw-w64-clang-x86_64-fmt@12.2.0-1": {
+      "basis_note": "Exact MSYS2 source package, including build recipe, patches and upstream source archive.",
+      "license_files": [
+        "mingw-w64-clang-x86_64-fmt/fmt/LICENSE"
+      ],
+      "redistribution_basis": "corresponding-source",
+      "source_archives": [
+        "mingw-w64-fmt-12.2.0-1.src.tar.zst"
+      ]
+    },
+    "mingw-w64-clang-x86_64-fontconfig@2.18.3-1": {
+      "basis_note": "Exact MSYS2 source package, including build recipe, patches and upstream source archive.",
+      "license_files": [
+        "mingw-w64-clang-x86_64-fontconfig/fontconfig/COPYING"
+      ],
+      "redistribution_basis": "corresponding-source",
+      "source_archives": [
+        "mingw-w64-fontconfig-2.18.3-1.src.tar.zst"
+      ]
+    },
+    "mingw-w64-clang-x86_64-freetype@2.15.0-1": {
+      "basis_note": "Exact MSYS2 source package, including build recipe, patches and upstream source archive.",
+      "license_files": [
+        "mingw-w64-clang-x86_64-freetype/freetype/FTL.TXT",
+        "mingw-w64-clang-x86_64-freetype/freetype/GPLv2.TXT"
+      ],
+      "redistribution_basis": "corresponding-source",
+      "source_archives": [
+        "mingw-w64-freetype-2.15.0-1.src.tar.zst"
+      ]
+    },
+    "mingw-w64-clang-x86_64-fribidi@1.0.17-1": {
+      "basis_note": "Exact MSYS2 source package, including build recipe, patches and upstream source archive.",
+      "license_files": [
+        "mingw-w64-clang-x86_64-fribidi/fribidi/COPYING"
+      ],
+      "redistribution_basis": "corresponding-source",
+      "source_archives": [
+        "mingw-w64-fribidi-1.0.17-1.src.tar.zst"
+      ]
+    },
+    "mingw-w64-clang-x86_64-gdk-pixbuf2@2.44.8-1": {
+      "basis_note": "Exact MSYS2 source package, including build recipe, patches and upstream source archive.",
+      "license_files": [
+        "mingw-w64-clang-x86_64-gdk-pixbuf2/gdk-pixbuf2/COPYING"
+      ],
+      "redistribution_basis": "corresponding-source",
+      "source_archives": [
+        "mingw-w64-gdk-pixbuf2-2.44.8-1.src.tar.zst"
+      ]
+    },
+    "mingw-w64-clang-x86_64-gettext-runtime@1.0-1": {
+      "basis_note": "Exact MSYS2 source package, including build recipe, patches and upstream source archive.",
+      "license_files": [
+        "mingw-w64-clang-x86_64-gettext-runtime/gettext-runtime/COPYING",
+        "mingw-w64-clang-x86_64-gettext-runtime/gettext-runtime/intl/COPYING.LIB",
+        "mingw-w64-clang-x86_64-gettext-runtime/gettext-runtime/libasprintf/COPYING",
+        "mingw-w64-clang-x86_64-gettext-runtime/gettext-runtime/libasprintf/COPYING.LIB"
+      ],
+      "redistribution_basis": "corresponding-source",
+      "source_archives": [
+        "mingw-w64-gettext-1.0-1.src.tar.zst"
+      ]
+    },
+    "mingw-w64-clang-x86_64-glib2@2.90.1-1": {
+      "basis_note": "Exact MSYS2 source package, including build recipe, patches and upstream source archive.",
+      "license_files": [
+        "mingw-w64-clang-x86_64-glib2/glib2/COPYING"
+      ],
+      "redistribution_basis": "corresponding-source",
+      "source_archives": [
+        "mingw-w64-glib2-2.90.1-1.src.tar.zst"
+      ]
+    },
+    "mingw-w64-clang-x86_64-glslang@16.6.0-1": {
+      "basis_note": "Exact MSYS2 source package, including build recipe, patches and upstream source archive.",
+      "license_files": [
+        "mingw-w64-clang-x86_64-glslang/glslang/LICENSE.txt"
+      ],
+      "redistribution_basis": "corresponding-source",
+      "source_archives": [
+        "mingw-w64-glslang-16.6.0-1.src.tar.zst"
+      ]
+    },
+    "mingw-w64-clang-x86_64-gmp@6.3.0-2": {
+      "basis_note": "Exact MSYS2 source package, including build recipe, patches and upstream source archive.",
+      "license_files": [
+        "mingw-w64-clang-x86_64-gmp/gmp-6.3.0.tar.xz/gmp-6.3.0/COPYING",
+        "mingw-w64-clang-x86_64-gmp/gmp-6.3.0.tar.xz/gmp-6.3.0/COPYING.LESSERv3",
+        "mingw-w64-clang-x86_64-gmp/gmp-6.3.0.tar.xz/gmp-6.3.0/COPYINGv3",
+        "mingw-w64-clang-x86_64-gmp/gmp-6.3.0.tar.xz/gmp-6.3.0/COPYINGv2"
+      ],
+      "redistribution_basis": "corresponding-source",
+      "source_archives": [
+        "mingw-w64-gmp-6.3.0-2.src.tar.zst"
+      ]
+    },
+    "mingw-w64-clang-x86_64-gnutls@3.8.13-3": {
+      "basis_note": "Exact MSYS2 source package, including build recipe, patches and upstream source archive.",
+      "license_files": [
+        "mingw-w64-clang-x86_64-gnutls/gnutls-3.8.13.tar.xz/gnutls-3.8.13/COPYING",
+        "mingw-w64-clang-x86_64-gnutls/gnutls-3.8.13.tar.xz/gnutls-3.8.13/COPYING.LESSERv2"
+      ],
+      "redistribution_basis": "corresponding-source",
+      "source_archives": [
+        "mingw-w64-gnutls-3.8.13-3.src.tar.zst"
+      ]
+    },
+    "mingw-w64-clang-x86_64-graphite2@1.3.15-1": {
+      "basis_note": "Exact MSYS2 source package, including build recipe, patches and upstream source archive.",
+      "license_files": [
+        "mingw-w64-clang-x86_64-graphite2/graphite2/COPYING",
+        "mingw-w64-clang-x86_64-graphite2/graphite2/LICENSE"
+      ],
+      "redistribution_basis": "corresponding-source",
+      "source_archives": [
+        "mingw-w64-graphite2-1.3.15-1.src.tar.zst"
+      ]
+    },
+    "mingw-w64-clang-x86_64-gsm@1.0.24-1": {
+      "basis_note": "Exact MSYS2 source package, including build recipe, patches and upstream source archive.",
+      "license_files": [
+        "mingw-w64-clang-x86_64-gsm/gsm/license.txt"
+      ],
+      "redistribution_basis": "corresponding-source",
+      "source_archives": [
+        "mingw-w64-gsm-1.0.24-1.src.tar.zst"
+      ]
+    },
+    "mingw-w64-clang-x86_64-harfbuzz@14.6.0-1": {
+      "basis_note": "Exact installed package license and notice files; license metadata: MIT",
+      "license_files": [
+        "mingw-w64-clang-x86_64-harfbuzz/harfbuzz/COPYING"
+      ],
+      "redistribution_basis": "permissive-license",
+      "source_archives": []
+    },
+    "mingw-w64-clang-x86_64-highway@1.4.0-3": {
+      "basis_note": "Exact installed package license and notice files; license metadata: Apache-2.0",
+      "license_files": [
+        "mingw-w64-clang-x86_64-highway/highway/LICENSE"
+      ],
+      "redistribution_basis": "permissive-license",
+      "source_archives": []
+    },
+    "mingw-w64-clang-x86_64-jbigkit@2.1-6": {
+      "basis_note": "Exact MSYS2 source package, including build recipe, patches and upstream source archive.",
+      "license_files": [
+        "mingw-w64-clang-x86_64-jbigkit/jbigkit/COPYING"
+      ],
+      "redistribution_basis": "corresponding-source",
+      "source_archives": [
+        "mingw-w64-jbigkit-2.1-6.src.tar.zst"
+      ]
+    },
+    "mingw-w64-clang-x86_64-lame@3.100-3": {
+      "basis_note": "Exact MSYS2 source package, including build recipe, patches and upstream source archive.",
+      "license_files": [
+        "mingw-w64-clang-x86_64-lame/lame-3.100.tar.gz/lame-3.100/COPYING",
+        "mingw-w64-clang-x86_64-lame/lame-3.100.tar.gz/lame-3.100/LICENSE"
+      ],
+      "redistribution_basis": "corresponding-source",
+      "source_archives": [
+        "mingw-w64-lame-3.100-3.src.tar.zst"
+      ]
+    },
+    "mingw-w64-clang-x86_64-lcms2@2.19.1-1": {
+      "basis_note": "Exact MSYS2 source package, including build recipe, patches and upstream source archive.",
+      "license_files": [
+        "mingw-w64-clang-x86_64-lcms2/lcms2/LICENSE",
+        "mingw-w64-clang-x86_64-lcms2/lcms2/LICENSE-fast_float"
+      ],
+      "redistribution_basis": "corresponding-source",
+      "source_archives": [
+        "mingw-w64-lcms2-2.19.1-1.src.tar.zst"
+      ]
+    },
+    "mingw-w64-clang-x86_64-lerc@4.1.1-1": {
+      "basis_note": "Exact installed package license and notice files; license metadata: Apache-2.0",
+      "license_files": [
+        "mingw-w64-clang-x86_64-lerc/lerc/LICENSE"
+      ],
+      "redistribution_basis": "permissive-license",
+      "source_archives": []
+    },
+    "mingw-w64-clang-x86_64-libbluray@1.5.0-1": {
+      "basis_note": "Exact MSYS2 source package, including build recipe, patches and upstream source archive.",
+      "license_files": [
+        "mingw-w64-clang-x86_64-libbluray/libbluray/COPYING"
+      ],
+      "redistribution_basis": "corresponding-source",
+      "source_archives": [
+        "mingw-w64-libbluray-1.5.0-1.src.tar.zst"
+      ]
+    },
+    "mingw-w64-clang-x86_64-libc++@23.1.3-1": {
+      "basis_note": "Exact installed package license and notice files; license metadata: Apache-2.0 WITH LLVM-exception",
+      "license_files": [
+        "mingw-w64-clang-x86_64-libc++/libc++/LICENSE"
+      ],
+      "redistribution_basis": "permissive-license",
+      "source_archives": []
+    },
+    "mingw-w64-clang-x86_64-libdatrie@0.2.14-1": {
+      "basis_note": "Exact MSYS2 source package, including build recipe, patches and upstream source archive.",
+      "license_files": [
+        "mingw-w64-clang-x86_64-libdatrie/libdatrie/COPYING"
+      ],
+      "redistribution_basis": "corresponding-source",
+      "source_archives": [
+        "mingw-w64-libdatrie-0.2.14-1.src.tar.zst"
+      ]
+    },
+    "mingw-w64-clang-x86_64-libdeflate@1.26-1": {
+      "basis_note": "Exact installed package license and notice files; license metadata: MIT",
+      "license_files": [
+        "mingw-w64-clang-x86_64-libdeflate/libdeflate/COPYING"
+      ],
+      "redistribution_basis": "permissive-license",
+      "source_archives": []
+    },
+    "mingw-w64-clang-x86_64-libffi@3.8.0-1": {
+      "basis_note": "Exact installed package license and notice files; license metadata: MIT",
+      "license_files": [
+        "mingw-w64-clang-x86_64-libffi/libffi/LICENSE"
+      ],
+      "redistribution_basis": "permissive-license",
+      "source_archives": []
+    },
+    "mingw-w64-clang-x86_64-libgme@0.6.5-2": {
+      "basis_note": "Exact MSYS2 source package, including build recipe, patches and upstream source archive.",
+      "license_files": [
+        "mingw-w64-clang-x86_64-libgme/libgme/license.txt"
+      ],
+      "redistribution_basis": "corresponding-source",
+      "source_archives": [
+        "mingw-w64-libgme-0.6.5-2.src.tar.zst"
+      ]
+    },
+    "mingw-w64-clang-x86_64-libiconv@1.19-1": {
+      "basis_note": "Exact MSYS2 source package, including build recipe, patches and upstream source archive.",
+      "license_files": [
+        "mingw-w64-clang-x86_64-libiconv/libiconv/COPYING",
+        "mingw-w64-clang-x86_64-libiconv/libiconv/COPYING.LIB",
+        "mingw-w64-clang-x86_64-libiconv/libiconv/libcharset/COPYING.LIB",
+        "mingw-w64-clang-x86_64-libiconv/libiconv/README"
+      ],
+      "redistribution_basis": "corresponding-source",
+      "source_archives": [
+        "mingw-w64-libiconv-1.19-1.src.tar.zst"
+      ]
+    },
+    "mingw-w64-clang-x86_64-libidn2@2.3.8-4": {
+      "basis_note": "Exact MSYS2 source package, including build recipe, patches and upstream source archive.",
+      "license_files": [
+        "mingw-w64-clang-x86_64-libidn2/libidn2-2.3.8.tar.gz/libidn2-2.3.8/COPYING",
+        "mingw-w64-clang-x86_64-libidn2/libidn2-2.3.8.tar.gz/libidn2-2.3.8/COPYING.LESSERv3",
+        "mingw-w64-clang-x86_64-libidn2/libidn2-2.3.8.tar.gz/libidn2-2.3.8/COPYING.unicode",
+        "mingw-w64-clang-x86_64-libidn2/libidn2-2.3.8.tar.gz/libidn2-2.3.8/COPYINGv2"
+      ],
+      "redistribution_basis": "corresponding-source",
+      "source_archives": [
+        "mingw-w64-libidn2-2.3.8-4.src.tar.zst"
+      ]
+    },
+    "mingw-w64-clang-x86_64-libjpeg-turbo@3.2.0-1": {
+      "basis_note": "Exact MSYS2 source package, including build recipe, patches and upstream source archive.",
+      "license_files": [
+        "mingw-w64-clang-x86_64-libjpeg-turbo/libjpeg-turbo/LICENSE.md",
+        "mingw-w64-clang-x86_64-libjpeg-turbo/libjpeg-turbo/README.ijg",
+        "mingw-w64-clang-x86_64-libjpeg-turbo/libjpeg-turbo/README.md",
+        "mingw-w64-clang-x86_64-libjpeg-turbo/libjpeg-turbo/simd/jsimdext.inc"
+      ],
+      "redistribution_basis": "corresponding-source",
+      "source_archives": [
+        "mingw-w64-libjpeg-turbo-3.2.0-1.src.tar.zst"
+      ]
+    },
+    "mingw-w64-clang-x86_64-libjxl@0.12.0-2": {
+      "basis_note": "Exact installed package license and notice files; license metadata: BSD-3-Clause",
+      "license_files": [
+        "mingw-w64-clang-x86_64-libjxl/libjxl/LICENSE"
+      ],
+      "redistribution_basis": "permissive-license",
+      "source_archives": []
+    },
+    "mingw-w64-clang-x86_64-liblc3@1.1.3-1": {
+      "basis_note": "Exact installed package license and notice files; license metadata: Apache-2.0",
+      "license_files": [
+        "mingw-w64-clang-x86_64-liblc3/liblc3/LICENSE"
+      ],
+      "redistribution_basis": "permissive-license",
+      "source_archives": []
+    },
+    "mingw-w64-clang-x86_64-libmodplug@0.8.9.0-5": {
+      "basis_note": "Exact installed package license and notice files; license metadata: PublicDomain",
+      "license_files": [
+        "mingw-w64-clang-x86_64-libmodplug/libmodplug/LICENSE"
+      ],
+      "redistribution_basis": "permissive-license",
+      "source_archives": []
+    },
+    "mingw-w64-clang-x86_64-libogg@1.3.6-1": {
+      "basis_note": "Exact installed package license and notice files; license metadata: BSD-3-Clause",
+      "license_files": [
+        "mingw-w64-clang-x86_64-libogg/libogg/COPYING"
+      ],
+      "redistribution_basis": "permissive-license",
+      "source_archives": []
+    },
+    "mingw-w64-clang-x86_64-libpng@1.6.59-1": {
+      "basis_note": "Exact MSYS2 source package, including build recipe, patches and upstream source archive.",
+      "license_files": [
+        "mingw-w64-clang-x86_64-libpng/libpng/LICENSE"
+      ],
+      "redistribution_basis": "corresponding-source",
+      "source_archives": [
+        "mingw-w64-libpng-1.6.59-1.src.tar.zst"
+      ]
+    },
+    "mingw-w64-clang-x86_64-libpsl@0.21.5-3": {
+      "basis_note": "Exact installed package license and notice files; license metadata: MIT",
+      "license_files": [
+        "mingw-w64-clang-x86_64-libpsl/libpsl/COPYING"
+      ],
+      "redistribution_basis": "permissive-license",
+      "source_archives": []
+    },
+    "mingw-w64-clang-x86_64-librsvg@2.63.2-1": {
+      "basis_note": "Exact MSYS2 source package, including build recipe, patches and upstream source archive.",
+      "license_files": [
+        "mingw-w64-clang-x86_64-librsvg/librsvg/COPYING.LIB"
+      ],
+      "redistribution_basis": "corresponding-source",
+      "source_archives": [
+        "mingw-w64-librsvg-2.63.2-1.src.tar.zst"
+      ]
+    },
+    "mingw-w64-clang-x86_64-libsoxr@0.1.3-6": {
+      "basis_note": "Exact MSYS2 source package, including build recipe, patches and upstream source archive.",
+      "license_files": [
+        "mingw-w64-clang-x86_64-libsoxr/libsoxr/COPYING.LGPL",
+        "mingw-w64-clang-x86_64-libsoxr/libsoxr/LICENSE",
+        "mingw-w64-clang-x86_64-libsoxr/libsoxr/LICENSE-PFFFT"
+      ],
+      "redistribution_basis": "corresponding-source",
+      "source_archives": [
+        "mingw-w64-libsoxr-0.1.3-6.src.tar.zst"
+      ]
+    },
+    "mingw-w64-clang-x86_64-libssh2@1.11.1-2": {
+      "basis_note": "Exact installed package license and notice files; license metadata: BSD-3-Clause",
+      "license_files": [
+        "mingw-w64-clang-x86_64-libssh2/libssh2/LICENSE"
+      ],
+      "redistribution_basis": "permissive-license",
+      "source_archives": []
+    },
+    "mingw-w64-clang-x86_64-libssh@0.12.2-1": {
+      "basis_note": "Exact MSYS2 source package, including build recipe, patches and upstream source archive.",
+      "license_files": [
+        "mingw-w64-clang-x86_64-libssh/libssh-0.12.2.tar.xz/libssh-0.12.2/COPYING"
+      ],
+      "redistribution_basis": "corresponding-source",
+      "source_archives": [
+        "mingw-w64-libssh-0.12.2-1.src.tar.zst"
+      ]
+    },
+    "mingw-w64-clang-x86_64-libtasn1@4.21.0-1": {
+      "basis_note": "Exact MSYS2 source package, including build recipe, patches and upstream source archive.",
+      "license_files": [
+        "mingw-w64-clang-x86_64-libtasn1/libtasn1/COPYING",
+        "mingw-w64-clang-x86_64-libtasn1/libtasn1/COPYING.LESSERv2"
+      ],
+      "redistribution_basis": "corresponding-source",
+      "source_archives": [
+        "mingw-w64-libtasn1-4.21.0-1.src.tar.zst"
+      ]
+    },
+    "mingw-w64-clang-x86_64-libthai@0.1.30-1": {
+      "basis_note": "Exact MSYS2 source package, including build recipe, patches and upstream source archive.",
+      "license_files": [
+        "mingw-w64-clang-x86_64-libthai/libthai/COPYING"
+      ],
+      "redistribution_basis": "corresponding-source",
+      "source_archives": [
+        "mingw-w64-libthai-0.1.30-1.src.tar.zst"
+      ]
+    },
+    "mingw-w64-clang-x86_64-libtheora@1.2.0-1": {
+      "basis_note": "Exact MSYS2 source package, including build recipe, patches and upstream source archive.",
+      "license_files": [
+        "mingw-w64-clang-x86_64-libtheora/libtheora-1.2.0.tar.gz/libtheora-1.2.0/LICENSE",
+        "mingw-w64-clang-x86_64-libtheora/libtheora-1.2.0.tar.gz/libtheora-1.2.0/COPYING"
+      ],
+      "redistribution_basis": "corresponding-source",
+      "source_archives": [
+        "mingw-w64-libtheora-1.2.0-1.src.tar.zst"
+      ]
+    },
+    "mingw-w64-clang-x86_64-libtiff@4.7.2-1": {
+      "basis_note": "Exact installed package license and notice files; license metadata: MIT",
+      "license_files": [
+        "mingw-w64-clang-x86_64-libtiff/libtiff/LICENSE.md"
+      ],
+      "redistribution_basis": "permissive-license",
+      "source_archives": []
+    },
+    "mingw-w64-clang-x86_64-libunistring@1.4.2-1": {
+      "basis_note": "Exact MSYS2 source package, including build recipe, patches and upstream source archive.",
+      "license_files": [
+        "mingw-w64-clang-x86_64-libunistring/libunistring/LICENSE",
+        "mingw-w64-clang-x86_64-libunistring/libunistring/LICENSE.LIB"
+      ],
+      "redistribution_basis": "corresponding-source",
+      "source_archives": [
+        "mingw-w64-libunistring-1.4.2-1.src.tar.zst"
+      ]
+    },
+    "mingw-w64-clang-x86_64-libunwind@23.1.3-1": {
+      "basis_note": "Exact installed package license and notice files; license metadata: Apache-2.0 WITH LLVM-exception",
+      "license_files": [
+        "mingw-w64-clang-x86_64-libunwind/libunwind/LICENSE"
+      ],
+      "redistribution_basis": "permissive-license",
+      "source_archives": []
+    },
+    "mingw-w64-clang-x86_64-libva@2.24.1-1": {
+      "basis_note": "Exact installed package license and notice files; license metadata: MIT",
+      "license_files": [
+        "mingw-w64-clang-x86_64-libva/libva/COPYING"
+      ],
+      "redistribution_basis": "permissive-license",
+      "source_archives": []
+    },
+    "mingw-w64-clang-x86_64-libvorbis@1.3.7-3": {
+      "basis_note": "Exact MSYS2 source package, including build recipe, patches and upstream source archive.",
+      "license_files": [
+        "mingw-w64-clang-x86_64-libvorbis/libvorbis-1.3.7.tar.gz/libvorbis-1.3.7/COPYING"
+      ],
+      "redistribution_basis": "corresponding-source",
+      "source_archives": [
+        "mingw-w64-libvorbis-1.3.7-3.src.tar.zst"
+      ]
+    },
+    "mingw-w64-clang-x86_64-libvpl@2.17.0-1": {
+      "basis_note": "Exact installed package license and notice files; license metadata: MIT",
+      "license_files": [
+        "mingw-w64-clang-x86_64-libvpl/libvpl/LICENSE"
+      ],
+      "redistribution_basis": "permissive-license",
+      "source_archives": []
+    },
+    "mingw-w64-clang-x86_64-libvpx@1.17.0-1": {
+      "basis_note": "Exact MSYS2 source package, including build recipe, patches and upstream source archive.",
+      "license_files": [
+        "mingw-w64-clang-x86_64-libvpx/libvpx-1.17.0.tar.gz/libvpx-1.17.0/LICENSE"
+      ],
+      "redistribution_basis": "corresponding-source",
+      "source_archives": [
+        "mingw-w64-libvpx-1.17.0-1.src.tar.zst"
+      ]
+    },
+    "mingw-w64-clang-x86_64-libwebp@1.6.0-1": {
+      "basis_note": "Exact installed package license and notice files; license metadata: BSD-3-Clause",
+      "license_files": [
+        "mingw-w64-clang-x86_64-libwebp/libwebp/COPYING"
+      ],
+      "redistribution_basis": "permissive-license",
+      "source_archives": []
+    },
+    "mingw-w64-clang-x86_64-libwinpthread@14.0.0.r426.g4564ee4b5-2": {
+      "basis_note": "Exact installed package license and notice files; license metadata: MIT AND BSD-3-Clause",
+      "license_files": [
+        "mingw-w64-clang-x86_64-libwinpthread/libwinpthread/COPYING"
+      ],
+      "redistribution_basis": "permissive-license",
+      "source_archives": []
+    },
+    "mingw-w64-clang-x86_64-libx264@0.165.r3222.b35605a-3": {
+      "basis_note": "Exact MSYS2 source package, including build recipe, patches and upstream source archive.",
+      "license_files": [
+        "mingw-w64-clang-x86_64-libx264/x264/COPYING"
+      ],
+      "redistribution_basis": "corresponding-source",
+      "source_archives": [
+        "mingw-w64-x264-0.165.r3222.b35605a-3.src.tar.zst"
+      ]
+    },
+    "mingw-w64-clang-x86_64-libxml2@2.15.4-1": {
+      "basis_note": "Exact installed package license and notice files; license metadata: MIT",
+      "license_files": [
+        "mingw-w64-clang-x86_64-libxml2/libxml2/COPYING"
+      ],
+      "redistribution_basis": "permissive-license",
+      "source_archives": []
+    },
+    "mingw-w64-clang-x86_64-llvm-openmp@23.1.3-2": {
+      "basis_note": "Exact installed package license and notice files; license metadata: Apache-2.0 WITH LLVM-exception",
+      "license_files": [
+        "mingw-w64-clang-x86_64-llvm-openmp/openmp/LICENSE"
+      ],
+      "redistribution_basis": "permissive-license",
+      "source_archives": []
+    },
+    "mingw-w64-clang-x86_64-nettle@4.0-1": {
+      "basis_note": "Exact MSYS2 source package, including build recipe, patches and upstream source archive.",
+      "license_files": [
+        "mingw-w64-clang-x86_64-nettle/nettle-4.0.tar.gz/nettle-4.0/COPYING.LESSERv3",
+        "mingw-w64-clang-x86_64-nettle/nettle-4.0.tar.gz/nettle-4.0/COPYINGv2",
+        "mingw-w64-clang-x86_64-nettle/nettle-4.0.tar.gz/nettle-4.0/COPYINGv3"
+      ],
+      "redistribution_basis": "corresponding-source",
+      "source_archives": [
+        "mingw-w64-nettle-4.0-1.src.tar.zst"
+      ]
+    },
+    "mingw-w64-clang-x86_64-nghttp2@1.70.0-1": {
+      "basis_note": "Exact installed package license and notice files; license metadata: MIT",
+      "license_files": [
+        "mingw-w64-clang-x86_64-nghttp2/nghttp2/COPYING"
+      ],
+      "redistribution_basis": "permissive-license",
+      "source_archives": []
+    },
+    "mingw-w64-clang-x86_64-nghttp3@1.18.0-1": {
+      "basis_note": "Exact installed package license and notice files; license metadata: MIT",
+      "license_files": [
+        "mingw-w64-clang-x86_64-nghttp3/nghttp3/COPYING"
+      ],
+      "redistribution_basis": "permissive-license",
+      "source_archives": []
+    },
+    "mingw-w64-clang-x86_64-ngtcp2@1.25.0-1": {
+      "basis_note": "Exact installed package license and notice files; license metadata: MIT",
+      "license_files": [
+        "mingw-w64-clang-x86_64-ngtcp2/ngtcp2/COPYING"
+      ],
+      "redistribution_basis": "permissive-license",
+      "source_archives": []
+    },
+    "mingw-w64-clang-x86_64-opencore-amr@0.1.6-1": {
+      "basis_note": "Exact MSYS2 source package, including build recipe, patches and upstream source archive.",
+      "license_files": [
+        "mingw-w64-clang-x86_64-opencore-amr/opencore-amr-0.1.6.tar.gz/opencore-amr-0.1.6/LICENSE"
+      ],
+      "redistribution_basis": "corresponding-source",
+      "source_archives": [
+        "mingw-w64-opencore-amr-0.1.6-1.src.tar.zst"
+      ]
+    },
+    "mingw-w64-clang-x86_64-openjpeg2@2.5.4-2": {
+      "basis_note": "Exact installed package license and notice files; license metadata: BSD-2-Clause",
+      "license_files": [
+        "mingw-w64-clang-x86_64-openjpeg2/openjpeg/LICENSE"
+      ],
+      "redistribution_basis": "permissive-license",
+      "source_archives": []
+    },
+    "mingw-w64-clang-x86_64-openssl@3.6.5-1": {
+      "basis_note": "Exact installed package license and notice files; license metadata: Apache-2.0",
+      "license_files": [
+        "mingw-w64-clang-x86_64-openssl/openssl/LICENSE"
+      ],
+      "redistribution_basis": "permissive-license",
+      "source_archives": []
+    },
+    "mingw-w64-clang-x86_64-opus@1.6.1-1": {
+      "basis_note": "Exact installed package license and notice files; license metadata: BSD-3-Clause",
+      "license_files": [
+        "mingw-w64-clang-x86_64-opus/opus/COPYING"
+      ],
+      "redistribution_basis": "permissive-license",
+      "source_archives": []
+    },
+    "mingw-w64-clang-x86_64-p11-kit@0.26.5-1": {
+      "basis_note": "Exact MSYS2 source package, including build recipe, patches and upstream source archive.",
+      "license_files": [
+        "mingw-w64-clang-x86_64-p11-kit/p11-kit-0.26.5.tar.xz/p11-kit-0.26.5/COPYING"
+      ],
+      "redistribution_basis": "corresponding-source",
+      "source_archives": [
+        "mingw-w64-p11-kit-0.26.5-1.src.tar.zst"
+      ]
+    },
+    "mingw-w64-clang-x86_64-pango@1.58.2-1": {
+      "basis_note": "Exact MSYS2 source package, including build recipe, patches and upstream source archive.",
+      "license_files": [
+        "mingw-w64-clang-x86_64-pango/pango/COPYING"
+      ],
+      "redistribution_basis": "corresponding-source",
+      "source_archives": [
+        "mingw-w64-pango-1.58.2-1.src.tar.zst"
+      ]
+    },
+    "mingw-w64-clang-x86_64-pcre2@10.49-1": {
+      "basis_note": "Exact installed package license and notice files; license metadata: BSD-3-Clause",
+      "license_files": [
+        "mingw-w64-clang-x86_64-pcre2/pcre2/COPYING",
+        "mingw-w64-clang-x86_64-pcre2/pcre2/LICENCE.md"
+      ],
+      "redistribution_basis": "permissive-license",
+      "source_archives": []
+    },
+    "mingw-w64-clang-x86_64-pixman@0.46.4-3": {
+      "basis_note": "Exact installed package license and notice files; license metadata: MIT",
+      "license_files": [
+        "mingw-w64-clang-x86_64-pixman/pixman/COPYING"
+      ],
+      "redistribution_basis": "permissive-license",
+      "source_archives": []
+    },
+    "mingw-w64-clang-x86_64-rav1e@0.8.1-1": {
+      "basis_note": "Exact installed package license and notice files; license metadata: BSD-2-Clause",
+      "license_files": [
+        "mingw-w64-clang-x86_64-rav1e/rav1e/LICENSE",
+        "mingw-w64-clang-x86_64-rav1e/rav1e/PATENTS"
+      ],
+      "redistribution_basis": "permissive-license",
+      "source_archives": []
+    },
+    "mingw-w64-clang-x86_64-robin-map@1.4.1-1": {
+      "basis_note": "Exact MSYS2 source package, including build recipe, patches and upstream source archive.",
+      "license_files": [
+        "mingw-w64-clang-x86_64-robin-map/robin-map/LICENSE"
+      ],
+      "redistribution_basis": "corresponding-source",
+      "source_archives": [
+        "mingw-w64-robin-map-1.4.1-1.src.tar.zst"
+      ]
+    },
+    "mingw-w64-clang-x86_64-rtmpdump@2.6-2": {
+      "basis_note": "Exact MSYS2 source package, including build recipe, patches and upstream source archive.",
+      "license_files": [
+        "mingw-w64-clang-x86_64-rtmpdump/rtmpdump/COPYING"
+      ],
+      "redistribution_basis": "corresponding-source",
+      "source_archives": [
+        "mingw-w64-rtmpdump-2.6-2.src.tar.zst"
+      ]
+    },
+    "mingw-w64-clang-x86_64-sdl3@3.4.18-1": {
+      "basis_note": "Exact MSYS2 source package, including build recipe, patches and upstream source archive.",
+      "license_files": [
+        "mingw-w64-clang-x86_64-sdl3/SDL3/LICENSE.txt"
+      ],
+      "redistribution_basis": "corresponding-source",
+      "source_archives": [
+        "mingw-w64-sdl3-3.4.18-1.src.tar.zst"
+      ]
+    },
+    "mingw-w64-clang-x86_64-speex@1.2.1-1": {
+      "basis_note": "Exact installed package license and notice files; license metadata: BSD",
+      "license_files": [
+        "mingw-w64-clang-x86_64-speex/speex/LICENSE"
+      ],
+      "redistribution_basis": "permissive-license",
+      "source_archives": []
+    },
+    "mingw-w64-clang-x86_64-spirv-cross@1~1.4.363.0-1": {
+      "basis_note": "Exact MSYS2 source package, including build recipe, patches and upstream source archive.",
+      "license_files": [
+        "mingw-w64-clang-x86_64-spirv-cross/spirv-cross/LICENSE"
+      ],
+      "redistribution_basis": "corresponding-source",
+      "source_archives": [
+        "mingw-w64-spirv-cross-1~1.4.363.0-1.src.tar.zst"
+      ]
+    },
+    "mingw-w64-clang-x86_64-spirv-headers@2~1.4.363.0-1": {
+      "basis_note": "Exact MSYS2 source package, including build recipe, patches and upstream source archive.",
+      "license_files": [
+        "mingw-w64-clang-x86_64-spirv-headers/spirv-headers/LICENSE"
+      ],
+      "redistribution_basis": "corresponding-source",
+      "source_archives": [
+        "mingw-w64-spirv-headers-2~1.4.363.0-1.src.tar.zst"
+      ]
+    },
+    "mingw-w64-clang-x86_64-spirv-tools@3~1.4.363.0-1": {
+      "basis_note": "Exact MSYS2 source package, including build recipe, patches and upstream source archive.",
+      "license_files": [
+        "mingw-w64-clang-x86_64-spirv-tools/spirv-tools/LICENSE"
+      ],
+      "redistribution_basis": "corresponding-source",
+      "source_archives": [
+        "mingw-w64-spirv-tools-3~1.4.363.0-1.src.tar.zst"
+      ]
+    },
+    "mingw-w64-clang-x86_64-srt@1.5.7-1": {
+      "basis_note": "Exact MSYS2 source package, including build recipe, patches and upstream source archive.",
+      "license_files": [
+        "mingw-w64-clang-x86_64-srt/srt/LICENSE"
+      ],
+      "redistribution_basis": "corresponding-source",
+      "source_archives": [
+        "mingw-w64-srt-1.5.7-1.src.tar.zst"
+      ]
+    },
+    "mingw-w64-clang-x86_64-svt-av1@4.2.0-1": {
+      "basis_note": "Exact installed package license and notice files; license metadata: BSD-3-Clause-Clear",
+      "license_files": [
+        "mingw-w64-clang-x86_64-svt-av1/svt-av1/LICENSE",
+        "mingw-w64-clang-x86_64-svt-av1/svt-av1/PATENTS.md"
+      ],
+      "redistribution_basis": "permissive-license",
+      "source_archives": []
+    },
+    "mingw-w64-clang-x86_64-vulkan-headers@1~1.4.363.0-1": {
+      "basis_note": "Exact MSYS2 source package, including build recipe, patches and upstream source archive.",
+      "license_files": [
+        "mingw-w64-clang-x86_64-vulkan-headers/vulkan-headers/LICENSE"
+      ],
+      "redistribution_basis": "corresponding-source",
+      "source_archives": [
+        "mingw-w64-vulkan-headers-1~1.4.363.0-1.src.tar.zst"
+      ]
+    },
+    "mingw-w64-clang-x86_64-vulkan-loader@1~1.4.363.0-1": {
+      "basis_note": "Exact MSYS2 source package, including build recipe, patches and upstream source archive.",
+      "license_files": [
+        "mingw-w64-clang-x86_64-vulkan-loader/vulkan-loader/LICENSE"
+      ],
+      "redistribution_basis": "corresponding-source",
+      "source_archives": [
+        "mingw-w64-vulkan-loader-1~1.4.363.0-1.src.tar.zst"
+      ]
+    },
+    "mingw-w64-clang-x86_64-vulkan-memory-allocator@3.4.0-1": {
+      "basis_note": "Exact MSYS2 source package, including build recipe, patches and upstream source archive.",
+      "license_files": [
+        "mingw-w64-clang-x86_64-vulkan-memory-allocator/VulkanMemoryAllocator/LICENSE"
+      ],
+      "redistribution_basis": "corresponding-source",
+      "source_archives": [
+        "mingw-w64-vulkan-memory-allocator-3.4.0-1.src.tar.zst"
+      ]
+    },
+    "mingw-w64-clang-x86_64-x265@4.3-1": {
+      "basis_note": "Exact MSYS2 source package, including build recipe, patches and upstream source archive.",
+      "license_files": [
+        "mingw-w64-clang-x86_64-x265/x265-4.3.tar.gz/x265_4.3/COPYING"
+      ],
+      "redistribution_basis": "corresponding-source",
+      "source_archives": [
+        "mingw-w64-x265-4.3-1.src.tar.zst"
+      ]
+    },
+    "mingw-w64-clang-x86_64-xvidcore@1.3.7-5": {
+      "basis_note": "Exact MSYS2 source package, including build recipe, patches and upstream source archive.",
+      "license_files": [
+        "mingw-w64-clang-x86_64-xvidcore/xvidcore-1.3.7.tar.bz2/xvidcore/LICENSE"
+      ],
+      "redistribution_basis": "corresponding-source",
+      "source_archives": [
+        "mingw-w64-xvidcore-1.3.7-5.src.tar.zst"
+      ]
+    },
+    "mingw-w64-clang-x86_64-xxhash@0.8.4-1": {
+      "basis_note": "Exact MSYS2 source package, including build recipe, patches and upstream source archive.",
+      "license_files": [
+        "mingw-w64-clang-x86_64-xxhash/xxhash/LICENSE"
+      ],
+      "redistribution_basis": "corresponding-source",
+      "source_archives": [
+        "mingw-w64-xxhash-0.8.4-1.src.tar.zst"
+      ]
+    },
+    "mingw-w64-clang-x86_64-xz@5.8.4-1": {
+      "basis_note": "Exact MSYS2 source package, including build recipe, patches and upstream source archive.",
+      "license_files": [
+        "mingw-w64-clang-x86_64-xz/xz/COPYING",
+        "mingw-w64-clang-x86_64-xz/xz/COPYING.0BSD",
+        "mingw-w64-clang-x86_64-xz/xz/COPYING.GPLv2",
+        "mingw-w64-clang-x86_64-xz/xz/COPYING.GPLv3",
+        "mingw-w64-clang-x86_64-xz/xz/COPYING.LGPLv2.1"
+      ],
+      "redistribution_basis": "corresponding-source",
+      "source_archives": [
+        "mingw-w64-xz-5.8.4-1.src.tar.zst"
+      ]
+    },
+    "mingw-w64-clang-x86_64-zlib@1.3.2-2": {
+      "basis_note": "Exact MSYS2 source package, including build recipe, patches and upstream source archive.",
+      "license_files": [
+        "mingw-w64-clang-x86_64-zlib/zlib/LICENSE"
+      ],
+      "redistribution_basis": "corresponding-source",
+      "source_archives": [
+        "mingw-w64-zlib-1.3.2-2.src.tar.zst"
+      ]
+    },
+    "mingw-w64-clang-x86_64-zstd@1.5.7-2": {
+      "basis_note": "Exact MSYS2 source package, including build recipe, patches and upstream source archive.",
+      "license_files": [
+        "mingw-w64-clang-x86_64-zstd/zstd/LICENSE"
+      ],
+      "redistribution_basis": "corresponding-source",
+      "source_archives": [
+        "mingw-w64-zstd-1.5.7-2.src.tar.zst"
+      ]
+    },
+    "mingw-w64-clang-x86_64-zvbi@0.2.45-1": {
+      "basis_note": "Exact MSYS2 source package, including build recipe, patches and upstream source archive.",
+      "license_files": [
+        "mingw-w64-clang-x86_64-zvbi/zvbi/COPYING.md"
+      ],
+      "redistribution_basis": "corresponding-source",
+      "source_archives": [
+        "mingw-w64-zvbi-0.2.45-1.src.tar.zst"
+      ]
+    },
+    "mingw-w64-clang-x86_64-zydis@4.1.1-1": {
+      "basis_note": "Exact MSYS2 source package, including build recipe, patches and upstream source archive.",
+      "license_files": [
+        "mingw-w64-clang-x86_64-zydis/zydis/LICENSE"
+      ],
+      "redistribution_basis": "corresponding-source",
+      "source_archives": [
+        "mingw-w64-zydis-4.1.1-1.src.tar.zst"
+      ]
+    }
+  },
+  "schema_version": 1,
+  "source_archives": {
+    "mingw-w64-boost-1.92.0-4.src.tar.zst": {
+      "sha256": "9825bfde4a8107204253921256ca5c488f23b5af50a94b80292b10e16d511d6e",
+      "url": "https://repo.msys2.org/mingw/sources/mingw-w64-boost-1.92.0-4.src.tar.zst"
+    },
+    "mingw-w64-bzip2-1.0.8-4.src.tar.zst": {
+      "sha256": "fd9360917314d1cbccb3cb15ed8450d1e56b8a9f733b606504aba52c52159e54",
+      "url": "https://repo.msys2.org/mingw/sources/mingw-w64-bzip2-1.0.8-4.src.tar.zst"
+    },
+    "mingw-w64-cairo-1.18.6-2.src.tar.zst": {
+      "sha256": "ff7124c2155b1169fe102a1dcba1cd7a21f69dace3adf88f1dd8f85ef7ad1e19",
+      "url": "https://repo.msys2.org/mingw/sources/mingw-w64-cairo-1.18.6-2.src.tar.zst"
+    },
+    "mingw-w64-ffmpeg-9.0.2-1.src.tar.zst": {
+      "sha256": "91c40f70437632e425638cf5786d5b49cad6d3cf84c384a63cd090781a3063d0",
+      "url": "https://repo.msys2.org/mingw/sources/mingw-w64-ffmpeg-9.0.2-1.src.tar.zst"
+    },
+    "mingw-w64-fmt-12.2.0-1.src.tar.zst": {
+      "sha256": "88dfcdfeb8f1a6b19aff46b43582ca71f2b932d37dec32f1f4a7af4f3f2c3b70",
+      "url": "https://repo.msys2.org/mingw/sources/mingw-w64-fmt-12.2.0-1.src.tar.zst"
+    },
+    "mingw-w64-fontconfig-2.18.3-1.src.tar.zst": {
+      "sha256": "7df65dbf84397f4f71c6aa0bd39fac93f839d6b87f04a935773b69828740230d",
+      "url": "https://repo.msys2.org/mingw/sources/mingw-w64-fontconfig-2.18.3-1.src.tar.zst"
+    },
+    "mingw-w64-freetype-2.15.0-1.src.tar.zst": {
+      "sha256": "2f09c60b72bd249642d055aa5a34edf2577392e592415f3f4730dd37990b47ad",
+      "url": "https://repo.msys2.org/mingw/sources/mingw-w64-freetype-2.15.0-1.src.tar.zst"
+    },
+    "mingw-w64-fribidi-1.0.17-1.src.tar.zst": {
+      "sha256": "0f192cf5009fe18e2ac752273de509094cf161106fbedd69f112186e75253850",
+      "url": "https://repo.msys2.org/mingw/sources/mingw-w64-fribidi-1.0.17-1.src.tar.zst"
+    },
+    "mingw-w64-gdk-pixbuf2-2.44.8-1.src.tar.zst": {
+      "sha256": "fb6637834e846c35879df9c137f8fc8da2174377657d88c64eb4676a7342e9ab",
+      "url": "https://repo.msys2.org/mingw/sources/mingw-w64-gdk-pixbuf2-2.44.8-1.src.tar.zst"
+    },
+    "mingw-w64-gettext-1.0-1.src.tar.zst": {
+      "sha256": "cca0d0c8f60353faccc5ad40405240014e4a7ccc8b1c6ca9f4626aef3097d26e",
+      "url": "https://repo.msys2.org/mingw/sources/mingw-w64-gettext-1.0-1.src.tar.zst"
+    },
+    "mingw-w64-glib2-2.90.1-1.src.tar.zst": {
+      "sha256": "ac3bc00e4079e6b51dd0a1fb9ccc420fff033b4e9095e4487dbf6cf01312cee6",
+      "url": "https://repo.msys2.org/mingw/sources/mingw-w64-glib2-2.90.1-1.src.tar.zst"
+    },
+    "mingw-w64-glslang-16.6.0-1.src.tar.zst": {
+      "sha256": "aa1a44fd83b5b676e69e77569fc8d3188332518a76e5f4ac9f93d4625a2118ad",
+      "url": "https://repo.msys2.org/mingw/sources/mingw-w64-glslang-16.6.0-1.src.tar.zst"
+    },
+    "mingw-w64-gmp-6.3.0-2.src.tar.zst": {
+      "sha256": "f288f944fd9609db220bcf6a8dd0703a5674eeb906ef35eb8485bb8192135994",
+      "url": "https://repo.msys2.org/mingw/sources/mingw-w64-gmp-6.3.0-2.src.tar.zst"
+    },
+    "mingw-w64-gnutls-3.8.13-3.src.tar.zst": {
+      "sha256": "7889cd73810d909642c0f122b40cfe0eaec5b0d2985804f145cd90c6a51c0435",
+      "url": "https://repo.msys2.org/mingw/sources/mingw-w64-gnutls-3.8.13-3.src.tar.zst"
+    },
+    "mingw-w64-graphite2-1.3.15-1.src.tar.zst": {
+      "sha256": "eb76ce274c68ea6bad0883144c21e44a803ec94fed9dc0f6584feb0a8415a1d6",
+      "url": "https://repo.msys2.org/mingw/sources/mingw-w64-graphite2-1.3.15-1.src.tar.zst"
+    },
+    "mingw-w64-gsm-1.0.24-1.src.tar.zst": {
+      "sha256": "623729958cd0ca08e15ff6a51a54aa1bb73fe0356c29a42fc35342087497d61a",
+      "url": "https://repo.msys2.org/mingw/sources/mingw-w64-gsm-1.0.24-1.src.tar.zst"
+    },
+    "mingw-w64-jbigkit-2.1-6.src.tar.zst": {
+      "sha256": "64757867df26308c14d22b184aaecb43742c25ee8d24f18da51e3d1e09be8ac2",
+      "url": "https://repo.msys2.org/mingw/sources/mingw-w64-jbigkit-2.1-6.src.tar.zst"
+    },
+    "mingw-w64-lame-3.100-3.src.tar.zst": {
+      "sha256": "dfd51143ea25aa0b67f5d355127b8a89a27379b1b128f0b2f9eed7c3327656ab",
+      "url": "https://repo.msys2.org/mingw/sources/mingw-w64-lame-3.100-3.src.tar.zst"
+    },
+    "mingw-w64-lcms2-2.19.1-1.src.tar.zst": {
+      "sha256": "83414d0d95c5cb2548d3050670694e9efc64304a52190f42bcad951efa038b41",
+      "url": "https://repo.msys2.org/mingw/sources/mingw-w64-lcms2-2.19.1-1.src.tar.zst"
+    },
+    "mingw-w64-libbluray-1.5.0-1.src.tar.zst": {
+      "sha256": "4dcdf8ceb22b2f249bccd06c7572b3e5edb4e6efd101ab440bf479b40ec60dcc",
+      "url": "https://repo.msys2.org/mingw/sources/mingw-w64-libbluray-1.5.0-1.src.tar.zst"
+    },
+    "mingw-w64-libdatrie-0.2.14-1.src.tar.zst": {
+      "sha256": "da58ca439051a8cfb1d7f15cdd82af104e1ea1eeefdb090e608d2305a747df7d",
+      "url": "https://repo.msys2.org/mingw/sources/mingw-w64-libdatrie-0.2.14-1.src.tar.zst"
+    },
+    "mingw-w64-libgme-0.6.5-2.src.tar.zst": {
+      "sha256": "b77a9be1dd65255df797a793a525a25a73b75a8c3c1379f79b2ea9376e854fd6",
+      "url": "https://repo.msys2.org/mingw/sources/mingw-w64-libgme-0.6.5-2.src.tar.zst"
+    },
+    "mingw-w64-libiconv-1.19-1.src.tar.zst": {
+      "sha256": "74428280c17094da5b702c29b2e1a0abae59556ea5dfdd65705cc8ccc1e000fb",
+      "url": "https://repo.msys2.org/mingw/sources/mingw-w64-libiconv-1.19-1.src.tar.zst"
+    },
+    "mingw-w64-libidn2-2.3.8-4.src.tar.zst": {
+      "sha256": "cd83e8514fbeb6a4499299b88691b9b9ecc3114cca1e2be4f6c54aab6ae9ddd0",
+      "url": "https://repo.msys2.org/mingw/sources/mingw-w64-libidn2-2.3.8-4.src.tar.zst"
+    },
+    "mingw-w64-libjpeg-turbo-3.2.0-1.src.tar.zst": {
+      "sha256": "98bfbef730e79ca74c88842eb27730db11429dbae4d95e0f5d7859e316026a74",
+      "url": "https://repo.msys2.org/mingw/sources/mingw-w64-libjpeg-turbo-3.2.0-1.src.tar.zst"
+    },
+    "mingw-w64-libpng-1.6.59-1.src.tar.zst": {
+      "sha256": "2b836f8565a3889ed9bb86f9724074ae274f109e2bcd882dd1f080ea4da8a41a",
+      "url": "https://repo.msys2.org/mingw/sources/mingw-w64-libpng-1.6.59-1.src.tar.zst"
+    },
+    "mingw-w64-librsvg-2.63.2-1.src.tar.zst": {
+      "sha256": "23557fdcf43fbc1ec27e4f2808135e3e214b3631cf69ab8706b91edd46453b19",
+      "url": "https://repo.msys2.org/mingw/sources/mingw-w64-librsvg-2.63.2-1.src.tar.zst"
+    },
+    "mingw-w64-libsoxr-0.1.3-6.src.tar.zst": {
+      "sha256": "f6808c093eb32c771268933e3f23ab41ba3780a32fa6a07b7f8116e637fd8b69",
+      "url": "https://repo.msys2.org/mingw/sources/mingw-w64-libsoxr-0.1.3-6.src.tar.zst"
+    },
+    "mingw-w64-libssh-0.12.2-1.src.tar.zst": {
+      "sha256": "b935d915b5392e573f65855c491e476ae38860d3929d2b564e507aa660c3e05b",
+      "url": "https://repo.msys2.org/mingw/sources/mingw-w64-libssh-0.12.2-1.src.tar.zst"
+    },
+    "mingw-w64-libtasn1-4.21.0-1.src.tar.zst": {
+      "sha256": "c626129c5131eef0a45c736274f0844747605a105161cc0f7d39f6e1c70ed0ff",
+      "url": "https://repo.msys2.org/mingw/sources/mingw-w64-libtasn1-4.21.0-1.src.tar.zst"
+    },
+    "mingw-w64-libthai-0.1.30-1.src.tar.zst": {
+      "sha256": "e4f8d840fca132eb47aed311fc2c36dc59604b9ecd0aa310161b9d1e2cee4d03",
+      "url": "https://repo.msys2.org/mingw/sources/mingw-w64-libthai-0.1.30-1.src.tar.zst"
+    },
+    "mingw-w64-libtheora-1.2.0-1.src.tar.zst": {
+      "sha256": "2390e994f10cb3e3e5f32898010ecede4e61bd10d47cfe4d1500ed8c7a774e85",
+      "url": "https://repo.msys2.org/mingw/sources/mingw-w64-libtheora-1.2.0-1.src.tar.zst"
+    },
+    "mingw-w64-libunistring-1.4.2-1.src.tar.zst": {
+      "sha256": "a5bafb360d5c13c5c52ef071d5a8288ce2345346b902f20ed6e9322766ec60eb",
+      "url": "https://repo.msys2.org/mingw/sources/mingw-w64-libunistring-1.4.2-1.src.tar.zst"
+    },
+    "mingw-w64-libvorbis-1.3.7-3.src.tar.zst": {
+      "sha256": "429f3219de93435cbaa7737627b3b548ba8917d09c525f2005b9283ac5b39142",
+      "url": "https://repo.msys2.org/mingw/sources/mingw-w64-libvorbis-1.3.7-3.src.tar.zst"
+    },
+    "mingw-w64-libvpx-1.17.0-1.src.tar.zst": {
+      "sha256": "7b322fffe50501d26bbbb489135e5001f6096da2529ad992c712c00c94bb38dd",
+      "url": "https://repo.msys2.org/mingw/sources/mingw-w64-libvpx-1.17.0-1.src.tar.zst"
+    },
+    "mingw-w64-nettle-4.0-1.src.tar.zst": {
+      "sha256": "453187e86139bce3c5b94542cc709ead7f523f0fc33ce4cc2b8fe9d5a9719cdd",
+      "url": "https://repo.msys2.org/mingw/sources/mingw-w64-nettle-4.0-1.src.tar.zst"
+    },
+    "mingw-w64-opencore-amr-0.1.6-1.src.tar.zst": {
+      "sha256": "359bb4bcea1f8f49f875898887c25ab5c3c95af5b34afeca00fffd7256e5bccb",
+      "url": "https://repo.msys2.org/mingw/sources/mingw-w64-opencore-amr-0.1.6-1.src.tar.zst"
+    },
+    "mingw-w64-p11-kit-0.26.5-1.src.tar.zst": {
+      "sha256": "1665c40c6237bbb9be868ecfc00ab65f9038047e4c608126de575ae4ecb5ca12",
+      "url": "https://repo.msys2.org/mingw/sources/mingw-w64-p11-kit-0.26.5-1.src.tar.zst"
+    },
+    "mingw-w64-pango-1.58.2-1.src.tar.zst": {
+      "sha256": "df981b2c47d9344f3a4869645a8f2392916dac3e470634778453410ec813e390",
+      "url": "https://repo.msys2.org/mingw/sources/mingw-w64-pango-1.58.2-1.src.tar.zst"
+    },
+    "mingw-w64-robin-map-1.4.1-1.src.tar.zst": {
+      "sha256": "00e6534efe48a1bf718dbf96385f0196a263a9741ff5317a9b32913397251dd1",
+      "url": "https://repo.msys2.org/mingw/sources/mingw-w64-robin-map-1.4.1-1.src.tar.zst"
+    },
+    "mingw-w64-rtmpdump-2.6-2.src.tar.zst": {
+      "sha256": "1f2b4eb1886b9934e60728cbe4b60fffa5a316b339e8ccae4b1eef9180d32cb5",
+      "url": "https://repo.msys2.org/mingw/sources/mingw-w64-rtmpdump-2.6-2.src.tar.zst"
+    },
+    "mingw-w64-sdl3-3.4.18-1.src.tar.zst": {
+      "sha256": "33a2c5bee4eaf4b62c62aa76ca67927211d194d2ddee2cfd66aea4aea2756a52",
+      "url": "https://repo.msys2.org/mingw/sources/mingw-w64-sdl3-3.4.18-1.src.tar.zst"
+    },
+    "mingw-w64-spirv-cross-1~1.4.363.0-1.src.tar.zst": {
+      "sha256": "2043f9e7e1359edbf1618a59c38a687d47e3a5779844db6adc4f8de78c5e1eed",
+      "url": "https://repo.msys2.org/mingw/sources/mingw-w64-spirv-cross-1~1.4.363.0-1.src.tar.zst"
+    },
+    "mingw-w64-spirv-headers-2~1.4.363.0-1.src.tar.zst": {
+      "sha256": "261200e7faf30b0cdfd8a6987543c3ab62710e8eb29d727313518d3e7c363f07",
+      "url": "https://repo.msys2.org/mingw/sources/mingw-w64-spirv-headers-2~1.4.363.0-1.src.tar.zst"
+    },
+    "mingw-w64-spirv-tools-3~1.4.363.0-1.src.tar.zst": {
+      "sha256": "6110f9257bd8d63da9b8d981c1093fd28f99a7d51c34f067c3a1c5db5e46454a",
+      "url": "https://repo.msys2.org/mingw/sources/mingw-w64-spirv-tools-3~1.4.363.0-1.src.tar.zst"
+    },
+    "mingw-w64-srt-1.5.7-1.src.tar.zst": {
+      "sha256": "bed7eb763e6d6c98aaf826d2375a959714669a8040a378ae19a81bed1d342daf",
+      "url": "https://repo.msys2.org/mingw/sources/mingw-w64-srt-1.5.7-1.src.tar.zst"
+    },
+    "mingw-w64-vulkan-headers-1~1.4.363.0-1.src.tar.zst": {
+      "sha256": "8becfcd6d5ec4a744adfcac7c12f6363e45a48abe3af75003baacf344e8caaa6",
+      "url": "https://repo.msys2.org/mingw/sources/mingw-w64-vulkan-headers-1~1.4.363.0-1.src.tar.zst"
+    },
+    "mingw-w64-vulkan-loader-1~1.4.363.0-1.src.tar.zst": {
+      "sha256": "61ed2ebe6007c464af1687e4ecad93199e9faeb3d8dd4d3c24e5b2576f730c9b",
+      "url": "https://repo.msys2.org/mingw/sources/mingw-w64-vulkan-loader-1~1.4.363.0-1.src.tar.zst"
+    },
+    "mingw-w64-vulkan-memory-allocator-3.4.0-1.src.tar.zst": {
+      "sha256": "88ad12d83e0c1eb5806451add303692a12b98d647e5eb3974c41fbf868c718f4",
+      "url": "https://repo.msys2.org/mingw/sources/mingw-w64-vulkan-memory-allocator-3.4.0-1.src.tar.zst"
+    },
+    "mingw-w64-x264-0.165.r3222.b35605a-3.src.tar.zst": {
+      "sha256": "6a4d3620201074edec84681aeb25ffa1eceaa9451f7347ca1448f532634eed55",
+      "url": "https://repo.msys2.org/mingw/sources/mingw-w64-x264-0.165.r3222.b35605a-3.src.tar.zst"
+    },
+    "mingw-w64-x265-4.3-1.src.tar.zst": {
+      "sha256": "f2f94e2dd88cd9ce917bd68eb6cb3f41e15d63d56efbfa386416800efa3eae10",
+      "url": "https://repo.msys2.org/mingw/sources/mingw-w64-x265-4.3-1.src.tar.zst"
+    },
+    "mingw-w64-xvidcore-1.3.7-5.src.tar.zst": {
+      "sha256": "400fb6859dcfbfa3f416098a3ff0cde2ca89daaae587b59dc34d150175d4841a",
+      "url": "https://repo.msys2.org/mingw/sources/mingw-w64-xvidcore-1.3.7-5.src.tar.zst"
+    },
+    "mingw-w64-xxhash-0.8.4-1.src.tar.zst": {
+      "sha256": "a5dee4a8182393215c25b8d8458c4592a5e69e21e774d5dfee09617a6ff1c0cc",
+      "url": "https://repo.msys2.org/mingw/sources/mingw-w64-xxhash-0.8.4-1.src.tar.zst"
+    },
+    "mingw-w64-xz-5.8.4-1.src.tar.zst": {
+      "sha256": "b8acbc56b2bfe08df7bffff423f3bf07ee85dbec4e07416017ab04c8afb9d13e",
+      "url": "https://repo.msys2.org/mingw/sources/mingw-w64-xz-5.8.4-1.src.tar.zst"
+    },
+    "mingw-w64-zlib-1.3.2-2.src.tar.zst": {
+      "sha256": "eef69dea52357e01b272d6fd6dc4d7c0773f71260cb7bcde6047c8c383518db3",
+      "url": "https://repo.msys2.org/mingw/sources/mingw-w64-zlib-1.3.2-2.src.tar.zst"
+    },
+    "mingw-w64-zstd-1.5.7-2.src.tar.zst": {
+      "sha256": "306797282df799e95d550e6d0bb4b0a7b848027b8e13893a24236e060837c217",
+      "url": "https://repo.msys2.org/mingw/sources/mingw-w64-zstd-1.5.7-2.src.tar.zst"
+    },
+    "mingw-w64-zvbi-0.2.45-1.src.tar.zst": {
+      "sha256": "5ee641cf3ded88342b37fd2c50e2c477056c327a876c61bc2a82cc26697532af",
+      "url": "https://repo.msys2.org/mingw/sources/mingw-w64-zvbi-0.2.45-1.src.tar.zst"
+    },
+    "mingw-w64-zydis-4.1.1-1.src.tar.zst": {
+      "sha256": "1e316359cbc51ff14a0546cc80c252b396957456c93aeef59ea3895bf36d756d",
+      "url": "https://repo.msys2.org/mingw/sources/mingw-w64-zydis-4.1.1-1.src.tar.zst"
+    }
+  }
+}
