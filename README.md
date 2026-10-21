@@ -16,6 +16,12 @@ releases; `channel-b` follows OCTR's releases. Their branches are
 recorded in `distribution-lock.json` and each package manifest. These new host
 integrations have not yet been validated in-game.
 
+The [automatic release workflow](https://github.com/pierluigizagaria/ctrnf-p2p/actions/workflows/check-upstreams.yml)
+checks new stable upstream releases daily, reapplies the adapters and publishes
+complete packages only after both channels pass their build and offline checks.
+Conflicts or failed checks stop updates and open an issue for the maintainer.
+Installed copies are updated manually from Releases; saves and settings stay local.
+
 **Experimental.** See [compatibility and limitations](#compatibility-and-limitations)
 before installing.
 

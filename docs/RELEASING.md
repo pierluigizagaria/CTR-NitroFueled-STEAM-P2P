@@ -206,9 +206,9 @@ mod assets without changing the preview version.
 
 With `create_draft` selected, both channels and their matching source companions
 must pass validation before the workflow creates a draft prerelease. Existing
-tags/releases are never replaced by that helper. Additive publication to the
-existing first preview is a separate explicit maintainer action after reviewing
-the exact assets. Ordinary workflow runs produce downloadable CI artifacts only.
+tags/releases are never replaced by that helper. Manual runs of this workflow
+produce CI artifacts or a new draft. The separate automatic release workflow
+below publishes additive assets to the existing first preview after all checks.
 Offline tests are separate from live Steam and multi-PC game acceptance.
 
 To refresh the toolchain or dependency evidence, use `tools/lock_msys2.py capture`
@@ -219,10 +219,59 @@ including new source URLs, package versions and hashes, before committing them.
 
 ## Following upstream releases
 
-**Check upstream host releases** compares official GitHub release tags and their
-exact commit IDs with the lock daily and on manual dispatch. This read-only job
-publishes a JSON report; it does not promote moving upstream code into a release.
-For a changed release, prepare an isolated candidate from the checked-out host:
+**Automatic P2P releases** runs daily at 06:17 UTC and on manual dispatch from
+`main`. It checks each official repository's latest stable release, resolves the
+tag to an exact commit, and replays that channel's adapter commits in an isolated
+candidate. Already-adopted changes are dropped. The existing channel and release
+stay in place while the candidates are built and tested. A changed PSN contract,
+rewritten upstream history, conflict, unknown dependency, missing source/license
+evidence or failed check stops the run.
+
+Both channels are rebuilt even when only one upstream changed. Each job recreates
+the planned commits with fixed commit metadata and verifies the resulting SHAs.
+The prospective bridge commit changes only `distribution-lock.json`, giving the
+new packages a unique source suffix without changing the preview version.
+The mod, host adapters, package hashes and corresponding sources must all pass.
+These offline checks do not launch the game or establish multi-PC acceptance.
+
+The final job validates both archives against the external plan, uploads sources
+before binaries, atomically advances the two host branches with explicit leases,
+and advances bridge `main` with a lease. Old and new host revisions receive
+immutable source tags. Existing release tags and assets are never replaced.
+A completion receipt lists the exact inputs, revisions and eight asset hashes;
+the release notes link the latest completed build. Independent provider/server
+pins and compiler/dependency pins remain reviewed inputs, not floating updates.
+
+Only the publisher has `contents: write` and the Actions secret
+`P2P_HOST_DEPLOY_KEY`. That dedicated write deploy key belongs only to the host
+integration repository. Build jobs have read access and no persisted checkout
+credentials. GitHub's SSH host key is pinned in `tools/github_known_hosts`.
+The notification job has issue access to assign failures to the configured owner.
+GitHub inbox/email delivery follows that account's notification settings.
+
+`automation.json` configures the existing preview tag, controlled host repository,
+commit identity and notification assignee. The separate `automation/state`
+branch stores a public, non-secret stop/recovery record. Failed runs open or
+update one issue; scheduled runs then stay stopped without repeated build attempts.
+Use **Run workflow** with these modes:
+
+- `auto`: check for new stable releases; do nothing when unchanged or stopped.
+- `retry`: after fixing a conflict/check, prepare and test a fresh candidate.
+  If upstream pins are already current, verify them and clear the stop without
+  rebuilding assets under existing release filenames.
+- `resume`: finish a pending publication using its original plan and artifacts.
+- `verify`: build/test current pins and check publisher access, without releasing.
+
+GitHub cannot update two repositories and release assets in one transaction.
+A failed publication can leave tested assets visible before its completion receipt
+exists. Its pending record keeps the exact hashes, prior/new refs and original
+Actions run. Resume never rebuilds or overwrites an asset. Recovery accepts only
+the recorded before/after states; unrelated changes require manual resolution.
+If bridge promotion loses a race, host rollback also uses explicit leases.
+Artifacts are retained for 90 days; deleted or expired original artifacts cannot
+be silently substituted with a rebuild. Preserve the original files for recovery.
+
+For local diagnosis, prepare one isolated candidate without publishing:
 
 ```text
 python tools/prepare_upstream_update.py --lock distribution-lock.json --channel channel-a --host-source /path/to/host-checkout --upstream-tag <new-tag> --upstream-revision <full-commit>
@@ -234,10 +283,8 @@ dropped. A conflict stops the replay and preserves the candidate for resolution;
 the existing channel and lock remain intact. The result includes the commands
 needed to continue or abort and the checks required before promoting the candidate.
 
-After reviewing and testing the candidate, update the channel's integration and
-upstream pins, preserve the common PSN contract and refresh dependency evidence
-when the runtime closure changes. Run the complete distribution workflow for
-that reviewed combination. The bridge repository's ordinary GitHub token cannot
-push another repository: no cross-repository credential or automatic host-branch
-write is configured by these workflows. Candidate preparation and complete builds
-are automated; promotion to the maintained host branches is an explicit step.
+For a stopped update, fix the adapter or refresh reviewed dependency evidence
+when needed, keep the lock aligned with its published integration branch, and
+run `retry`. Never bypass the common PSN contract or package checks to clear a stop.
+The low-level helper itself makes no remote writes; the automatic publisher owns
+promotion and its recovery record.

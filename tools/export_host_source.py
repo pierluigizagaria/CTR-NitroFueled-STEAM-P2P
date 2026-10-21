@@ -142,7 +142,9 @@ def export(args):
         raise ValueError('Host license/build recipe missing from source export')
     files['distribution-lock.json'] = json_bytes(lock)
     # The exact builder recipe is a distinct MIT component, never relicensed as host code.
-    for pattern in ('tools/*.py', 'tools/msys2-*.json', '.github/workflows/*distribution*.yml'):
+    for pattern in ('tools/*.py', 'tools/msys2-*.json', 'tools/github_known_hosts',
+                    'automation.json', '.github/workflows/*distribution*.yml',
+                    '.github/workflows/check-upstreams.yml'):
         for path in sorted(ROOT.glob(pattern)):
             files['build-recipes/' + path.relative_to(ROOT).as_posix()] = path.read_bytes()
     files['build-recipes/LICENSE'] = (ROOT / 'LICENSE').read_bytes()

@@ -1,37 +1,254 @@
-name: Check upstream host releases
+name: Automatic P2P releases
 
 on:
   workflow_dispatch:
+    inputs:
+      mode:
+        description: Auto checks releases; retry rebuilds after a fix; resume reuses pending artifacts; verify tests current pins without publishing
+        type: choice
+        options: [auto, retry, resume, verify]
+        default: auto
   schedule:
     - cron: '17 6 * * *'
 
 permissions:
   contents: read
 
+concurrency:
+  group: automatic-p2p-releases
+  cancel-in-progress: false
+
 jobs:
-  check:
+  plan:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 20
+    outputs:
+      action: ${{ steps.inspect.outputs.action }}
+      version: ${{ steps.inspect.outputs.version }}
+      matrix: ${{ steps.inspect.outputs.matrix }}
+      artifact_run_id: ${{ steps.inspect.outputs.artifact_run_id }}
+      verify: ${{ steps.inspect.outputs.verify }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - run: python3 -m unittest discover -s tests -p 'test_release*.py' -v
+      - id: inspect
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          AUTOMATION_MODE: ${{ inputs.mode || 'auto' }}
+        run: python3 tools/automation_control.py inspect --mode "$AUTOMATION_MODE"
+      - if: steps.inspect.outputs.action == 'build'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: pierluigizagaria/CTR-NitroFueled-PC
+          path: out/host
+          fetch-depth: 0
+          persist-credentials: false
+      - if: steps.inspect.outputs.action == 'build'
+        run: git -C out/host fetch --no-tags origin '+refs/heads/p2p/*:refs/remotes/origin/p2p/*'
+      - if: steps.inspect.outputs.action == 'build'
+        run: python3 tools/automation_control.py prepare --host-source out/host
+      - if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: automation-plan
+          path: out/automation/*.json
+          if-no-files-found: warn
+          retention-days: 90
+
+  mod:
+    needs: plan
+    if: needs.plan.outputs.action == 'build'
+    runs-on: windows-2022
+    timeout-minutes: 35
+    env:
+      PYTHONUTF8: '1'
+      RELEASE_VERSION: ${{ needs.plan.outputs.version }}
+    steps:
+      - run: git config --global core.autocrlf false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: automation-plan
+          path: out/automation
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.11.9'
+      - run: python tools/automation_prepare.py materialize-bridge --repository . --plan out/automation/plan.json --output out/automation/bridge.json
+      - run: python -m pip install cmake==3.31.10
+      - run: python tools/ci_build.py --package --revision-asset --version $env:RELEASE_VERSION
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: automatic-mod-input
+          path: dist/ctrnf-p2p-mod-*.zip
+          if-no-files-found: error
+          retention-days: 90
+
+  host:
+    needs: [plan, mod]
+    if: needs.plan.outputs.action == 'build'
+    runs-on: windows-2022
+    timeout-minutes: 100
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    env:
+      PYTHONUTF8: '1'
+      RELEASE_VERSION: ${{ needs.plan.outputs.version }}
+      RELEASE_CHANNEL: ${{ matrix.channel }}
+    steps:
+      - run: git config --global core.autocrlf false
+      - run: git config --global core.longpaths true
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: ${{ matrix.repository }}
+          ref: ${{ matrix.revision }}
+          path: out/host
+          fetch-depth: 0
+          persist-credentials: false
+      - run: git -C out/host fetch --no-tags origin '+refs/heads/p2p/*:refs/remotes/origin/p2p/*'
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.11.9'
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: automation-plan
+          path: out/automation
+      - run: python tools/automation_prepare.py materialize-bridge --repository . --plan out/automation/plan.json --output out/automation/bridge.json
+      - run: python tools/automation_prepare.py materialize-host --host-source out/host --plan out/automation/plan.json --channel $env:RELEASE_CHANNEL --output out/automation/host.json
+      - name: Initialize exact candidate submodules
+        run: |
+          $candidateSource = (Get-Content out/automation/host.json | ConvertFrom-Json).host_source
+          git -C $candidateSource submodule update --init --recursive
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: automatic-mod-input
+          path: out/mod-input
+      - uses: msys2/setup-msys2@ec48f7c5447b3140e2b088413ae3a55687bccb6e # v2
+        id: msys
+        with:
+          msystem: CLANG64
+          release: false
+          update: false
+          path-type: inherit
+      - name: Install reviewed compiler and library archives
+        env:
+          MSYS2_ROOT: ${{ steps.msys.outputs.msys2-location }}
+        run: python tools/lock_msys2.py install --msys-root $env:MSYS2_ROOT --lock tools/msys2-packages.json
+      - name: Build and test the candidate; verify licenses, sources and package hashes
+        env:
+          MSYS2_ROOT: ${{ steps.msys.outputs.msys2-location }}
+        run: |
+          $candidateSource = (Get-Content out/automation/host.json | ConvertFrom-Json).host_source
+          $modInput = @(Get-ChildItem out/mod-input/*.zip)
+          if ($modInput.Count -ne 1) { throw 'Expected exactly one mod input' }
+          python tools/ci_distribution.py --channel $env:RELEASE_CHANNEL --version $env:RELEASE_VERSION --host-source $candidateSource --msys-root $env:MSYS2_ROOT --mod-package $modInput[0].FullName --require-redistribution-ready
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: automatic-${{ matrix.channel }}
+          path: |
+            dist/ctrnf-p2p-${{ matrix.channel }}-*.zip
+            dist/ctrnf-p2p-${{ matrix.channel }}-*.zip.sha256
+          if-no-files-found: error
+          retention-days: 90
+
+  publish:
+    needs: [plan, mod, host]
+    if: >-
+      always() && needs.plan.result == 'success' &&
+      (needs.plan.outputs.action == 'resume' ||
+       (needs.plan.outputs.action == 'build' && needs.mod.result == 'success' && needs.host.result == 'success'))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      # Only trusted bridge tools execute in this job. Downloaded packages are data.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: pierluigizagaria/CTR-NitroFueled-PC
+          path: out/host
+          fetch-depth: 0
+          persist-credentials: false
+      - run: git -C out/host fetch --no-tags origin '+refs/heads/p2p/*:refs/remotes/origin/p2p/*'
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: automation-plan
+          path: out/automation
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          pattern: automatic-channel-*
+          merge-multiple: true
+          path: dist
+          run-id: ${{ needs.plan.outputs.artifact_run_id }}
+          github-token: ${{ github.token }}
+      - name: Configure the dedicated host-repository credential
+        env:
+          P2P_HOST_DEPLOY_KEY: ${{ secrets.P2P_HOST_DEPLOY_KEY }}
+        run: |
+          test -n "$P2P_HOST_DEPLOY_KEY"
+          umask 077
+          printf '%s\n' "$P2P_HOST_DEPLOY_KEY" > "$RUNNER_TEMP/p2p-host-key"
+          echo "GIT_SSH_COMMAND=ssh -i \"$RUNNER_TEMP/p2p-host-key\" -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o HostKeyAlgorithms=ssh-ed25519 -o UserKnownHostsFile=\"$GITHUB_WORKSPACE/tools/github_known_hosts\"" >> "$GITHUB_ENV"
+      - name: Validate and publish the tested transaction
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          VERIFY_ONLY: ${{ needs.plan.outputs.verify }}
+          AUTOMATION_ACTION: ${{ needs.plan.outputs.action }}
+        run: |
+          args=()
+          if [ "$VERIFY_ONLY" = true ]; then args+=(--verify-only); fi
+          if [ "$AUTOMATION_ACTION" = resume ]; then args+=(--resume); fi
+          python3 tools/automation_publish.py --plan out/automation/plan.json --dist dist --host-source out/host --repository . "${args[@]}"
+      - if: always()
+        name: Remove the temporary credential
+        run: rm -f "$RUNNER_TEMP/p2p-host-key"
+
+  notify:
+    needs: [plan, mod, host, publish]
+    if: always() && (contains(needs.*.result, 'failure') || needs.publish.result == 'success')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      issues: write
+      actions: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - name: Compare official release tags with reviewed pins
-        run: |
-          mkdir -p out/upstream-check
-          python3 tools/prepare_upstream_update.py --lock distribution-lock.json --channel channel-a --check-latest > out/upstream-check/channel-a.json
-          python3 tools/prepare_upstream_update.py --lock distribution-lock.json --channel channel-b --check-latest > out/upstream-check/channel-b.json
-          python3 - <<'PY'
-          import json, os
-          from pathlib import Path
-          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8') as summary:
-              for path in sorted(Path('out/upstream-check').glob('*.json')):
-                  item = json.loads(path.read_text())
-                  summary.write(f"- {item['channel']}: {item['status']} — {item['upstream_tag']} ({item['upstream_revision']})\n")
-              summary.write('\nChanged releases need a candidate replay, build/tests and reviewed lock update before distribution.\n')
-          PY
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        continue-on-error: true
         with:
-          name: upstream-release-check
-          path: out/upstream-check/*.json
-          retention-days: 14
+          name: automation-plan
+          path: out/automation
+      - name: Stop scheduled attempts and assign one incident to the owner
+        if: contains(needs.*.result, 'failure')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          JOB_RESULTS: ${{ toJSON(needs) }}
+        run: python3 tools/automation_control.py notify
+      - name: Resolve the incident after successful recovery
+        if: needs.publish.result == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: python3 tools/automation_control.py finish
