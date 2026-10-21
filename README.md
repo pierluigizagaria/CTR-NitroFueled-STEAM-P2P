@@ -23,8 +23,9 @@ with the port. The executable, configuration and package filenames retain
 The integrations live on `p2p/channel-a` and `p2p/channel-b`. Exact upstream,
 adapter and dependency revisions are recorded in `distribution-lock.json` and
 each package manifest. Both packages include the shared [PSN backend](docs/OCTR.md)
-and its runtime dependencies. These integrations have not yet been validated
-in-game.
+and its runtime dependencies. Steam invitation acceptance and lobby joining have
+a user-confirmed test on channel-a. The selected-friend invitation send and
+channel-b still need in-game validation; this is not broad multiplayer acceptance.
 
 The [automatic release workflow](https://github.com/pierluigizagaria/CTR-NitroFueled-STEAM-P2P/actions/workflows/check-upstreams.yml)
 checks new stable upstream releases daily, reapplies the adapters and publishes
@@ -108,6 +109,11 @@ ownership of an unrelated Steam game does not provide that authorization.
 
 Add each other as Steam friends, start the game through the mod, enter Online
 and use the game's friend Join or matchmaking.
+
+The complete packages also relay invitations accepted in Steam while the game
+is already running. The game's Invite action sends to the one friend selected
+in its friend list; it does not open another friend picker. Starting the game by
+accepting an invitation while it is closed is not supported.
 
 Pit Stop items, coins and statistics are stored on each player's own PC; they
 are not shared between players. A room ends when the player who created it leaves.

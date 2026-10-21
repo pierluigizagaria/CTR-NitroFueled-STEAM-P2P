@@ -79,10 +79,17 @@ Channel-a keeps its native private-server routing with `BB_ONLINE_SERVER` and
 `BB_ONLINE_HTTP_PORT`; it does not use OCTR's transport switches. Both full
 packages include the adapter and select their host mode in `ctrnf-p2p.ini`.
 
-The scope is live presence invalidations and delivery of invitations accepted
-through Steam while the supervised session is running. This does not implement
-an in-game invitation picker, cold-start `+connect_lobby` handling, every PSN API,
-or guarantee that the game's UI refreshes correctly before human validation.
+The scope is live presence invalidations, delivery of invitations accepted
+through Steam while the supervised session is running, and sending an invitation
+to the one friend already selected in the game's friend list. The fixed-recipient
+send uses the provider's existing friend-list and session-invitation WebAPI. It
+reports success only after the provider accepts the send; remote delivery and
+joining remain separate actions. No additional picker opens when pressing the
+game's Invite button.
+
+This does not implement an in-game invitation picker, cold-start `+connect_lobby`
+handling, custom invitation messages, multiple recipients, every PSN API, or
+guarantee that the game's UI refreshes correctly before human validation.
 Provider, relay and guest-ABI tests are offline contract checks, not game or
 multi-PC acceptance.
 

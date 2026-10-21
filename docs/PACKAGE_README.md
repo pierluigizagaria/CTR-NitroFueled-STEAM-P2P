@@ -60,7 +60,9 @@ Players using either setting can race together.
 
 - Experimental preview: play between different networks is not guaranteed.
 - With host = native, invitations are not delivered to the game; use friend Join
-  or matchmaking. The newer PSN integrations still need in-game validation.
+  or matchmaking. Integrated PSN hosts can relay Steam invitation acceptance and,
+  with the matching latest backend, send to the friend selected in the game.
+  Cold-start invitations and a separate in-game friend picker are unsupported.
 - The friend list may need a refresh or restart before a friend appears.
 - A room ends when the player who created it leaves.
 - Closing the game or launcher, Apply and restart, or switching Steam account
