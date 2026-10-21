@@ -1,58 +1,4 @@
 {
-  "incident": {
-    "failed_jobs": [
-      "publish"
-    ],
-    "fingerprint": "0d7822e8fb1d798cac58b84ebea54a7750a4a37b4d0a1f1b1f2005f7d4b3a03a",
-    "run_url": "https://github.com/pierluigizagaria/CTR-NitroFueled-STEAM-P2P/actions/runs/39614244550"
-  },
-  "inspection": {
-    "action": "build",
-    "base_revision": "8ce43d1850c8edf2702b92b8210a145157ef7718",
-    "fingerprint": "1aea09992932cbecfc5fc9cf02eeefb90a8f304e8cf5f512e44c6ae6bc17d359",
-    "mode": "verify",
-    "reports": {
-      "channel-a": {
-        "channel": "channel-a",
-        "locked_upstream": {
-          "repository": "https://github.com/GetLostIn/CTR-NitroFueled-PC.git",
-          "revision": "0cf8def7f676192de4f37a26e08a92ea0cd4674a",
-          "tag": "v0.4"
-        },
-        "read_only": true,
-        "schema_version": 1,
-        "status": "unchanged",
-        "upstream_repository": "https://github.com/GetLostIn/CTR-NitroFueled-PC.git",
-        "upstream_revision": "0cf8def7f676192de4f37a26e08a92ea0cd4674a",
-        "upstream_tag": "v0.4"
-      },
-      "channel-b": {
-        "channel": "channel-b",
-        "locked_upstream": {
-          "repository": "https://github.com/Ryu7w7/OCTR-NitroFueled-PC.git",
-          "revision": "26b35630f62c6ea233acb87aae3fe1f70b89034c",
-          "tag": "v0.6"
-        },
-        "read_only": true,
-        "schema_version": 1,
-        "status": "unchanged",
-        "upstream_repository": "https://github.com/Ryu7w7/OCTR-NitroFueled-PC.git",
-        "upstream_revision": "26b35630f62c6ea233acb87aae3fe1f70b89034c",
-        "upstream_tag": "v0.6"
-      }
-    },
-    "run_id": "39614244550",
-    "run_url": "https://github.com/pierluigizagaria/CTR-NitroFueled-STEAM-P2P/actions/runs/39614244550",
-    "schema_version": 1,
-    "state_revision": null,
-    "timestamp": "2026-10-21T14:08:52Z",
-    "verify": true,
-    "version": "v0.1.0-preview.1"
-  },
-  "notification": {
-    "fingerprint": "0d7822e8fb1d798cac58b84ebea54a7750a4a37b4d0a1f1b1f2005f7d4b3a03a",
-    "issue_number": 2
-  },
   "plan": {
     "base_revision": "8ce43d1850c8edf2702b92b8210a145157ef7718",
     "candidate_revision": "8ce43d1850c8edf2702b92b8210a145157ef7718",
@@ -159,7 +105,10 @@
     "verify": true,
     "version": "v0.1.0-preview.1"
   },
-  "previous_completion": null,
   "schema_version": 1,
-  "status": "blocked"
+  "status": "completed",
+  "verification": {
+    "published": false,
+    "run_url": "https://github.com/pierluigizagaria/CTR-NitroFueled-STEAM-P2P/actions/runs/39614244550"
+  }
 }
