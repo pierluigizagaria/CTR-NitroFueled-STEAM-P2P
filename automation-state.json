@@ -49,6 +49,10 @@
     "verify": true,
     "version": "v0.1.0-preview.1"
   },
+  "notification": {
+    "fingerprint": "0d7822e8fb1d798cac58b84ebea54a7750a4a37b4d0a1f1b1f2005f7d4b3a03a",
+    "issue_number": 2
+  },
   "plan": {
     "base_revision": "8ce43d1850c8edf2702b92b8210a145157ef7718",
     "candidate_revision": "8ce43d1850c8edf2702b92b8210a145157ef7718",
