@@ -6,6 +6,14 @@ It contains the bridge, orbiSteamworks, Demonware Server, Valve's Steam API
 runtime, a ready-to-use INI, the signature patch XML and the component licenses.
 `CTR-P2P-README.md` in the ZIP is the short version of this guide.
 
+Full `channel-a` and `channel-b` packages also contain the integrated portable
+host, PSN adapter and dependencies. Extract a full package into a new folder,
+configure your own game files with its launcher, and start `ctrnf-p2p.exe`.
+Keep the supplied host mode (`psn` for channel-a, `octr` for channel-b). Do not
+mix host files from different channels or use the stock updater to replace a
+P2P build. The source archive beside the download matches its manifest.
+The instructions below for adding the standalone mod apply to the legacy host.
+
 ## Install
 
 The mod goes directly into the root folder of an existing native port

@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "channels": {
+    "channel-a": {
+      "repository": "https://github.com/pierluigizagaria/CTR-NitroFueled-PC.git",
+      "branch": "p2p/channel-a",
+      "revision": "34563e6273ed7dc383ee59329b512d9aa5d7e1da",
+      "upstream": {
+        "repository": "https://github.com/GetLostIn/CTR-NitroFueled-PC.git",
+        "tag": "v0.4",
+        "revision": "0cf8def7f676192de4f37a26e08a92ea0cd4674a"
+      },
+      "host_mode": "psn",
+      "launcher": "CTR-NitroFueled-PC.exe",
+      "portable_root": "CTR-NitroFueled-PC-portable",
+      "psn_tree": "4790b2956836004296d158c8462010493a2920d2"
+    },
+    "channel-b": {
+      "repository": "https://github.com/pierluigizagaria/CTR-NitroFueled-PC.git",
+      "branch": "p2p/channel-b",
+      "revision": "f18827c2628de571cde59912e50749a0062d63ee",
+      "upstream": {
+        "repository": "https://github.com/Ryu7w7/OCTR-NitroFueled-PC.git",
+        "tag": "v0.6",
+        "revision": "26b35630f62c6ea233acb87aae3fe1f70b89034c"
+      },
+      "host_mode": "octr",
+      "launcher": "CTR-NitroFueled-PC.exe",
+      "portable_root": "CTR-NitroFueled-PC-portable",
+      "psn_tree": "4790b2956836004296d158c8462010493a2920d2"
+    }
+  }
+}

@@ -12,7 +12,8 @@ interface it changes and how it was checked.
   adapters in this repository are written from scratch.
 - Steam calls, endpoint allocation, peer authorization and CTR/Demonware parsing
   belong to the provider and the server, not the bridge.
-- The native port's source stays unchanged. A normal launch may only enable the
+- Host source integration belongs to the separate GPL host branches. A normal
+  bridge launch may only enable the
   required signature patch in the port's patch selection, after validating its
   XML; other settings, saves, game preparation and preferences are never changed.
   Diagnostic modes are read-only.

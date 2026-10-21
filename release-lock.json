@@ -21,10 +21,10 @@
   "components": {
     "orbisteamworks": {
       "version": "v0.0.1-preview.1",
-      "revision": "1f3c78003ae41db90aaa14f40569187f198f36ea",
+      "revision": "59552801464d8630bbcfc00c958bc8110de5e39a",
       "license": "MIT",
-      "url": "https://github.com/pierluigizagaria/orbisteamworks/releases/download/v0.0.1-preview.1/orbisteamworks-v0.0.1-preview.1-windows-x64.zip",
-      "sha256": "06b7f29dd302adad935e38c250d15b93295c2dcd74a5981b656635d279961a3c"
+      "url": "https://github.com/pierluigizagaria/orbisteamworks/releases/download/v0.0.1-preview.1/orbisteamworks-v0.0.1-preview.1-59552801464d-windows-x64.zip",
+      "sha256": "b6cee1b080cf7866427654dcbeb2d68fa06f359e5115c3ac122d59be87f7607c"
     },
     "demonware-server": {
       "version": "v0.1.0-preview.1",

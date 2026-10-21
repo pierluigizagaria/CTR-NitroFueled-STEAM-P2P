@@ -259,13 +259,19 @@ online_id = {json.dumps(name)}
                 stop_fixture(pid)
 
     def test_octr_private_psn_stream_preserves_acknowledgement_and_identity(self):
+        self.check_private_psn_stream("octr")
+
+    def test_psn_private_stream_preserves_acknowledgement_and_identity(self):
+        self.check_private_psn_stream("psn")
+
+    def check_private_psn_stream(self, host):
         # Existence-only prerequisite; the synthetic host never loads this file.
         (self.root / "psn-bridge-backend.dll").write_bytes(b"inert fixture")
-        with self.running_bridge(self.config().replace("host = native", "host = octr")):
+        with self.running_bridge(self.config().replace("host = native", "host = " + host)):
             launch = wait_json(self.root / "launcher.json")
-            self.assertEqual(launch["online_enabled"], "1")
-            self.assertEqual(launch["online_tunnel"], "0")
-            self.assertEqual(launch["preserve_endpoints"], "1")
+            self.assertEqual(launch["online_enabled"], "1" if host == "octr" else "")
+            self.assertEqual(launch["online_tunnel"], "0" if host == "octr" else "")
+            self.assertEqual(launch["preserve_endpoints"], "1" if host == "octr" else "")
             self.assertEqual(Path(launch["psn_backend"]), self.root / "psn-bridge-backend.dll")
             config = json.loads(launch["psn_config"])
             self.assertEqual(config["url"], f"http://{ADDRESS}:{self.http_port}")

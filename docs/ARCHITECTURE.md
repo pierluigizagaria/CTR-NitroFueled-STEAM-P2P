@@ -25,7 +25,7 @@ relaunch to play as that account.
 ## Local admission
 
 The SteamID64 is passed to the port as decimal `BB_ONLINE_ACCOUNT_ID`. The
-unchanged port fabricates its own `sacredfire` token, so the bridge starts the
+legacy `host = native` port fabricates its own `sacredfire` token, so the bridge starts the
 local server with its native-token admission (`CTR_LOCAL_WEAK_TOKEN=1`). That
 mode only checks that the token names the account that owns the provider's pipe
 and that the request comes from loopback. **Any local process able to produce
@@ -33,6 +33,10 @@ that token format can attempt admission.** This is weaker than the provider's
 random pipe capability, and the name is never the authentication key. It must
 never be used for a central or public server; the server's own default leaves
 the mode disabled.
+
+The integrated `psn` and `octr` hosts use the provider's random companion
+capability instead. Their PSN backend receives it through a private local
+relay; neither enables fabricated-token admission. See [PSN integrations](OCTR.md).
 
 The native adapter fixes the rest of the server contract: Demonware title `5760`
 (the PS4 title CUSA13795 is a different identifier), build `01.21`, the game's

@@ -7,11 +7,14 @@ It connects the port to Steam identity, friends and peer transport through
 matchmaking, Pit Stop and progression.
 
 The mod starts the port's own launcher. Game settings, preparation and saves stay
-with the port. No native source changes are required.
+with the port. The original mod supports an unchanged pinned native build.
 
-This source branch also includes an opt-in [OCTR integration](docs/OCTR.md)
-with PSN notifications. It requires OCTR's proposed backend support and is not
-part of the existing native-port release or validated in-game yet.
+Full P2P distributions build the host with the shared [PSN backend](docs/OCTR.md)
+and include the complete portable host and mod. `channel-a` follows GetLostIn's
+releases; `channel-b` follows OCTR's releases. Their branches are
+`p2p/channel-a` and `p2p/channel-b`; exact upstream and integration revisions are
+recorded in `distribution-lock.json` and each package manifest. These new host
+integrations have not yet been validated in-game.
 
 **Experimental.** See [compatibility and limitations](#compatibility-and-limitations)
 before installing.
@@ -31,6 +34,15 @@ runtime is also included; players do not need to download the Steamworks SDK.
 ## Install
 
 Download the Windows mod ZIP from [Releases](https://github.com/pierluigizagaria/ctrnf-p2p/releases).
+
+For a complete P2P package, choose one channel and extract it into a new folder.
+It includes the port, its runtime dependencies and the matching mod configuration.
+Set up your own supported game files in its launcher, then use `ctrnf-p2p.exe`
+to play online. Follow the package's installation guide; do not overlay one
+channel onto the other. Existing installations and saves stay where they are.
+The matching source archive accompanies each full binary archive.
+
+For the standalone mod ZIP on the legacy native build:
 
 1. Set up the native port and its game files using the port's instructions.
 2. Close the port, then extract the mod ZIP into the port's root folder (the
@@ -116,8 +128,9 @@ adapter and the local server's admission. Maintainers can follow
 
 ## Compatibility and limitations
 
-- Only the native port at the revision above is supported, with Steam as the
-  platform provider.
+- The standalone mod targets the legacy native revision above. Full packages
+  target only the host and dependency revisions recorded in their manifests;
+  compatibility with later upstream releases requires a new build and checks.
 - Windows only. Linux and macOS are not supported.
 - With `host = native`, invitations are not delivered to the game; use friend Join or matchmaking.
   The in-game friend list may need a refresh, or a restart, before a newly
@@ -137,4 +150,7 @@ Each component remains a separate project with its own source and license.
 The ZIP also includes Valve's proprietary Steam API runtime under the
 [Steamworks SDK Access Agreement](https://partner.steamgames.com/documentation/sdk_access_agreement);
 see the [runtime notice](third_party/steamworks/NOTICE.txt). It is not MIT licensed.
-No game, firmware, native-port binary or other Steamworks SDK files are included.
+Full channel packages additionally include the modified host under
+GPL-2.0-or-later, with its corresponding source archive and dependency notices.
+The standalone mod ZIP contains no host binary. Neither package includes game
+files, firmware or other Steamworks SDK files.

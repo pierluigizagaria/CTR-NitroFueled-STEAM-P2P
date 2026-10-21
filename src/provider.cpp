@@ -22,7 +22,7 @@ Provider::Provider(const Config& c, bool companion) : library_(c.provider_librar
     RESOLVE(poll_, "osw_poll_event"); RESOLVE(loopback_, "osw_enable_loopback_endpoints");
     RESOLVE(appid_, "osw_set_app_id"); RESOLVE(persona_, "osw_get_persona_name");
     RESOLVE(defer_endpoint_, "osw_defer_game_endpoint");
-    if (c.host == "octr" && companion) {
+    if (c.uses_psn_backend() && companion) {
         RESOLVE(enable_psn_, "osw_enable_psn_events");
         RESOLVE(poll_psn_, "osw_poll_psn_event");
     }

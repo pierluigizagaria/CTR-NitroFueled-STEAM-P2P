@@ -177,8 +177,8 @@ struct NativePatchPaths {
 };
 NativePatchPaths native_patch_paths(const Config& c, const std::map<std::string, std::string>& inherited) {
     if (!fs::is_regular_file(native_launcher(c))) throw std::runtime_error("Native launcher CTR-NitroFueled-PC.exe is missing beside the bridge");
-    if (c.host == "octr" && !fs::is_regular_file(c.root / "psn-bridge-backend.dll"))
-        throw std::runtime_error("OCTR PSN adapter psn-bridge-backend.dll is missing beside the bridge");
+    if (c.uses_psn_backend() && !fs::is_regular_file(c.root / "psn-bridge-backend.dll"))
+        throw std::runtime_error("PSN adapter psn-bridge-backend.dll is missing beside the bridge");
     const auto data = port_path(c, inherited_value(inherited, "BB_DATA_DIR"), c.root);
     const auto selection = port_path(c, inherited_value(inherited, "BB_PATCHES_CONFIG"), data / "patches.json");
     const auto patches = port_path(c, inherited_value(inherited, "BB_PATCHES_DIR"), c.root / "patches");
@@ -223,12 +223,14 @@ std::map<std::string, std::string> native_environment(const Config& c, uint64_t 
         if (!ascii_printable(value)) throw std::runtime_error("Native mapped environment must be ASCII");
         env[environment_key(name)] = value;
     }
-    if (c.host == "octr") {
+    if (c.uses_psn_backend()) {
         if (psn_capability.size() != 64 || psn_capability.find_first_not_of("0123456789abcdef") != std::string::npos)
-            throw std::runtime_error("OCTR requires a private PSN bridge capability");
-        env[environment_key("BB_ONLINE")] = "1";
-        env[environment_key("BB_ONLINE_TUNNEL")] = "0";
-        env[environment_key("BB_NET_PRESERVE_ENDPOINTS")] = "1";
+            throw std::runtime_error("Host requires a private PSN bridge capability");
+        if (c.host == "octr") {
+            env[environment_key("BB_ONLINE")] = "1";
+            env[environment_key("BB_ONLINE_TUNNEL")] = "0";
+            env[environment_key("BB_NET_PRESERVE_ENDPOINTS")] = "1";
+        }
         env[environment_key("BB_PSN_BACKEND")] = path_text(c.root / "psn-bridge-backend.dll");
         env[environment_key("BB_PSN_BACKEND_CONFIG")] = nlohmann::json({
             {"url", "http://" + c.address + ":" + std::to_string(c.http_port)},

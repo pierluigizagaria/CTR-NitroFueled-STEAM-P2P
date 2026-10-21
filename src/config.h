@@ -26,6 +26,7 @@ struct Config {
     // native_token: the host adapter cannot present a provider capability and
     // enables the server's loopback owner-token admission instead.
     bool unlock_all = false, native_token = false, lab = false;
+    bool uses_psn_backend() const { return host == "psn" || host == "octr"; }
 };
 Config parse_config(std::string_view text, const fs::path& root);
 Config load_config(const fs::path& file, const fs::path& executable_root);

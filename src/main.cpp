@@ -79,9 +79,9 @@ int bridge_main(int argc, char** argv, std::string* failure) {
         if (std::string(id.online_id) != c.online_id) throw std::runtime_error("Provider did not retain the explicit launch name");
         std::cout << (c.lab ? "Simulated Lab" : "Steam") << " provider and local server ready; economy "
                   << (c.unlock_all ? "unlock-all" : "normal") << ".\n";
-        const auto psn_capability = c.host == "octr" ? private_capability() : std::string{};
+        const auto psn_capability = c.uses_psn_backend() ? private_capability() : std::string{};
         std::unique_ptr<PsnRelay> psn;
-        if (c.host == "octr") psn = std::make_unique<PsnRelay>(provider, psn_capability);
+        if (c.uses_psn_backend()) psn = std::make_unique<PsnRelay>(provider, psn_capability);
         HttpServer front(c.address, c.http_port, [&](const HttpRequest& request) {
             if (request.path.starts_with("/psn/"))
                 return psn ? psn->handle(request) : HttpResponse{404, {}, {}};

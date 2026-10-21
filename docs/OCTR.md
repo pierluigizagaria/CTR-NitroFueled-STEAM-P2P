@@ -1,10 +1,11 @@
-# OCTR integration
+# Host PSN integrations
 
-The optional `game.host = octr` adapter uses OCTR's PSN backend extension. It
-requires the proposed OCTR changes; an unmodified OCTR release does not provide
-this extension. `host = native` keeps the existing GetLostIn integration.
+The `game.host = psn` (channel-a) and `game.host = octr` (channel-b) adapters use
+the hosts' shared PSN backend extension. Both require our integrated host build;
+stock upstream releases do not provide this extension. `host = native` keeps
+the existing integration with the unmodified GetLostIn online build at b1b4bf9.
 
-Build OCTR with its PSN host module and build its optional `psn-bridge-backend`
+Build the selected host with its PSN module and its optional `psn-bridge-backend`
 target. Place `psn-bridge-backend.dll` and its runtime dependencies in the port
 root beside `CTR-NitroFueled-PC.exe`, the bridge, provider and publisher server.
 Use an orbiSteamworks build exposing PSN events version 1. Set:
@@ -27,7 +28,7 @@ the provider's existing WebAPI surface. Accepting a Steam invitation and joining
 the game party remain separate operations. Steam continues to run in the bridge;
 the OCTR adapter does not initialize a second Steam client context.
 
-The OCTR route uses the existing companion capability for admission. It disables
+Both PSN routes use the existing companion capability for admission. They disable
 the fabricated-token admission needed by the unmodified native host. RyuNET
 nickname claims and synthetic friend lists are disabled when OCTR selects an
 external PSN backend. Transport is configured separately: the bridge sets
@@ -35,6 +36,10 @@ external PSN backend. Transport is configured separately: the bridge sets
 uses the guest's endpoints without OCTR port remapping or UPnP-body rewriting.
 Selecting a PSN backend alone does not change OCTR's socket policy; ordinary
 OCTR startup is unchanged.
+
+Channel-a keeps its native private-server routing with `BB_ONLINE_SERVER` and
+`BB_ONLINE_HTTP_PORT`; it does not use OCTR's transport switches. Both full
+packages include the adapter and select their host mode in `ctrnf-p2p.ini`.
 
 The scope is live presence invalidations and delivery of invitations accepted
 through Steam while the supervised session is running. This does not implement
