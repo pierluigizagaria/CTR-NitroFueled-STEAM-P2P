@@ -231,7 +231,10 @@ std::map<std::string, std::string> native_environment(const Config& c, uint64_t 
             env[environment_key("BB_ONLINE_TUNNEL")] = "0";
             env[environment_key("BB_NET_PRESERVE_ENDPOINTS")] = "1";
         }
-        env[environment_key("BB_PSN_BACKEND")] = path_text(c.root / "psn-bridge-backend.dll");
+        // The host's restricted Windows DLL search needs native path separators
+        // to find the backend's sidecar dependencies.
+        const auto backend_path = (c.root / "psn-bridge-backend.dll").make_preferred().u8string();
+        env[environment_key("BB_PSN_BACKEND")] = std::string(backend_path.begin(), backend_path.end());
         env[environment_key("BB_PSN_BACKEND_CONFIG")] = nlohmann::json({
             {"url", "http://" + c.address + ":" + std::to_string(c.http_port)},
             {"token", psn_capability}}).dump();

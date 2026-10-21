@@ -120,7 +120,7 @@ int main() {
         auto octr_env = native_environment(octr, 42, inherited, std::string(64, 'a'));
         require(octr_env.at(environment_key("BB_ONLINE")) == "1" && octr_env.at(environment_key("BB_ONLINE_TUNNEL")) == "0", "OCTR local route not selected");
         require(octr_env.at(environment_key("BB_NET_PRESERVE_ENDPOINTS")) == "1", "OCTR endpoint preservation not selected");
-        require(octr_env.at(environment_key("BB_PSN_BACKEND")) == path_text(root / "psn-bridge-backend.dll"), "OCTR adapter path wrong");
+        require(fs::u8path(octr_env.at(environment_key("BB_PSN_BACKEND"))) == root / "psn-bridge-backend.dll", "OCTR adapter path wrong");
         require(octr_env.at(environment_key("BB_PSN_BACKEND_CONFIG")).find("stale-capability") == std::string::npos, "OCTR reused stale capability");
         auto psn = parse_config("[game]\nhost=psn", root);
         require(!psn.native_token && psn.uses_psn_backend(), "PSN host enabled fabricated-token admission");
@@ -128,7 +128,7 @@ int main() {
         rejects([&] { native_environment(psn, 42, inherited); });
         inherited["BB_ONLINE_TUNNEL"] = "1";
         auto psn_env = native_environment(psn, 42, inherited, std::string(64, 'b'));
-        require(psn_env.at(environment_key("BB_PSN_BACKEND")) == path_text(root / "psn-bridge-backend.dll"), "PSN adapter path wrong");
+        require(fs::u8path(psn_env.at(environment_key("BB_PSN_BACKEND"))) == root / "psn-bridge-backend.dll", "PSN adapter path wrong");
         require(psn_env.at(environment_key("BB_PSN_BACKEND_CONFIG")).find(std::string(64, 'b')) != std::string::npos, "PSN host lost fresh capability");
         require(psn_env.at(environment_key("BB_ONLINE_SERVER")) == c.address &&
                 psn_env.at(environment_key("BB_ONLINE_HTTP_PORT")) == "31380", "PSN publisher routing changed");

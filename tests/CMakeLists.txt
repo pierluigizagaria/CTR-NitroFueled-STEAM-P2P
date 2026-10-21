@@ -17,6 +17,24 @@ target_include_directories(bridge_fake_host PRIVATE ${JSON_INCLUDE_DIR})
 if(WIN32)
   target_link_libraries(bridge_fake_host PRIVATE ws2_32)
   target_compile_definitions(bridge_fake_host PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX)
+  add_library(bridge_loader_sidecar SHARED windows_loader_sidecar.c)
+  set_target_properties(bridge_loader_sidecar PROPERTIES OUTPUT_NAME bridge_p2p_loader_sidecar)
+  add_library(bridge_loader_fixture MODULE windows_loader_fixture.c)
+  target_link_libraries(bridge_loader_fixture PRIVATE bridge_loader_sidecar)
+  foreach(target bridge_loader_sidecar bridge_loader_fixture)
+    set_target_properties(${target} PROPERTIES PREFIX ""
+      RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/loader-fixtures/$<CONFIG>"
+      LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/loader-fixtures/$<CONFIG>")
+  endforeach()
+  add_executable(bridge_windows_backend_loader_tests windows_backend_loader.cpp)
+  target_link_libraries(bridge_windows_backend_loader_tests PRIVATE bridge_core)
+  add_dependencies(bridge_windows_backend_loader_tests bridge_loader_fixture)
+  if(MINGW)
+    target_link_options(bridge_windows_backend_loader_tests PRIVATE -municode)
+  endif()
+  add_test(NAME bridge-windows-backend-loader COMMAND bridge_windows_backend_loader_tests
+    $<TARGET_FILE:bridge_loader_fixture> $<TARGET_FILE:bridge_loader_sidecar>)
+  set_tests_properties(bridge-windows-backend-loader PROPERTIES TIMEOUT 15)
 endif()
 add_test(NAME bridge-process-http-integration
   COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/integration.py
