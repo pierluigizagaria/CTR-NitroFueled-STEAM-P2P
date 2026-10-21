@@ -359,6 +359,32 @@ class RemoteAssetTests(unittest.TestCase):
         self.assertEqual(updated.count(publisher.BLOCK_START), 1)
 
 
+class WriteAccessTests(unittest.TestCase):
+    def test_probes_only_current_heads_with_dry_run_and_explicit_leases(self):
+        plan = fixture_plan()
+        refs = publisher.GitRefs('bridge', 'hosts', 'example/bridge', 'example/hosts')
+        with patch.object(refs, 'git') as git:
+            refs.verify_write_access(plan)
+        self.assertEqual(git.call_count, 2)
+        host_args, bridge_args = [call.args for call in git.call_args_list]
+        self.assertEqual(host_args[:4], (refs.host_source, 'push', '--dry-run', '--atomic'))
+        for channel in publisher.CHANNELS:
+            sha, branch = plan['channels'][channel]['expected_old_revision'], 'refs/heads/p2p/' + channel
+            self.assertIn('--force-with-lease=' + branch + ':' + sha, host_args)
+            self.assertIn(sha + ':' + branch, host_args)
+        self.assertEqual(bridge_args, (refs.repository, 'push', '--dry-run',
+                                      '--force-with-lease=refs/heads/main:' + plan['base_revision'],
+                                      refs.bridge_url, plan['base_revision'] + ':refs/heads/main'))
+        self.assertFalse(any('refs/tags/' in str(arg) for arg in host_args + bridge_args))
+
+    def test_denied_host_write_authorization_fails_verification(self):
+        refs = publisher.GitRefs('bridge', 'hosts', 'example/bridge', 'example/hosts')
+        with patch.object(refs, 'git', side_effect=ValueError('receive-pack denied')) as git:
+            with self.assertRaisesRegex(ValueError, 'receive-pack denied'):
+                refs.verify_write_access(fixture_plan())
+        self.assertEqual(git.call_count, 1)
+
+
 class GitLeaseTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
@@ -399,6 +425,15 @@ class GitLeaseTests(unittest.TestCase):
         self.refs.rollback_hosts(self.plan)
         self.assertEqual(set(self.remote_heads().values()), {self.commits[0]})
         self.refs.verify_source_tags(self.plan)
+
+    def test_real_write_access_probe_leaves_all_remote_refs_unchanged(self):
+        self.refs.bridge_url = str(self.remote)
+        self.plan['base_revision'] = self.commits[0]
+        self.git('push', self.remote, self.commits[0] + ':refs/heads/main')
+        before = self.refs.refs(self.local, self.remote)
+        self.refs.verify_write_access(self.plan)
+        self.assertEqual(self.refs.refs(self.local, self.remote), before)
+        self.assertEqual(set(before), {'refs/heads/main', 'refs/heads/p2p/channel-a', 'refs/heads/p2p/channel-b'})
 
     def test_real_concurrent_change_rejects_entire_atomic_promotion(self):
         self.git('push', self.remote, self.commits[1] + ':refs/heads/p2p/channel-b')

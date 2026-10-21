@@ -150,6 +150,19 @@ class GitRefs:
         return ({channel: hosts.get('refs/heads/p2p/' + channel) for channel in CHANNELS},
                 bridge.get('refs/heads/main'))
 
+    def verify_write_access(self, plan):
+        """Probe receive-pack authorization without changing refs or creating tags."""
+        options, specs = ['--dry-run', '--atomic'], []
+        for channel in CHANNELS:
+            sha = plan['channels'][channel]['expected_old_revision']
+            branch = 'refs/heads/p2p/' + channel
+            options += ['--force-with-lease=' + branch + ':' + sha]
+            specs += [sha + ':' + branch]
+        self.git(self.host_source, 'push', *options, self.host_url, *specs)
+        self.git(self.repository, 'push', '--dry-run',
+                 '--force-with-lease=refs/heads/main:' + plan['base_revision'],
+                 self.bridge_url, plan['base_revision'] + ':refs/heads/main')
+
     def promote_hosts(self, plan):
         tags = self.refs(self.host_source, self.host_url, 'refs/tags/p2p/channel-*/*')
         options, specs = ['--atomic'], []
@@ -437,6 +450,7 @@ def main():
     if args.verify_only:
         if classify_refs(plan, *refs.heads()) != 'all-old':
             raise ValueError('Verification requires unchanged locked remote refs')
+        refs.verify_write_access(plan)
         release.read()
         print(json.dumps({'status': 'verified', 'candidate_revision': plan['candidate_revision'],
                           'assets': [asset_record(path) for path in assets], 'published': False}))

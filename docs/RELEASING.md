@@ -246,6 +246,8 @@ Only the publisher has `contents: write` and the Actions secret
 `P2P_HOST_DEPLOY_KEY`. That dedicated write deploy key belongs only to the host
 integration repository. Build jobs have read access and no persisted checkout
 credentials. GitHub's SSH host key is pinned in `tools/github_known_hosts`.
+Actions are disabled in the controlled host fork: imported upstream workflows
+cannot run there when integration branches or source tags are promoted.
 The notification job has issue access to assign failures to the configured owner.
 GitHub inbox/email delivery follows that account's notification settings.
 

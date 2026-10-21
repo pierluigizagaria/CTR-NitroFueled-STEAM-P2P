@@ -13,6 +13,11 @@ MARKER = '<!-- ctrnf-p2p-automatic-release-failure -->'
 MODES = ('auto', 'retry', 'resume', 'verify')
 
 
+def is_incident(issue):
+    return (issue.get('user', {}).get('login') == 'github-actions[bot]'
+            and MARKER in (issue.get('body') or '') and not issue.get('pull_request'))
+
+
 def save(path, document):
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -152,7 +157,7 @@ def notify(directory, jobs):
         body += ('\nNo publication step ran. Fix the conflict or failing checks, then run the workflow '
                  'in **retry** mode. Scheduled runs stay stopped until a retry succeeds.\n')
     pages = state_store.api('repos/' + repo + '/issues?state=open&per_page=100')
-    existing = next((issue for issue in pages if MARKER in (issue.get('body') or '') and not issue.get('pull_request')), None)
+    existing = next((issue for issue in pages if is_incident(issue)), None)
     if existing:
         issue_number = existing['number']
         state_store.api(f'repos/{repo}/issues/{issue_number}', {'body': body}, method='PATCH')
@@ -192,7 +197,7 @@ def finish(directory):
         message = f'Both channel packages were tested and publication completed. [Run]({run_url}).'
     issues = state_store.api('repos/' + repo + '/issues?state=open&per_page=100')
     for issue in issues:
-        if MARKER in (issue.get('body') or '') and not issue.get('pull_request'):
+        if is_incident(issue):
             path = f"repos/{repo}/issues/{issue['number']}"
             state_store.api(path + '/comments', {'body': message})
             state_store.api(path, {'state': 'closed', 'state_reason': 'completed'}, method='PATCH')
@@ -219,8 +224,14 @@ def main():
         directory = Path(args.directory)
         inspection = json.loads((directory / 'inspection.json').read_text(encoding='utf-8'))
         reports = json.loads((directory / 'reports.json').read_text(encoding='utf-8'))
-        plan = automation_prepare.plan(Path('.'), Path(args.host_source), reports,
-                                       inspection['timestamp'], verify=inspection['verify'])
+        try:
+            plan = automation_prepare.plan(Path('.'), Path(args.host_source), reports,
+                                           inspection['timestamp'], verify=inspection['verify'])
+        except (ValueError, OSError, KeyError) as error:
+            # Retain conflict paths and Git diagnostics as source evidence.
+            save(directory / 'failure.json', {'schema_version': 1, 'error': str(error),
+                                             'candidate': getattr(error, 'candidate', None)})
+            raise
         save(directory / 'plan.json', plan)
     elif args.command == 'notify':
         notify(args.directory, json.loads(os.environ['JOB_RESULTS']))

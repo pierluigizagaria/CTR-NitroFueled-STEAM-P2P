@@ -12,6 +12,12 @@ import automation_state as state
 
 
 class AutomationControlTests(unittest.TestCase):
+    def test_only_the_automation_bot_can_own_the_reused_incident(self):
+        issue = {'body': control.MARKER, 'user': {'login': 'somebody'}}
+        self.assertFalse(control.is_incident(issue))
+        issue['user']['login'] = 'github-actions[bot]'
+        self.assertTrue(control.is_incident(issue))
+
     def test_stopped_schedule_does_not_retry_and_pending_requires_resume(self):
         for status in ('pending', 'blocked'):
             self.assertEqual(control.choose_action('auto', {'status': status}, True), 'skip')
@@ -58,7 +64,7 @@ class AutomationControlTests(unittest.TestCase):
             def api(path, data=None, **kwargs):
                 calls.append((path, data))
                 if '?state=open' in path:
-                    return [{'number': 4, 'body': control.MARKER}]
+                    return [{'number': 4, 'body': control.MARKER, 'user': {'login': 'github-actions[bot]'}}]
                 return {}
             with mock.patch.object(control.state_store, 'read_state', return_value=(previous, 'old')), \
                  mock.patch.object(control.state_store, 'write_state', return_value='new') as write, \
