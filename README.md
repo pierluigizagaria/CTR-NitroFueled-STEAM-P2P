@@ -27,6 +27,11 @@ and its runtime dependencies. Steam invitation acceptance and lobby joining have
 a user-confirmed test on channel-a. The selected-friend invitation send and
 channel-b still need in-game validation; this is not broad multiplayer acceptance.
 
+A channel-a run crashed in the host's mutex code while loading a matchmaking
+race. The latest channel-a includes the mutex storage protection already present
+in OCTR; that reported crash still needs a human retest. A subsequent bridge
+message about the missing game UDP endpoint can be a consequence of a host crash.
+
 The [automatic release workflow](https://github.com/pierluigizagaria/CTR-NitroFueled-STEAM-P2P/actions/workflows/check-upstreams.yml)
 checks new stable upstream releases daily, reapplies the adapters and publishes
 complete packages only after both channels pass their build and offline checks.

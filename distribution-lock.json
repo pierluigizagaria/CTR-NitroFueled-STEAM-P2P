@@ -4,7 +4,7 @@
     "channel-a": {
       "repository": "https://github.com/pierluigizagaria/CTR-NitroFueled-PC.git",
       "branch": "p2p/channel-a",
-      "revision": "a76e52addc80aca4421af76afacacf0b883365bc",
+      "revision": "db20c2c7e4dc1395a3026d05d536586af4770725",
       "upstream": {
         "repository": "https://github.com/GetLostIn/CTR-NitroFueled-PC.git",
         "tag": "v0.4",
