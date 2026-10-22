@@ -49,6 +49,10 @@
     "verify": false,
     "version": "v0.1.0-preview.1"
   },
+  "notification": {
+    "fingerprint": "dd06a19b8e7272dc275454027c62ec5996d7368f7e5b74b19b1d1dfeb50eb08b",
+    "issue_number": 3
+  },
   "plan": null,
   "previous_completion": {
     "asset": "ctrnf-p2p-complete-v0.1.0-preview.1-a8eda693f957.json",
