@@ -1,5 +1,5 @@
 diff --git a/build.sh b/build.sh
-index 1fc722850decaa536c5b7ae6fa0550fa73bd9c66..7a3e600d47f08e8d2afa5dcd9f202d18437701fe 100644
+index ce588a8e65df34be79ce4211518d326335dfd815..7e4bff44655d44e958802d71a2c53ab9707e9953 100644
 --- a/build.sh
 +++ b/build.sh
 @@ -8,6 +8,18 @@ psn_contract_tests() {
@@ -11,7 +11,7 @@ index 1fc722850decaa536c5b7ae6fa0550fa73bd9c66..7a3e600d47f08e8d2afa5dcd9f202d18
 +    local libraries=()
 +    case $(uname -s) in MINGW*|MSYS*) libraries=(-lws2_32);; esac
 +    "$compiler" -std=c11 -O2 -g -Wall -Wextra -Werror -Isrc tests/test_net_policy.c \
-+        src/runtime_net_overrides.c src/runtime_net_tunnel.c "${libraries[@]}" -o out/net-policy-test
++        src/runtime_net_overrides.c src/runtime_net_tunnel.c src/runtime_net_ping.c "${libraries[@]}" -o out/net-policy-test
 +    for backend in unset empty selected; do
 +        for preserve in unset 0 1; do
 +            for tunnel in 0 1; do out/net-policy-test "$backend" "$preserve" "$tunnel"; done
@@ -1165,10 +1165,10 @@ index 27e7a0776462533cbdd5a28d4e4531a2393e8712..0a45f1f5a8838a382e6b799a845edb93
      test_abort_and_delete();
      test_extended_push();
 diff --git a/run.py b/run.py
-index f890e753c2ee0de6c4d0fbf1b4c692c3f1a554a4..eaf06998856dfb13891f943f5a4cb429d0220177 100644
+index 56d908e1614867831ba00e01cb6646577b4929fc..34f97a1cadf2e0d89a12af1ef23f53b3226f5f97 100644
 --- a/run.py
 +++ b/run.py
-@@ -339,7 +339,6 @@ def setup_online(env, config, data):
+@@ -414,7 +414,6 @@ def setup_online(env, config, data):
          for key in ('BB_ONLINE_NAME', 'BB_ONLINE_ACCOUNT_ID', 'BB_ONLINE_FRIENDS',
                      'BB_ONLINE_KEY', 'BB_ONLINE_KEYHASH'):
              env[key] = ''
@@ -1190,18 +1190,18 @@ index c48812edabef72531a7db07f732c08b5302d5e51..f1fe0c937e20d0da40c62bd0be90340b
  # Backend selection/configuration are already inherited by the shell and child.
  # In particular, an ephemeral relay capability must never enter the env-file.
 diff --git a/src/runtime_net.c b/src/runtime_net.c
-index f4f8b247f532e54b71c2081eb166ee25570b5d00..a1ab9b251822d5cd529b1fe9b65bdb7090b903a3 100644
+index 5fa1c7e7e18576f02485cb2bc9c1db15c70f7bbd..1483772a0964c3c0c32057433f2d2ab9e2d8105f 100644
 --- a/src/runtime_net.c
 +++ b/src/runtime_net.c
-@@ -3,7 +3,6 @@
- #include "runtime_net_tunnel.h"
+@@ -4,7 +4,6 @@
+ #include "runtime_net_ping.h"
  #include "runtime_friends.h"
  #include "runtime.h"
 -#include "runtime_psn.h"
  #include <stdio.h>
  #include <stdlib.h>
  #include <string.h>
-@@ -24,11 +23,17 @@ static int g_net_initialized = 0;
+@@ -25,11 +24,17 @@ static int g_net_initialized = 0;
  static int32_t g_net_errno = 0;
  
  int runtime_net_is_online(void) {
@@ -1220,7 +1220,7 @@ index f4f8b247f532e54b71c2081eb166ee25570b5d00..a1ab9b251822d5cd529b1fe9b65bdb70
  void runtime_net_trace(const char *fmt, ...) {
      static int trace_checked = 0;
      static int trace_enabled = 0;
-@@ -306,7 +311,6 @@ static uint64_t now_ms(void) {
+@@ -307,7 +312,6 @@ static uint64_t now_ms(void) {
  /* The server's NAT port (UDP 3074, BB_ONLINE_NAT_PORT); 0 when the tunnel is off
   * (BB_ONLINE_TUNNEL=0, offline, or the server's address does not resolve). */
  static int tunnel_server(struct sockaddr_in *out) {
@@ -1228,7 +1228,7 @@ index f4f8b247f532e54b71c2081eb166ee25570b5d00..a1ab9b251822d5cd529b1fe9b65bdb70
      static int state = -1;
      static struct sockaddr_in server;
      if (state < 0) {
-@@ -420,12 +424,12 @@ int32_t runtime_net_bind(int s, const OrbisNetSockaddr *addr, uint32_t addrlen)
+@@ -477,12 +481,12 @@ int32_t runtime_net_bind(int s, const OrbisNetSockaddr *addr, uint32_t addrlen)
      sin.sin_family = in->sin_family;
      sin.sin_port = in->sin_port;
      const int game_port = ntohs(in->sin_port) == 3074;
@@ -1245,7 +1245,7 @@ index f4f8b247f532e54b71c2081eb166ee25570b5d00..a1ab9b251822d5cd529b1fe9b65bdb70
          sin.sin_port = htons(3075);
      }
  
-@@ -438,7 +442,7 @@ int32_t runtime_net_bind(int s, const OrbisNetSockaddr *addr, uint32_t addrlen)
+@@ -495,7 +499,7 @@ int32_t runtime_net_bind(int s, const OrbisNetSockaddr *addr, uint32_t addrlen)
  
      runtime_net_trace("sceNetBind(fd=%d, port=%u)", s, ntohs(sin.sin_port));
      int ret = bind(vs->s, (struct sockaddr *)&sin, sizeof(sin));
@@ -1254,7 +1254,7 @@ index f4f8b247f532e54b71c2081eb166ee25570b5d00..a1ab9b251822d5cd529b1fe9b65bdb70
          for (int p_retry = 1; p_retry <= 10; p_retry++) {
              sin.sin_port = htons(ntohs(sin.sin_port) + 1);
              runtime_net_trace("sceNetBind: port busy, retrying port %u", ntohs(sin.sin_port));
-@@ -508,7 +512,7 @@ int32_t runtime_net_accept(int s, OrbisNetSockaddr *addr, uint32_t *addrlen) {
+@@ -565,7 +569,7 @@ int32_t runtime_net_accept(int s, OrbisNetSockaddr *addr, uint32_t *addrlen) {
   * server sees that port and gives it to the peers. Same length as "3074": the request's
   * Content-Length stays right. BB_UPNP_PORT=3074 keeps the game's own. */
  static int upnp_external_port(void) {

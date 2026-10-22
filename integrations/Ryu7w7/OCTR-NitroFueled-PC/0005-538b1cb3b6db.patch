@@ -1,5 +1,19 @@
+diff --git a/build.sh b/build.sh
+index 7e4bff44655d44e958802d71a2c53ab9707e9953..821356eba3a2392b7b918f3e7775b66119e845cd 100644
+--- a/build.sh
++++ b/build.sh
+@@ -53,6 +53,9 @@ MINGW*|MSYS*)
+     if [[ ${1:-} == --test ]]; then
+         psn_contract_tests clang
+         net_policy_tests clang
++        clang -std=c11 -D_GNU_SOURCE -O2 -g -Wall -Wextra -Werror -pthread -Isrc \
++            tests/test_http_ryunet.c src/runtime_http.c -lws2_32 -o out/http-ryunet-test
++        out/http-ryunet-test
+     fi
+     exit 0
+     ;;
 diff --git a/gpu/shim/bbport_overlay.cpp b/gpu/shim/bbport_overlay.cpp
-index e0790941659e78133c5045737b484f24056111bd..b4d9497b0c0e9c395be4d86e04ea8fdf1328bfe7 100644
+index 76f46f12d9175ef8cd23a5949131b660cabb5f7f..88a4b68a2634b74647bd75026b066a3414bd2329 100644
 --- a/gpu/shim/bbport_overlay.cpp
 +++ b/gpu/shim/bbport_overlay.cpp
 @@ -22,6 +22,7 @@
@@ -7,10 +21,22 @@ index e0790941659e78133c5045737b484f24056111bd..b4d9497b0c0e9c395be4d86e04ea8fdf
  #include "bbport_settings.h"
  #include "../../src/runtime_friends.h"
 +#include "../../src/runtime_psn.h"
+ #include "../../src/runtime_net_ping.h"
  #include "imgui.h"
  #include "imgui_internal.h" // RegisterUserTexture: the trophy pictures
- #include "imgui_impl_vulkan.h"
-@@ -546,6 +547,11 @@ void ReportSection(const RfView& view, char (&who)[RF_NAME]) {
+@@ -590,6 +591,11 @@ bool InOnlineRoom() {
+ }
+ 
+ void RoomTab() {
++    if (runtime_psn_selected()) {
++        ImGui::TextWrapped("%s", "Use the game's lobby to see players connected through your selected platform. "
++                               "Ping details are unavailable in this panel.");
++        return;
++    }
+     auto& s = BbSettings::Get();
+     MenuSection(BbSettings::MenuText("Players in the room", "Игроки в комнате"));
+     if (!InOnlineRoom()) {
+@@ -627,6 +633,11 @@ void ReportTab() {
  }
  
  void FriendsTab() {
@@ -50,26 +76,6 @@ index 708de6e5ad5fbc1432acd91143eab1669fba67b1..7f6ea4913e137b19df1c0b1c9f482ac0
      char name[RF_NAME];
      clean_name(name, host);
      if (name[0]) runtime_invite_join(name);
-diff --git a/src/runtime_http.c b/src/runtime_http.c
-index ee6bbdaea895b6d69a5f7b12deea883e6404119c..a92717c859f81fd8886de9ea79623a7616af5474 100644
---- a/src/runtime_http.c
-+++ b/src/runtime_http.c
-@@ -317,6 +317,7 @@ int32_t runtime_http_add_request_header(int32_t req, const char *name, const cha
-  * keyed with the hash of this installation's key for the server (BB_ONLINE_KEYHASH, from
-  * run.py), of the time, a nonce, the method and the request target. 0 without a key. */
- int runtime_ryunet_proof(const char *method, const char *target, char *out, size_t out_size) {
-+    if (runtime_psn_selected()) return 0;
-     const char *key_hash = getenv("BB_ONLINE_KEYHASH");
-     if (!key_hash || strlen(key_hash) != 64 || strspn(key_hash, "0123456789abcdef") != 64) return 0;
-     static unsigned long long counter;
-@@ -342,6 +343,7 @@ int runtime_ryunet_proof(const char *method, const char *target, char *out, size
-  * 8-second timeouts: for background threads. */
- int runtime_ryunet_request(const char *method, const char *target, char *body, size_t body_size) {
-     if (body_size) body[0] = '\0';
-+    if (runtime_psn_selected()) return 0;
-     const char *host = getenv("BB_ONLINE_SERVER");
-     const char *port = getenv("BB_ONLINE_HTTP_PORT");
-     if (!host || !*host) return 0;
 diff --git a/src/runtime_psn.h b/src/runtime_psn.h
 index 526c99765f10730ec4461c73896caf275f8e4017..b576bd322eed1905e1edceecdca6aed6f806e2b2 100644
 --- a/src/runtime_psn.h
@@ -91,7 +97,7 @@ index 526c99765f10730ec4461c73896caf275f8e4017..b576bd322eed1905e1edceecdca6aed6
 +#endif
  #endif
 diff --git a/tests/test_net_policy.c b/tests/test_net_policy.c
-index fdef1f3fbc5b02ab51ed7b156d1f4c4e8616f0c9..6c55c4ab3e6bb8280a6628fc2314a7260f369901 100644
+index fdef1f3fbc5b02ab51ed7b156d1f4c4e8616f0c9..29b0d66eae04a28ef4876bd4ab47a2f626c06487 100644
 --- a/tests/test_net_policy.c
 +++ b/tests/test_net_policy.c
 @@ -5,6 +5,9 @@
@@ -104,6 +110,23 @@ index fdef1f3fbc5b02ab51ed7b156d1f4c4e8616f0c9..6c55c4ab3e6bb8280a6628fc2314a726
  static void environment(const char *key, const char *value) {
  #ifdef _WIN32
      assert(_putenv_s(key, value ? value : "") == 0);
+@@ -49,6 +52,7 @@ int main(int argc, char **argv) {
+     environment("BB_ONLINE_PORT", NULL);
+     environment("BB_UPNP_PORT", "4321");
+     environment("BB_NET_TRACE", "0");
++    environment("BB_ONLINE_PING", "1");
+ 
+     /* Identity selection cannot override the independent offline/online switch. */
+     environment("BB_ONLINE", "0");
+@@ -59,6 +63,8 @@ int main(int argc, char **argv) {
+     environment("BB_ONLINE", "1");
+     assert(runtime_net_is_online() == 1);
+     assert(runtime_netctl_state(&state) == 0 && state == 3);
++    /* RyuNET ping follows transport policy, never just the selected identity backend. */
++    assert(ping_enabled() == (tunnel && !preserve));
+ 
+     int first = guest_socket();
+     OrbisNetSockaddrIn requested = guest_address("127.0.0.2", 0);
 diff --git a/tests/test_psn_backend_launcher.py b/tests/test_psn_backend_launcher.py
 index 36a7762e07a96c84ae7c147a8ca390bcc5e7d3be..8f2de54c0cce7de00b27bc934f28995e84aafe56 100644
 --- a/tests/test_psn_backend_launcher.py

@@ -78,11 +78,13 @@ def main():
                             'MSYSTEM': 'CLANG64',
                             'PATH': os.pathsep.join((str(compiler_bin), str(msys / 'usr/bin'), os.environ['PATH']))}
         run(bash, 'build.sh', '--test', cwd=host, env=env)
-        # Test the local-shader preservation change; the upstream broad suite has
-        # separately documented unrelated baseline failures on Windows.
-        if (host / 'tests/test_ultrawide_local_shaders.py').exists():
-            run(sys.executable, '-B', '-m', 'unittest', 'discover', '-s', 'tests',
-                '-p', 'test_ultrawide_local_shaders.py', cwd=host, env=env)
+        # Exercise changed host launch/packaging behavior; the upstream broad suite
+        # has separately documented unrelated baseline failures on Windows.
+        for fixture in ('test_ultrawide_local_shaders.py', 'test_psn_backend_launcher.py',
+                        'test_p2p_distribution.py'):
+            if (host / 'tests' / fixture).exists():
+                run(sys.executable, '-B', '-m', 'unittest', 'discover', '-s', 'tests',
+                    '-p', fixture, cwd=host, env=env)
         release_lock = json.loads((ROOT / 'release-lock.json').read_text())
         from release_support import download
         header = download(release_lock['json']['header'], deps / 'json/include/nlohmann/json.hpp')
@@ -107,7 +109,8 @@ def main():
             'commands': ['BB_P2P_DISTRIBUTION=ON bash build.sh --test',
                          'cmake platform/psn PSN_BRIDGE_BACKEND=ON PSN_HOST_TESTS=ON',
                          'ctest --output-on-failure', 'packaging/windows/make_portable.py'],
-            'tests': ['native PSN CTest', 'PSN backend CTest and HTTP fixtures', 'local shader fixtures when present']}))
+            'tests': ['native PSN CTest', 'PSN backend CTest and HTTP fixtures',
+                      'host launcher, distribution and local shader fixtures when present']}))
     elif not args.host_build_manifest or not args.backend_dir:
         parser.error('Prebuilt input requires --host-build-manifest and --backend-dir')
     evidence = deps / 'source-evidence.json'

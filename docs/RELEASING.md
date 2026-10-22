@@ -290,6 +290,9 @@ python tools/prepare_upstream_update.py --repository . --lock distribution-lock.
 The helper verifies the official tag and applies the tracked recipe to an isolated
 checkout. Conflicts stop and retain the candidate for inspection. The lock and
 historical branches stay intact. Fix the P2P-owned recipe or reviewed dependency
-evidence as necessary, review the resulting lock, and run `retry`. Never bypass
+evidence as necessary, review the resulting lock, and run `retry`. If resolving a
+conflict rebases the recipe's original source base and advances the reviewed lock
+to the new release, use `publish-pinned` to publish that new source revision:
+`retry` with current pins only verifies and clears the stop. Never bypass
 contract or package checks to clear a stop. This helper makes no remote writes;
 publication and recovery remain the trusted publisher's responsibility.

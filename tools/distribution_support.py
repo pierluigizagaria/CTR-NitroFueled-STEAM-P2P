@@ -27,9 +27,9 @@ def omitted_asset(name, *, source=False):
     if (name.startswith(('scripts/ultrawide_21x9_data/shaders/', 'scripts/ultrawide_32x9_data/shaders/'))
             and path.suffix.casefold() == '.spv'):
         return 'Original game shader; obtain it from the player-owned game cache at runtime.'
-    if source and (name in {'packaging/windows/icons/ctr.ico', 'launcher/io.github.sacredfire.Launcher.png'}
-                   or (name.startswith('docs/') and path.suffix.casefold() in
-                       {'.png', '.jpg', '.jpeg', '.webp', '.ico'})):
+    if ((source and name in {'packaging/windows/icons/ctr.ico', 'launcher/io.github.sacredfire.Launcher.png'})
+            or (name.startswith('docs/') and path.suffix.casefold() in
+                {'.png', '.jpg', '.jpeg', '.webp', '.ico'})):
         return 'Optional documentation/branding artwork, not compiled source.'
     return None
 

@@ -107,6 +107,17 @@ class DistributionTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'checksum'):
             assemble(self.args)
 
+    def test_documentation_art_is_omitted_from_portable_packages_without_losing_text(self):
+        image = 'docs/native-handbook/images/example.png'
+        text = 'docs/native-handbook/START-HERE.txt'
+        archive(self.host, self.host_files | {'portable/' + image: b'optional screenshot',
+                                             'portable/' + text: b'handbook instructions'})
+        result = assemble(self.args)
+        files = read_zip(self.args.output)
+        self.assertNotIn(image, files)
+        self.assertEqual(files[text], b'handbook instructions')
+        self.assertEqual(result['omitted_optional_artwork'][image], sha256(b'optional screenshot'))
+
     def test_rejects_wrong_corresponding_source(self):
         self.source_manifest['revision'] = 'e' * 40
         self.write_source()

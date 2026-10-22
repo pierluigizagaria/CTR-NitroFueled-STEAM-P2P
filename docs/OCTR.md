@@ -75,6 +75,11 @@ uses the guest's endpoints without Ryu7w7/OCTR-NitroFueled-PC port remapping or 
 Selecting a PSN backend alone does not change Ryu7w7/OCTR-NitroFueled-PC's socket policy; ordinary
 Ryu7w7/OCTR-NitroFueled-PC startup is unchanged.
 
+The v0.6.3 integration also keeps RyuNET's clock synchronization, HTTP request-form
+fallbacks and inventory headers out of external publisher requests. Its new Room
+panel directs Steam/P2P players to the game's lobby; RyuNET ping information is
+not presented as Steam lobby state.
+
 GetLostIn/CTR-NitroFueled-PC keeps its native private-server routing with `BB_ONLINE_SERVER` and
 `BB_ONLINE_HTTP_PORT`; it does not use Ryu7w7/OCTR-NitroFueled-PC's transport switches. Both full
 packages include the adapter and select their host mode in `ctrnf-p2p.ini`.

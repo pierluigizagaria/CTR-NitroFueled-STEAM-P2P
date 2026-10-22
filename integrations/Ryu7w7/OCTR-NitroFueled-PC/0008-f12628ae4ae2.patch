@@ -1,0 +1,40 @@
+diff --git a/docs/sacredfire/p2p-distribution.md b/docs/sacredfire/p2p-distribution.md
+index aec130666475e47dfb7bb9517f581bcfcb554770..d8b842508c1ca39e1b4f9486c5d74fadbb8bb59c 100644
+--- a/docs/sacredfire/p2p-distribution.md
++++ b/docs/sacredfire/p2p-distribution.md
+@@ -5,6 +5,13 @@ licensed adapter recipe. This integration is based on upstream `v0.6.3`
+ (`cdd39072ecdb55dbebe1a1aa0299c4c9ff7fff30`). The original contributor identities,
+ GPL-2.0-or-later license, and third-party notices remain applicable.
+ 
++The v0.6.3 replay preserves the upstream mod/restart fixes and RyuNET clock,
++request-form and ping support. External PSN publishers keep their original
++URL/Host requests without RyuNET proofs, inventory headers, retry forms or clock
++updates. The Room panel directs external-backend players to the game lobby;
++it does not interpret RyuNET ping state as a Steam room. HTTP loopback fixtures,
++launcher fixtures and the independent socket-policy matrix cover these boundaries.
++
+ Build the Windows runtime and launcher with the existing MSYS2 CLANG64 toolchain:
+ 
+ ```sh
+diff --git a/tests/test_net_policy.c b/tests/test_net_policy.c
+index 29b0d66eae04a28ef4876bd4ab47a2f626c06487..55e6e792129ce9a8bc1c5c8eaa4a626cea1b5785 100644
+--- a/tests/test_net_policy.c
++++ b/tests/test_net_policy.c
+@@ -63,8 +63,6 @@ int main(int argc, char **argv) {
+     environment("BB_ONLINE", "1");
+     assert(runtime_net_is_online() == 1);
+     assert(runtime_netctl_state(&state) == 0 && state == 3);
+-    /* RyuNET ping follows transport policy, never just the selected identity backend. */
+-    assert(ping_enabled() == (tunnel && !preserve));
+ 
+     int first = guest_socket();
+     OrbisNetSockaddrIn requested = guest_address("127.0.0.2", 0);
+@@ -128,6 +126,8 @@ int main(int argc, char **argv) {
+     /* Endpoint preservation is separate from both the tunnel and PSN selection. */
+     struct sockaddr_in server;
+     assert(tunnel_server(&server) == tunnel);
++    /* Ping follows the tunnel after socket initialization, independently of PSN and binding policy. */
++    assert(ping_enabled() == tunnel);
+     if (tunnel) {
+         assert(server.sin_addr.s_addr == inet_addr("127.0.0.1"));
+         assert(ntohs(server.sin_port) == 43210);

@@ -1,5 +1,5 @@
 diff --git a/README.md b/README.md
-index fc80e6ba43ea1b7ec869dc6bd35db3dce9fe4e28..d00ee060abdd24394ed458c0c583c8642763ebd4 100644
+index 6e1a70b73c9daa8af3b9a9f116b93b6e1c88c248..bca110603b8fe499df78c0aaa5fbefc24343f7b9 100644
 --- a/README.md
 +++ b/README.md
 @@ -18,6 +18,10 @@ On top of that, this fork adds **online play** (see [Online](#online) below): pu
@@ -14,7 +14,7 @@ index fc80e6ba43ea1b7ec869dc6bd35db3dce9fe4e28..d00ee060abdd24394ed458c0c583c864
  > Both builds of the 1.21 update work: the one for firmware 5.05 (the reference) and the one for
  > 6.72+ (since v0.2.1).
 diff --git a/build.sh b/build.sh
-index c0d08a0cb3b20285e18bb62f64bdfa6db4d5383c..1fc722850decaa536c5b7ae6fa0550fa73bd9c66 100644
+index 52f518678fe34029b8aac3851cdee0dc319ede07..ce588a8e65df34be79ce4211518d326335dfd815 100644
 --- a/build.sh
 +++ b/build.sh
 @@ -2,6 +2,12 @@
@@ -74,7 +74,7 @@ index 0eb5a0dcdbb120296f8790cf9a9dc55f2cf18974..355bd248772a0a4a6e9f85efeeb652fe
  
  | milestone | state |
 diff --git a/gpu/CMakeLists.txt b/gpu/CMakeLists.txt
-index 9e0409433affaa9065f7b88f53b7330a24d55d9b..964b2b48b9d5d3f3fc3da8de49a452f0a37472f5 100644
+index 718ec3b1fabe5238e1fe875b3fc7ae42e05d9795..d58cdceeed4900451d2b4be3d27d7d0eb3b67f86 100644
 --- a/gpu/CMakeLists.txt
 +++ b/gpu/CMakeLists.txt
 @@ -2,6 +2,7 @@
@@ -95,7 +95,7 @@ index 9e0409433affaa9065f7b88f53b7330a24d55d9b..964b2b48b9d5d3f3fc3da8de49a452f0
      # The guest main thread runs on the process stack: 16 MiB, committed (no stack probes).
      target_link_options(sacredfire PRIVATE -Wl,--disable-high-entropy-va "SHELL:-Xlinker --stack -Xlinker 16777216,16777216")
 diff --git a/launcher/sacredfire_launcher.py b/launcher/sacredfire_launcher.py
-index fba7e34a7ee836bee3049e364922c7b7f62a3cb4..aa72c89e6841347b31fedde563a4ea7ebf90cb5b 100644
+index a9022475719427e97434646698a3861709f1f934..5066fa4da98bc448c05b5879203864fbad4447f8 100644
 --- a/launcher/sacredfire_launcher.py
 +++ b/launcher/sacredfire_launcher.py
 @@ -38,6 +38,7 @@ import discord_ipc  # noqa: E402
@@ -106,7 +106,7 @@ index fba7e34a7ee836bee3049e364922c7b7f62a3cb4..aa72c89e6841347b31fedde563a4ea7e
  
  PACKAGED = bool(os.environ.get("BB_PREBUILT"))
  
-@@ -606,10 +607,13 @@ def import_saves(user_dir, source):
+@@ -608,10 +609,13 @@ def import_saves(user_dir, source):
      return ""
  
  
@@ -121,7 +121,7 @@ index fba7e34a7ee836bee3049e364922c7b7f62a3cb4..aa72c89e6841347b31fedde563a4ea7e
      nick, server = ini.get("online_name", "").strip(), ini.get("online_server", ONLINE_SERVER).strip()
      if ini.get("online") != "1":
          return discord_ipc.Activity(tr("Playing offline"), start=started, large_image="logo",
-@@ -634,11 +638,14 @@ def parse_join_secret(secret):
+@@ -636,11 +640,14 @@ def parse_join_secret(secret):
      return parts[1], parts[2]
  
  
@@ -138,7 +138,7 @@ index fba7e34a7ee836bee3049e364922c7b7f62a3cb4..aa72c89e6841347b31fedde563a4ea7e
      ini, lines = load_ini()
      friends = [f.strip() for f in ini.get("online_friends", "").split(",") if f.strip()]
      if nick.lower() not in [f.lower() for f in friends]:
-@@ -784,6 +791,7 @@ class LauncherWindow(Adw.ApplicationWindow):
+@@ -786,6 +793,7 @@ class LauncherWindow(Adw.ApplicationWindow):
          set_language(self.settings.get("ui_language", ""))
          self.ini, self.ini_lines = load_ini()
          self.process = None
@@ -146,7 +146,7 @@ index fba7e34a7ee836bee3049e364922c7b7f62a3cb4..aa72c89e6841347b31fedde563a4ea7e
          self.stream = None
          self.game_started = 0  # Unix time the game started, for Discord's "elapsed"
          self.presence = discord_ipc.Presence()
-@@ -1946,6 +1954,11 @@ class LauncherWindow(Adw.ApplicationWindow):
+@@ -1993,6 +2001,11 @@ class LauncherWindow(Adw.ApplicationWindow):
      def server(self):
          return self.server_row.get_text().strip() or ONLINE_SERVER
  
@@ -158,7 +158,7 @@ index fba7e34a7ee836bee3049e364922c7b7f62a3cb4..aa72c89e6841347b31fedde563a4ea7e
      def nick(self):
          return self.nick_row.get_text().strip()
  
-@@ -1970,6 +1983,10 @@ class LauncherWindow(Adw.ApplicationWindow):
+@@ -2017,6 +2030,10 @@ class LauncherWindow(Adw.ApplicationWindow):
          self.nick_timer = GLib.timeout_add(700, ask)
  
      def ask_nick_status(self):
@@ -169,7 +169,7 @@ index fba7e34a7ee836bee3049e364922c7b7f62a3cb4..aa72c89e6841347b31fedde563a4ea7e
          server, nick = self.server(), self.nick()
          asked = f"{server}|{nick}"
          self.nick_asked = asked
-@@ -1988,7 +2005,10 @@ class LauncherWindow(Adw.ApplicationWindow):
+@@ -2035,7 +2052,10 @@ class LauncherWindow(Adw.ApplicationWindow):
          status = (info or {}).get("status", "")
          linked = bool(info and info.get("linked"))
          ban = (info or {}).get("banned")
@@ -181,7 +181,7 @@ index fba7e34a7ee836bee3049e364922c7b7f62a3cb4..aa72c89e6841347b31fedde563a4ea7e
              until = (info or {}).get("ban_until") or 0
              text = " ".join((
                  tr("Your connection (IP) is banned from online play.") if (info or {}).get("ban_kind") == "ip"
-@@ -2031,7 +2051,7 @@ class LauncherWindow(Adw.ApplicationWindow):
+@@ -2084,7 +2104,7 @@ class LauncherWindow(Adw.ApplicationWindow):
  
      def start_discord_link(self, mode):
          """mode: "link" this nickname, or "recover" the one linked to the Discord account."""
@@ -190,7 +190,7 @@ index fba7e34a7ee836bee3049e364922c7b7f62a3cb4..aa72c89e6841347b31fedde563a4ea7e
              return
          self.store()
          server, app_id = self.server(), self.discord_app_id()
-@@ -2104,6 +2124,8 @@ class LauncherWindow(Adw.ApplicationWindow):
+@@ -2157,6 +2177,8 @@ class LauncherWindow(Adw.ApplicationWindow):
          return tr("The server could not confirm the account with Discord. Try again."), ""
  
      def confirm_discord_unlink(self):
@@ -199,7 +199,7 @@ index fba7e34a7ee836bee3049e364922c7b7f62a3cb4..aa72c89e6841347b31fedde563a4ea7e
          server, nick = self.server(), self.nick()
  
          def unlink():
-@@ -2120,12 +2142,12 @@ class LauncherWindow(Adw.ApplicationWindow):
+@@ -2173,12 +2195,12 @@ class LauncherWindow(Adw.ApplicationWindow):
          """What Discord shows while the game runs; joinable online (the Windows launcher's)."""
          if self.process is None:
              return None
@@ -214,7 +214,7 @@ index fba7e34a7ee836bee3049e364922c7b7f62a3cb4..aa72c89e6841347b31fedde563a4ea7e
              return
          if time.monotonic() - self.party_asked < 5:
              return
-@@ -2141,7 +2163,7 @@ class LauncherWindow(Adw.ApplicationWindow):
+@@ -2194,7 +2216,7 @@ class LauncherWindow(Adw.ApplicationWindow):
          """Server announcements ("maintenance in 5 minutes"), every 30 s while online play is on:
          a new one goes to the game in ryunet_announce.txt next to bbport.ini (drawn over the
          picture) and to a toast."""
@@ -223,7 +223,7 @@ index fba7e34a7ee836bee3049e364922c7b7f62a3cb4..aa72c89e6841347b31fedde563a4ea7e
              return
          self.announce_busy, self.announce_asked = True, time.monotonic()
          server = self.ini.get("online_server", ONLINE_SERVER)
-@@ -2157,6 +2179,8 @@ class LauncherWindow(Adw.ApplicationWindow):
+@@ -2210,6 +2232,8 @@ class LauncherWindow(Adw.ApplicationWindow):
  
      def on_discord_join(self, secret):
          """A join secret from Discord: "ctr1|<server>|<nickname>"."""
@@ -232,7 +232,7 @@ index fba7e34a7ee836bee3049e364922c7b7f62a3cb4..aa72c89e6841347b31fedde563a4ea7e
          parsed = parse_join_secret(secret)
          if not parsed:
              self.toasts.add_toast(Adw.Toast(title=tr("That Discord invite is not from this launcher.")))
-@@ -2178,7 +2202,9 @@ class LauncherWindow(Adw.ApplicationWindow):
+@@ -2231,7 +2255,9 @@ class LauncherWindow(Adw.ApplicationWindow):
          """The host becomes a friend (the game lists friends' lobbies as joinable) and the game
          joins their session by itself, as a PS4 invitation accepted in the system UI
          (src/runtime_services.c reads ryunet_join.txt next to bbport.ini)."""
@@ -243,7 +243,7 @@ index fba7e34a7ee836bee3049e364922c7b7f62a3cb4..aa72c89e6841347b31fedde563a4ea7e
          self.ini, self.ini_lines = load_ini()
          self.online_row.set_active(True)
          self.server_row.set_text(server)
-@@ -2194,7 +2220,7 @@ class LauncherWindow(Adw.ApplicationWindow):
+@@ -2247,7 +2273,7 @@ class LauncherWindow(Adw.ApplicationWindow):
  
      def tick(self):
          """Every second: Discord's presence and its invites, the party size, announcements."""
@@ -252,7 +252,7 @@ index fba7e34a7ee836bee3049e364922c7b7f62a3cb4..aa72c89e6841347b31fedde563a4ea7e
          self.presence.update(self.settings.get("discord_rpc", True), self.discord_app_id(), self.discord_activity())
          while (secret := self.presence.take_join()) is not None:
              self.on_discord_join(secret)
-@@ -2335,7 +2361,9 @@ class LauncherWindow(Adw.ApplicationWindow):
+@@ -2388,7 +2414,9 @@ class LauncherWindow(Adw.ApplicationWindow):
              self.stop_game()
              return
          self.store()
@@ -263,7 +263,7 @@ index fba7e34a7ee836bee3049e364922c7b7f62a3cb4..aa72c89e6841347b31fedde563a4ea7e
              self.toasts.add_toast(Adw.Toast(title=tr("Online play needs your own nickname (3-16 letters, digits, _ or -; not RyuPC or Player)"),
                                              timeout=8))
              return
-@@ -2343,10 +2371,11 @@ class LauncherWindow(Adw.ApplicationWindow):
+@@ -2396,10 +2424,11 @@ class LauncherWindow(Adw.ApplicationWindow):
          self.issue_notice.set_visible(False)
          launcher = Gio.SubprocessLauncher.new(
              Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_MERGE)
@@ -276,7 +276,7 @@ index fba7e34a7ee836bee3049e364922c7b7f62a3cb4..aa72c89e6841347b31fedde563a4ea7e
          except GLib.Error as error:
              self.toasts.add_toast(Adw.Toast(title=tr("Could not start: {}").format(error.message)))
              return
-@@ -2447,6 +2476,7 @@ def play():
+@@ -2500,6 +2529,7 @@ def play():
          return 1
      os.chdir(PORT_DIR)
      env = game_environment(settings)
@@ -284,7 +284,7 @@ index fba7e34a7ee836bee3049e364922c7b7f62a3cb4..aa72c89e6841347b31fedde563a4ea7e
      steam_shortcuts.stable_appimage_link()
      if not settings.get("discord_rpc", True):
          os.execvpe("bash", ["bash", str(PORT_DIR / "run.sh")], env)  # nothing to do alongside
-@@ -2463,7 +2493,7 @@ def play():
+@@ -2516,7 +2546,7 @@ def play():
  
      import threading
      presence = discord_ipc.Presence()
@@ -293,7 +293,7 @@ index fba7e34a7ee836bee3049e364922c7b7f62a3cb4..aa72c89e6841347b31fedde563a4ea7e
      app_id = settings.get("discord_app_id") or DISCORD_APP_ID
      started = int(time.time())
      state = {"party": None, "party_at": 0.0, "announce_at": 0.0, "seen": "", "busy": set()}
-@@ -2482,10 +2512,12 @@ def play():
+@@ -2535,10 +2565,12 @@ def play():
  
      while child.poll() is None:
          ini, _lines = load_ini()
@@ -308,7 +308,7 @@ index fba7e34a7ee836bee3049e364922c7b7f62a3cb4..aa72c89e6841347b31fedde563a4ea7e
              parsed = parse_join_secret(secret)
              if not parsed or parsed[1].lower() == nick.lower():
                  continue
-@@ -2494,7 +2526,7 @@ def play():
+@@ -2547,7 +2579,7 @@ def play():
                  print(f"SacredFire: Discord invite from {parsed[1]} for another server ({parsed[0]}) ignored; "
                        "accept it with the launcher open", file=sys.stderr)
                  continue
@@ -318,10 +318,10 @@ index fba7e34a7ee836bee3049e364922c7b7f62a3cb4..aa72c89e6841347b31fedde563a4ea7e
          now = time.monotonic()
          if online and now - state["party_at"] >= 5:
 diff --git a/launcher/windows/launcher.cpp b/launcher/windows/launcher.cpp
-index b0b3ec444fa934eaf7501c93eda064a2b068169f..232f9d5e72e26cd89156c885dd264a7fbf5aac87 100644
+index 6b57713d97871e1bebfb1499519d8670f4827441..e087455e3fe543d676b06ffc17e81ca3926667fa 100644
 --- a/launcher/windows/launcher.cpp
 +++ b/launcher/windows/launcher.cpp
-@@ -785,6 +785,11 @@ void SyncOnlineBuffers() {
+@@ -799,6 +799,11 @@ void SyncOnlineBuffers() {
  
  std::string CurrentNick() { return Trim(g_app.game.Get("online_name", g_app.game.Get("user_name"))); }
  
@@ -333,15 +333,15 @@ index b0b3ec444fa934eaf7501c93eda064a2b068169f..232f9d5e72e26cd89156c885dd264a7f
  /// The server derives the player's ID from the nickname, so everyone left on the old default
  /// (RyuPC) was ONE player online: one wallet, and matchmaking evicting each other. These names
  /// are refused; run.py refuses them too.
-@@ -980,6 +985,7 @@ std::string ProofHeader(const std::string& key_hash, const char* method, const s
- /// The body, or "" when the server could not be reached. Called from background threads.
+@@ -1064,6 +1069,7 @@ std::string ProofHeader(const std::string& key_hash, const char* method, const s
  std::string HttpRequest(const std::string& server, const wchar_t* method, const std::wstring& path,
-                         const std::string& form = {}, int timeout_ms = 3000, bool register_key = false) {
+                         const std::string& form = {}, int timeout_ms = 3000, bool register_key = false,
+                         const std::string& with_key = {}) {
 +    if (ExternalPsnBackend()) return {};
      std::string host;
      INTERNET_PORT port = 0;
      SplitServer(server, host, port);
-@@ -1067,6 +1073,7 @@ NickCheck::Result AskNickStatus(const std::string& server, const std::string& ni
+@@ -1175,6 +1181,7 @@ NickCheck::Result AskNickStatus(const std::string& server, const std::string& ni
  /// Cached answer for the current nickname, asking the server in the background once per
  /// nickname. "?" while the question is out.
  std::string NickAvailability() {
@@ -349,7 +349,7 @@ index b0b3ec444fa934eaf7501c93eda064a2b068169f..232f9d5e72e26cd89156c885dd264a7f
      const std::string nick = CurrentNick();
      const std::string server = Trim(g_app.game.Get("online_server", "octr.ryu7w7.xyz"));
      if (NickProblem(nick) || server.empty()) return "";
-@@ -1090,6 +1097,7 @@ std::string NickAvailability() {
+@@ -1199,6 +1206,7 @@ std::string NickAvailability() {
  /// Whether the server can link Discord accounts, asked once in the background without a
  /// nickname (a reinstalled launcher has none yet).
  bool DiscordLinkAvailable() {
@@ -357,7 +357,7 @@ index b0b3ec444fa934eaf7501c93eda064a2b068169f..232f9d5e72e26cd89156c885dd264a7f
      const std::string server = Trim(g_app.game.Get("online_server", "octr.ryu7w7.xyz"));
      if (server.empty()) return false;
      const std::string id = server + "|*";
-@@ -1227,6 +1235,7 @@ struct NatState {
+@@ -1349,6 +1357,7 @@ struct NatState {
  NatState g_nat;
  
  void StartNatCheck(const std::string& server) {
@@ -365,7 +365,7 @@ index b0b3ec444fa934eaf7501c93eda064a2b068169f..232f9d5e72e26cd89156c885dd264a7f
      {
          std::scoped_lock lock{g_nat.mutex};
          if (g_nat.running) return;
-@@ -1245,6 +1254,10 @@ void StartNatCheck(const std::string& server) {
+@@ -1367,6 +1376,10 @@ void StartNatCheck(const std::string& server) {
  /// Short label and colour for the Play page ("NAT: type 2 (moderate)"); starts the first test
  /// for this server.
  std::string NatLabel(const std::string& server, ImVec4& color) {
@@ -376,7 +376,7 @@ index b0b3ec444fa934eaf7501c93eda064a2b068169f..232f9d5e72e26cd89156c885dd264a7f
      bool running, done;
      std::string checked;
      NatCheck::Result r;
-@@ -1557,7 +1570,9 @@ void UpdateDiscord() {
+@@ -1679,7 +1692,9 @@ void UpdateDiscord() {
          return;
      }
      DiscordPresence::Activity activity;
@@ -387,7 +387,7 @@ index b0b3ec444fa934eaf7501c93eda064a2b068169f..232f9d5e72e26cd89156c885dd264a7f
          activity.details = T("Jugando online", "Playing online");
          const std::string nick = CurrentNick();
          if (!nick.empty()) activity.state = std::string(T("Apodo: ", "Nickname: ")) + nick;
-@@ -1590,6 +1605,7 @@ void UpdateDiscord() {
+@@ -1712,6 +1727,7 @@ void UpdateDiscord() {
  /// discord-<app id> URL protocol, registered for the current user as Discord's own SDKs do.
  /// Written on every start, so a portable folder that moved points at its new place.
  void RegisterDiscordLaunch(const std::string& app_id) {
@@ -395,7 +395,7 @@ index b0b3ec444fa934eaf7501c93eda064a2b068169f..232f9d5e72e26cd89156c885dd264a7f
      if (app_id.empty() || app_id.find_first_not_of("0123456789") != std::string::npos) return;
      wchar_t exe[MAX_PATH];
      const DWORD n = GetModuleFileNameW(nullptr, exe, MAX_PATH);
-@@ -1613,7 +1629,7 @@ void RegisterDiscordLaunch(const std::string& app_id) {
+@@ -1735,7 +1751,7 @@ void RegisterDiscordLaunch(const std::string& app_id) {
  /// What the PLAY button does: online without a usable nickname asks for one first (NickPopup).
  void PressPlay() {
      App& a = g_app;
@@ -404,7 +404,7 @@ index b0b3ec444fa934eaf7501c93eda064a2b068169f..232f9d5e72e26cd89156c885dd264a7f
      else StartGame();
  }
  
-@@ -1636,6 +1652,7 @@ std::string Format(const char* format, const std::string& a, const std::string&
+@@ -1758,6 +1774,7 @@ std::string Format(const char* format, const std::string& a, const std::string&
  /// An invite accepted in Discord, for a server we use (or agreed to switch to): the host
  /// becomes a friend (the game lists friends' lobbies as joinable) and the game starts.
  void AcceptDiscordJoin(const std::string& server, const std::string& nick) {
@@ -412,7 +412,7 @@ index b0b3ec444fa934eaf7501c93eda064a2b068169f..232f9d5e72e26cd89156c885dd264a7f
      App& a = g_app;
      a.game.Set("online", "1");
      a.game.Set("online_server", server);
-@@ -1675,6 +1692,7 @@ void AcceptDiscordJoin(const std::string& server, const std::string& nick) {
+@@ -1797,6 +1814,7 @@ void AcceptDiscordJoin(const std::string& server, const std::string& nick) {
  
  /// A join secret from Discord: "ctr1|<server>|<nickname>", written by UpdateDiscord.
  void OnDiscordJoin(const std::string& secret) {
@@ -420,7 +420,7 @@ index b0b3ec444fa934eaf7501c93eda064a2b068169f..232f9d5e72e26cd89156c885dd264a7f
      App& a = g_app;
      const auto p1 = secret.find('|');
      const auto p2 = p1 == std::string::npos ? p1 : secret.find('|', p1 + 1);
-@@ -1781,6 +1799,7 @@ struct AnnouncePoll {
+@@ -1903,6 +1921,7 @@ struct AnnouncePoll {
  AnnouncePoll g_announce;
  
  void PollAnnouncement() {
@@ -428,7 +428,7 @@ index b0b3ec444fa934eaf7501c93eda064a2b068169f..232f9d5e72e26cd89156c885dd264a7f
      App& a = g_app;
      if (!a.game.Flag("online", true)) return;
      const std::string server = Trim(a.game.Get("online_server", "octr.ryu7w7.xyz"));
-@@ -1819,7 +1838,7 @@ void PollJobs() {
+@@ -1941,7 +1960,7 @@ void PollJobs() {
      UpdateDiscord();
      ApplyRecoveredNick();
      PollAnnouncement();
@@ -437,7 +437,7 @@ index b0b3ec444fa934eaf7501c93eda064a2b068169f..232f9d5e72e26cd89156c885dd264a7f
      for (std::string secret; DiscordPresence::TakeJoin(secret);) OnDiscordJoin(secret);
      if (a.pending_play && !a.game_running && GameReady()) {
          a.pending_play = false;
-@@ -2428,7 +2447,10 @@ void PlayTab() {
+@@ -2571,7 +2590,10 @@ void PlayTab() {
              ImGui::TextColored(kYellow, "%s", T("Comprobando el juego...", "Checking the game..."));
          } else if (a.game_ok) {
              ImGui::TextColored(kGreen, "%s %s", T("Listo:", "Ready:"), Describe(a.game_info).c_str());
@@ -449,7 +449,7 @@ index b0b3ec444fa934eaf7501c93eda064a2b068169f..232f9d5e72e26cd89156c885dd264a7f
                  std::string srv = a.game.Get("online_server", "octr.ryu7w7.xyz");
                  if (srv.empty()) srv = "octr.ryu7w7.xyz";
                  const std::string nick = CurrentNick().empty() ? std::string("-") : CurrentNick();
-@@ -2998,6 +3020,7 @@ DiscordLinkState g_discord_link;
+@@ -3167,6 +3189,7 @@ DiscordLinkState g_discord_link;
  enum class DiscordLinkMode { Link, Unlink, Recover };
  
  void StartDiscordLink(DiscordLinkMode mode) {
@@ -457,7 +457,7 @@ index b0b3ec444fa934eaf7501c93eda064a2b068169f..232f9d5e72e26cd89156c885dd264a7f
      const bool unlink = mode == DiscordLinkMode::Unlink;
      App& a = g_app;
      const std::string server = Trim(a.game.Get("online_server", "octr.ryu7w7.xyz"));
-@@ -3166,6 +3189,7 @@ void ApplyRecoveredNick() {
+@@ -3335,6 +3358,7 @@ void ApplyRecoveredNick() {
  
  /// Under the nickname: its Discord account, and Link / Recover / Unlink.
  void DiscordAccountSection() {
@@ -465,7 +465,7 @@ index b0b3ec444fa934eaf7501c93eda064a2b068169f..232f9d5e72e26cd89156c885dd264a7f
      if (NickProblem(CurrentNick())) {
          DiscordRecoverOffer();
          return;
-@@ -3233,6 +3257,7 @@ void DiscordAccountSection() {
+@@ -3402,6 +3426,7 @@ void DiscordAccountSection() {
  }
  
  void NatTypeSection(const std::string& server) {
@@ -473,7 +473,7 @@ index b0b3ec444fa934eaf7501c93eda064a2b068169f..232f9d5e72e26cd89156c885dd264a7f
      bool running, done;
      NatCheck::Result result;
      {
-@@ -3301,8 +3326,13 @@ void NatTypeSection(const std::string& server) {
+@@ -3470,8 +3495,13 @@ void NatTypeSection(const std::string& server) {
  
  void OnlineTab() {
      App& a = g_app;
@@ -489,7 +489,7 @@ index b0b3ec444fa934eaf7501c93eda064a2b068169f..232f9d5e72e26cd89156c885dd264a7f
  
      ImGui::SeparatorText(T("Servidor", "Server"));
      {
-@@ -3354,7 +3384,7 @@ void OnlineTab() {
+@@ -3523,7 +3553,7 @@ void OnlineTab() {
          // unlinking it first (DiscordAccountSection), not by typing over it.
          const NickCheck::Result nick_info = NickInfo();
          const bool nick_locked = nick_info.status == "yours" && nick_info.linked;
@@ -498,7 +498,7 @@ index b0b3ec444fa934eaf7501c93eda064a2b068169f..232f9d5e72e26cd89156c885dd264a7f
          NickInput(T("Apodo (Nickname)", "Nickname"));
          if (ImGui::IsItemDeactivatedAfterEdit()) SaveGameIni();
          ImGui::EndDisabled();
-@@ -3367,7 +3397,7 @@ void OnlineTab() {
+@@ -3536,7 +3566,7 @@ void OnlineTab() {
                             "distinta en el servidor (monedas, objetos del Pit Stop), así que no uses el de otra persona.",
                             "Your online name, required: 3 to 16 letters, digits, _ or -. Each nickname is a separate account "
                             "on the server (coins, Pit Stop items), so do not use someone else's."));
@@ -507,7 +507,7 @@ index b0b3ec444fa934eaf7501c93eda064a2b068169f..232f9d5e72e26cd89156c885dd264a7f
              ImGui::TextColored(kYellow, "%s", problem);
              if (a.game.Flag("online", true)) DiscordRecoverOffer();
          } else if (a.game.Flag("online", true)) {
-@@ -3375,10 +3405,12 @@ void OnlineTab() {
+@@ -3544,10 +3574,12 @@ void OnlineTab() {
              DiscordAccountSection();
          }
  
@@ -525,10 +525,10 @@ index b0b3ec444fa934eaf7501c93eda064a2b068169f..232f9d5e72e26cd89156c885dd264a7f
          // Which Pit Stop items (characters, skins, karts) count as yours online: the server's,
          // bought with coins and tied to the nickname, or the save's (run.py sends it at login).
 diff --git a/run.py b/run.py
-index 03e35bcb0013ee37fb32adb77119c3aedbaae4f0..f890e753c2ee0de6c4d0fbf1b4c692c3f1a554a4 100644
+index 01bb4da401c6e33863766c9de8fb316be8468654..56d908e1614867831ba00e01cb6646577b4929fc 100644
 --- a/run.py
 +++ b/run.py
-@@ -312,6 +312,11 @@ def update_notice(env, version):
+@@ -387,6 +387,11 @@ def update_notice(env, version):
          say(f'A newer release is available: {tag} (update from the launcher)')
  
  
@@ -540,7 +540,7 @@ index 03e35bcb0013ee37fb32adb77119c3aedbaae4f0..f890e753c2ee0de6c4d0fbf1b4c692c3
  def setup_online(env, config, data):
      ini_values = {}
      try:
-@@ -322,22 +327,39 @@ def setup_online(env, config, data):
+@@ -397,22 +402,39 @@ def setup_online(env, config, data):
      except OSError:
          pass
  
@@ -583,11 +583,22 @@ index 03e35bcb0013ee37fb32adb77119c3aedbaae4f0..f890e753c2ee0de6c4d0fbf1b4c692c3
          server = 'octr.ryu7w7.xyz'
      host = server
      auth_port = env.get('BB_ONLINE_HTTP_PORT', ini_values.get('online_http_port', '8080'))
-@@ -349,12 +371,13 @@ def setup_online(env, config, data):
+@@ -424,23 +446,24 @@ def setup_online(env, config, data):
  
      env['BB_ONLINE_SERVER'] = host
      env['BB_ONLINE_HTTP_PORT'] = auth_port  # the runtime's own requests (Friends tab)
 -    env['BB_ONLINE_NAME'] = name
+-    # The server's announcements (used below); its answer also tells its clock, before anything
+-    # is signed.
+-    announced = server_settings(host, auth_port)
+-    if SERVER_CLOCK_OFFSET:
+-        env['BB_ONLINE_CLOCK_OFFSET'] = str(SERVER_CLOCK_OFFSET)
+-        if abs(SERVER_CLOCK_OFFSET) > 60:
+-            minutes = round(abs(SERVER_CLOCK_OFFSET) / 60)
+-            say(f"This PC's clock is {minutes} min {'behind' if SERVER_CLOCK_OFFSET > 0 else 'ahead of'} "
+-                "the server's: online uses the server's time, but sync it (Windows: Settings > Time > Sync now).")
+-    else:
+-        env.pop('BB_ONLINE_CLOCK_OFFSET', None)
 -    key = online_key(data)
 -    env.pop('BB_ONLINE_KEY', None)  # the key is not sent any more: requests are signed with its hash
 -    if key:
@@ -595,6 +606,17 @@ index 03e35bcb0013ee37fb32adb77119c3aedbaae4f0..f890e753c2ee0de6c4d0fbf1b4c692c3
 -        claim_nick(host, auth_port, name, env['BB_ONLINE_KEYHASH'])
 +    if not external:
 +        env['BB_ONLINE_NAME'] = name
++        # The server's announcements (used below); its answer also tells its clock, before anything
++        # is signed.
++        announced = server_settings(host, auth_port)
++        if SERVER_CLOCK_OFFSET:
++            env['BB_ONLINE_CLOCK_OFFSET'] = str(SERVER_CLOCK_OFFSET)
++            if abs(SERVER_CLOCK_OFFSET) > 60:
++                minutes = round(abs(SERVER_CLOCK_OFFSET) / 60)
++                say(f"This PC's clock is {minutes} min {'behind' if SERVER_CLOCK_OFFSET > 0 else 'ahead of'} "
++                    "the server's: online uses the server's time, but sync it (Windows: Settings > Time > Sync now).")
++        else:
++            env.pop('BB_ONLINE_CLOCK_OFFSET', None)
 +        key = online_key(data)
 +        env.pop('BB_ONLINE_KEY', None)  # the key is not sent any more: requests are signed with its hash
 +        if key:
@@ -603,7 +625,7 @@ index 03e35bcb0013ee37fb32adb77119c3aedbaae4f0..f890e753c2ee0de6c4d0fbf1b4c692c3
      # online_inventory=save: keep the Pit Stop items of this save (a "100%" save) online
      # instead of the ones bought on the server, which are tied to the nickname.
      if env.get('BB_ONLINE_INVENTORY', ini_values.get('online_inventory', 'server')).strip().lower() == 'save':
-@@ -362,13 +385,13 @@ def setup_online(env, config, data):
+@@ -448,13 +471,13 @@ def setup_online(env, config, data):
      else:
          env.pop('BB_ONLINE_INVENTORY', None)
      account_id = env.get('BB_ONLINE_ACCOUNT_ID', ini_values.get('online_account_id', ''))
@@ -619,7 +641,7 @@ index 03e35bcb0013ee37fb32adb77119c3aedbaae4f0..f890e753c2ee0de6c4d0fbf1b4c692c3
          env['BB_ONLINE_FRIENDS'] = friends
  
      overrides_file = data / 'host_overrides.json'
-@@ -400,6 +423,9 @@ def setup_online(env, config, data):
+@@ -486,6 +509,9 @@ def setup_online(env, config, data):
          "friends.dev.demonware.net": f"http://{host}:{auth_port}",
      }
      overrides_file.write_text(json.dumps(overrides, indent=2) + '\n', encoding='utf-8')
@@ -709,7 +731,7 @@ index 507fd4fc943d30332fea67b61ecbca13f7a9852c..7a02954bfb6e32139d1744810621ffb3
      if (services) return services;
      uintptr_t ajm = runtime_ajm_resolve(name);
 diff --git a/src/runtime_http.c b/src/runtime_http.c
-index 47c7ea02bf9c9a13e4f60ae0627f67e4bf685d66..ee6bbdaea895b6d69a5f7b12deea883e6404119c 100644
+index b9a26d6c45d5402f68f0727faaeedb9ee78a066c..46674debbbfdd4551bf46b087aa124bbb6866d65 100644
 --- a/src/runtime_http.c
 +++ b/src/runtime_http.c
 @@ -2,6 +2,7 @@
@@ -720,28 +742,78 @@ index 47c7ea02bf9c9a13e4f60ae0627f67e4bf685d66..ee6bbdaea895b6d69a5f7b12deea883e
  #include "runtime_net_overrides.h"
  #include "bb_sha256.h"
  #include <stdio.h>
-@@ -454,7 +455,7 @@ int32_t runtime_http_send_request(int32_t req, const void *post_data, size_t siz
+@@ -382,6 +383,7 @@ static void ryunet_note_server_clock(const char *headers) {
+  * run.py), of the time (the server's: ryunet_clock_offset), a nonce, the method and the
+  * request target. 0 without a key. */
+ int runtime_ryunet_proof(const char *method, const char *target, char *out, size_t out_size) {
++    if (runtime_psn_selected()) return 0;
+     const char *key_hash = getenv("BB_ONLINE_KEYHASH");
+     if (!key_hash || strlen(key_hash) != 64 || strspn(key_hash, "0123456789abcdef") != 64) return 0;
+     static unsigned long long counter;
+@@ -454,6 +456,7 @@ static void ryunet_keep_form(int form) {
+  * 8-second timeouts: for background threads. */
+ int runtime_ryunet_request(const char *method, const char *target, char *body, size_t body_size) {
+     if (body_size) body[0] = '\0';
++    if (runtime_psn_selected()) return 0;
+     const char *host = getenv("BB_ONLINE_SERVER");
+     const char *port = getenv("BB_ONLINE_HTTP_PORT");
+     if (!host || !*host) return 0;
+@@ -552,7 +555,7 @@ static int http_exchange(const HttpConnection *c, const HttpRequest *r, const st
+     const char *target = r->path;
+     char host_header[96];
+     snprintf(host_header, sizeof host_header, "%s", c->host);
+-    if (c->redirected && form != 2) {
++    if (c->redirected && !runtime_psn_selected() && form != 2) {
+         const char *scheme = strstr(target, "://");
+         if (scheme && scheme - target <= 5) {
+             target = strchr(scheme + 3, '/');
+@@ -582,13 +585,13 @@ static int http_exchange(const HttpConnection *c, const HttpRequest *r, const st
       * never crosses the network, and a copied signature is refused. Sent only to hosts
       * redirected to the RyuNET server, never to a real one. */
      char proof[160];
 -    if (c->is_plain_http && hlen < (int)sizeof(header_buf) - 200 &&
 +    if (!runtime_psn_selected() && c->is_plain_http && hlen < (int)sizeof(header_buf) - 200 &&
-         runtime_ryunet_proof(method_str, r->path, proof, sizeof proof)) {
+         runtime_ryunet_proof(method_str, target, proof, sizeof proof)) {
          hlen += snprintf(header_buf + hlen, sizeof(header_buf) - hlen, "X-RyuNET-Proof: %s\r\n", proof);
      }
+     /* The player chose to keep their save's Pit Stop items (BB_ONLINE_INVENTORY=save, from the
+      * launcher's Online tab): the server then leaves the game its save's inventory. */
+-    const char *inventory = c->is_plain_http ? getenv("BB_ONLINE_INVENTORY") : NULL;
++    const char *inventory = !runtime_psn_selected() && c->is_plain_http ? getenv("BB_ONLINE_INVENTORY") : NULL;
+     if (inventory && strcmp(inventory, "save") == 0 && hlen < (int)sizeof(header_buf) - 48) {
+         hlen += snprintf(header_buf + hlen, sizeof(header_buf) - hlen, "X-RyuNET-Inventory: save\r\n");
+     }
+@@ -647,12 +650,15 @@ int32_t runtime_http_send_request(int32_t req, const void *post_data, size_t siz
+ 
+     char resp_buf[65536];
+     int total_read = 0;
+-    const int first = c->redirected ? __atomic_load_n(&g_ryunet_form, __ATOMIC_RELAXED) : 0;
++    /* Overrides also route independent publishers. RyuNET retry forms and clock state
++     * must not rewrite or replay an external backend's guest requests. */
++    const int ryunet = c->redirected && !runtime_psn_selected();
++    const int first = ryunet ? __atomic_load_n(&g_ryunet_form, __ATOMIC_RELAXED) : 0;
+     for (int tried = 0; tried < RYUNET_FORMS; tried++) {
+         const int form = (first + tried) % RYUNET_FORMS;
+         total_read = http_exchange(c, r, &sin, form, address, post_data, size, resp_buf, (int)sizeof resp_buf);
+         if (total_read < 0) return HTTP_NETWORK;
+-        if (!c->redirected) break;
++        if (!ryunet) break;
+         if (!ryunet_intercepted(resp_buf, total_read, form)) {
+             ryunet_note_server_clock(resp_buf);
+             ryunet_keep_form(form);
 diff --git a/src/runtime_net.c b/src/runtime_net.c
-index d0fcb578c1ca2d3791fa42a275c43fd3569e67a7..f4f8b247f532e54b71c2081eb166ee25570b5d00 100644
+index 857dda11b5e41b8052c8db6bda53cd2bdb3a080b..5fa1c7e7e18576f02485cb2bc9c1db15c70f7bbd 100644
 --- a/src/runtime_net.c
 +++ b/src/runtime_net.c
-@@ -3,6 +3,7 @@
- #include "runtime_net_tunnel.h"
+@@ -4,6 +4,7 @@
+ #include "runtime_net_ping.h"
  #include "runtime_friends.h"
  #include "runtime.h"
 +#include "runtime_psn.h"
  #include <stdio.h>
  #include <stdlib.h>
  #include <string.h>
-@@ -23,6 +24,7 @@ static int g_net_initialized = 0;
+@@ -24,6 +25,7 @@ static int g_net_initialized = 0;
  static int32_t g_net_errno = 0;
  
  int runtime_net_is_online(void) {
@@ -749,7 +821,7 @@ index d0fcb578c1ca2d3791fa42a275c43fd3569e67a7..f4f8b247f532e54b71c2081eb166ee25
      const char *val = getenv("BB_ONLINE");
      return (val && strcmp(val, "1") == 0);
  }
-@@ -304,6 +306,7 @@ static uint64_t now_ms(void) {
+@@ -305,6 +307,7 @@ static uint64_t now_ms(void) {
  /* The server's NAT port (UDP 3074, BB_ONLINE_NAT_PORT); 0 when the tunnel is off
   * (BB_ONLINE_TUNNEL=0, offline, or the server's address does not resolve). */
  static int tunnel_server(struct sockaddr_in *out) {
@@ -757,7 +829,7 @@ index d0fcb578c1ca2d3791fa42a275c43fd3569e67a7..f4f8b247f532e54b71c2081eb166ee25
      static int state = -1;
      static struct sockaddr_in server;
      if (state < 0) {
-@@ -417,10 +420,12 @@ int32_t runtime_net_bind(int s, const OrbisNetSockaddr *addr, uint32_t addrlen)
+@@ -474,10 +477,12 @@ int32_t runtime_net_bind(int s, const OrbisNetSockaddr *addr, uint32_t addrlen)
      sin.sin_family = in->sin_family;
      sin.sin_port = in->sin_port;
      const int game_port = ntohs(in->sin_port) == 3074;
@@ -772,7 +844,7 @@ index d0fcb578c1ca2d3791fa42a275c43fd3569e67a7..f4f8b247f532e54b71c2081eb166ee25
          sin.sin_port = htons(3075);
      }
  
-@@ -433,7 +438,7 @@ int32_t runtime_net_bind(int s, const OrbisNetSockaddr *addr, uint32_t addrlen)
+@@ -490,7 +495,7 @@ int32_t runtime_net_bind(int s, const OrbisNetSockaddr *addr, uint32_t addrlen)
  
      runtime_net_trace("sceNetBind(fd=%d, port=%u)", s, ntohs(sin.sin_port));
      int ret = bind(vs->s, (struct sockaddr *)&sin, sizeof(sin));
@@ -781,7 +853,7 @@ index d0fcb578c1ca2d3791fa42a275c43fd3569e67a7..f4f8b247f532e54b71c2081eb166ee25
          for (int p_retry = 1; p_retry <= 10; p_retry++) {
              sin.sin_port = htons(ntohs(sin.sin_port) + 1);
              runtime_net_trace("sceNetBind: port busy, retrying port %u", ntohs(sin.sin_port));
-@@ -503,6 +508,7 @@ int32_t runtime_net_accept(int s, OrbisNetSockaddr *addr, uint32_t *addrlen) {
+@@ -560,6 +565,7 @@ int32_t runtime_net_accept(int s, OrbisNetSockaddr *addr, uint32_t *addrlen) {
   * server sees that port and gives it to the peers. Same length as "3074": the request's
   * Content-Length stays right. BB_UPNP_PORT=3074 keeps the game's own. */
  static int upnp_external_port(void) {
@@ -860,6 +932,86 @@ index 0f5b45d98859499595dc16906d94f834dca252a8..eb968bc644f1398c0c610bbb46465c82
      if (!event) return SYSTEM_PARAMETER;
      const time_t now=time(NULL);
      pthread_mutex_lock(&s_invite_lock);
+diff --git a/tests/test_http_ryunet.c b/tests/test_http_ryunet.c
+index 58ac9023cb115c91d7ad8c095114604ea6d98c8b..313cd4fec40e08cb0de119bbfa9d842eeca3fcab 100644
+--- a/tests/test_http_ryunet.c
++++ b/tests/test_http_ryunet.c
+@@ -36,9 +36,13 @@ static char last_line[256], last_host[128];
+ static long long last_ts;
+ static int intercept; /* 1: requests for the server's name; 2: also for its address; 3: all */
+ static int requests;
++static int external_psn;
++static int last_inventory;
++static int server_skew = SKEW;
+ 
+ /* What src/runtime_net.c and runtime_net_overrides.c give runtime_http.c. */
+ int runtime_net_is_online(void) { return 1; }
++int runtime_psn_selected(void) { return external_psn; }
+ int32_t runtime_net_init(void) { return 0; }
+ void runtime_net_trace(const char *fmt, ...) {
+     va_list args;
+@@ -74,8 +78,9 @@ static void serve_one(void) {
+     if (host) sscanf(host + 8, "%127[^\r]", last_host);
+     const char *proof = strstr(request, "X-RyuNET-Proof: 1.");
+     last_ts = proof ? atoll(proof + 18) : 0;
++    last_inventory = strstr(request, "X-RyuNET-Inventory:") != NULL;
+ 
+-    const time_t now = time(NULL) + SKEW;
++    const time_t now = time(NULL) + server_skew;
+     char date[64];
+     strftime(date, sizeof date, "%a, %d %b %Y %H:%M:%S GMT", gmtime(&now));
+     const int ok = llabs(last_ts - (long long)now) <= 300;
+@@ -155,10 +160,42 @@ int main(void) {
+     snprintf(host, sizeof host, "localhost:%u", server_port);
+     snprintf(address, sizeof address, "127.0.0.1:%u", server_port);
+     snprintf(port, sizeof port, "%u", server_port);
++    /* An external backend keeps the game's URL/Host and sends no inherited RyuNET
++     * credentials or inventory policy. A redirect is returned once, never replayed.
++     * This server's Date must not contaminate the legacy RyuNET clock either. */
++    external_psn = 1;
++    server_skew = SKEW * 2;
++    putenv("BB_ONLINE_INVENTORY=save");
++    requests = 0;
++    CHECK(login() == 403);
++    CHECK(requests == 1);
++    CHECK(strcmp(last_line, "POST https://lavender-ps4-auth3.prod.demonware.net:443/auth/ HTTP/1.1") == 0);
++    CHECK(strcmp(last_host, "lavender-ps4-auth3.prod.demonware.net") == 0);
++    CHECK(last_ts == 0 && !last_inventory);
++    intercept = 3;
++    requests = 0;
++    CHECK(login() == 302);
++    CHECK(requests == 1);
++    CHECK(last_ts == 0 && !last_inventory);
++    /* Direct RyuNET service helpers must also stop before opening a connection. */
++    char proof[160], external_body[32] = "unchanged";
++    char external_server[] = "BB_ONLINE_SERVER=localhost", external_port[48];
++    snprintf(external_port, sizeof external_port, "BB_ONLINE_HTTP_PORT=%s", port);
++    putenv(external_server);
++    putenv(external_port);
++    CHECK(runtime_ryunet_proof("POST", "/ryunet/friends", proof, sizeof proof) == 0);
++    CHECK(runtime_ryunet_request("POST", "/ryunet/friends", external_body, sizeof external_body) == 0);
++    CHECK(!external_body[0]);
++    CHECK(requests == 1);
++    external_psn = 0;
++    server_skew = SKEW;
++    intercept = 0;
++
+     /* The PC's clock: refused, but the answer tells the server's time. */
+     CHECK(login() == 403);
+     CHECK(strcmp(last_line, "POST /auth/ HTTP/1.1") == 0);
+     CHECK(strcmp(last_host, host) == 0);
++    CHECK(last_inventory);
+     CHECK(llabs(last_ts - (long long)time(NULL)) <= 2);
+     /* The game's next try: the server's time. */
+     CHECK(login() == 200);
+@@ -206,6 +243,6 @@ int main(void) {
+         fprintf(stderr, "FAIL: %d checks\n", failures);
+         return 1;
+     }
+-    puts("PASS: RyuNET login as a plain request, signatures on the server's clock, intercepted forms retried");
++    puts("PASS: external publisher isolation; RyuNET login, clock signatures and intercepted forms unchanged");
+     return 0;
+ }
 diff --git a/tests/test_psn_backend_launcher.py b/tests/test_psn_backend_launcher.py
 new file mode 100644
 index 0000000000000000000000000000000000000000..41c9310a0f78cf0b3bf2062e3bc219fbfd80f46d
