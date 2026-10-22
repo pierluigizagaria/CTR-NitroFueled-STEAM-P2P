@@ -19,7 +19,7 @@ import urllib.request
 import automation_prepare as prepare
 import automation_state
 from distribution_support import json_bytes, read_zip, sha256, verify_manifest, windows_name
-from draft_distributions import validate as validate_distributions
+from distribution_validation import validate as validate_distributions
 
 
 CHANNELS = prepare.CHANNELS
