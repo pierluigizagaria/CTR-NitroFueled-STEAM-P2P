@@ -6,14 +6,15 @@ Demonware Server, plus the CTR:NF Server Signature Patch and Valve's unmodified
 Steam API runtime. This ZIP contains no native host, psn-bridge-backend.dll or
 its runtime dependencies. Your game files are not included.
 
-For a complete host and mod installation, download a channel-a or channel-b
+For a complete host and mod installation, download a `GetLostIn/CTR-NitroFueled-PC`
+or `Ryu7w7/OCTR-NitroFueled-PC`
 package from [Releases](https://github.com/pierluigizagaria/CTR-NitroFueled-STEAM-P2P/releases)
 and follow its included guide. The executable and configuration filenames remain
 ctrnf-p2p for compatibility.
 
 ## Install manually on the legacy host
 
-1. Set up the GetLostIn native port at online revision
+1. Set up GetLostIn/CTR-NitroFueled-PC at online revision
    b1b4bf9647132822147e76aeec47390c6cb157bf with your own CUSA13795 01.21 game
    files, following the port's instructions.
 2. Close the port. Extract this ZIP into the folder containing
@@ -30,11 +31,12 @@ yourself.
 
 ## Install manually on an integrated host
 
-The psn and octr modes require the corresponding integrated GetLostIn or OCTR
-host, psn-bridge-backend.dll and all of that DLL's runtime dependencies. Supply
-those files separately or use the complete channel package. Place the backend
-beside CTR-NitroFueled-PC.exe, then select host = psn for channel-a or host = octr
-for channel-b in the INI's [game] section. Keep that mode when updating the mod.
+The psn and octr modes require the corresponding integrated
+GetLostIn/CTR-NitroFueled-PC or Ryu7w7/OCTR-NitroFueled-PC host,
+psn-bridge-backend.dll and all of that DLL's runtime dependencies. Supply
+those files separately or use the complete distribution package. Place the backend
+beside CTR-NitroFueled-PC.exe, then select host = psn for GetLostIn/CTR-NitroFueled-PC or host = octr
+for Ryu7w7/OCTR-NitroFueled-PC in the INI's [game] section. Keep that mode when updating the mod.
 
 Stock upstream releases currently lack this backend interface. Changing the INI
 cannot add it. See the [PSN integration guide](https://github.com/pierluigizagaria/CTR-NitroFueled-STEAM-P2P/blob/main/docs/OCTR.md)

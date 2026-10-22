@@ -1,0 +1,1088 @@
+diff --git a/platform/psn/backends/CMakeLists.txt b/platform/psn/backends/CMakeLists.txt
+index 1c4f0fd0ed389ce6c3d2d9d794550858f934cac0..a356be81182ce4d072a3d037788a2e1991845f74 100644
+--- a/platform/psn/backends/CMakeLists.txt
++++ b/platform/psn/backends/CMakeLists.txt
+@@ -32,4 +32,23 @@ if(PSN_HOST_TESTS)
+         ${CMAKE_CURRENT_SOURCE_DIR}/../tests/bridge_http_fixture.py
+         $<TARGET_FILE:psn-bridge-test> $<TARGET_FILE:psn-bridge-backend>)
+     set_tests_properties(psn-bridge-http PROPERTIES TIMEOUT 40)
++    add_executable(psn-invitation-test ../tests/test_psn_invitation.cpp)
++    set_target_properties(psn-invitation-test PROPERTIES CXX_STANDARD 20 CXX_STANDARD_REQUIRED ON)
++    target_link_libraries(psn-invitation-test PRIVATE psn-host nlohmann_json::nlohmann_json)
++    target_compile_options(psn-invitation-test PRIVATE -UNDEBUG -Wall -Wextra -Werror)
++    add_test(NAME psn-bridge-invitation COMMAND ${Python3_EXECUTABLE}
++        ${CMAKE_CURRENT_SOURCE_DIR}/../tests/invitation_http_fixture.py
++        $<TARGET_FILE:psn-invitation-test> $<TARGET_FILE:psn-bridge-backend>)
++    set_tests_properties(psn-bridge-invitation PROPERTIES TIMEOUT 50)
++endif()
++
++if(PSN_HOST_TESTS)
++    add_executable(psn-timing-test ../tests/test_psn_timing.cpp)
++    set_target_properties(psn-timing-test PROPERTIES CXX_STANDARD 20 CXX_STANDARD_REQUIRED ON)
++    target_link_libraries(psn-timing-test PRIVATE psn-host nlohmann_json::nlohmann_json)
++    target_compile_options(psn-timing-test PRIVATE -UNDEBUG -Wall -Wextra -Werror)
++    add_test(NAME psn-bridge-timing COMMAND ${Python3_EXECUTABLE}
++        ${CMAKE_CURRENT_SOURCE_DIR}/../tests/timing_http_fixture.py
++        $<TARGET_FILE:psn-timing-test> $<TARGET_FILE:psn-bridge-backend>)
++    set_tests_properties(psn-bridge-timing PROPERTIES TIMEOUT 30)
+ endif()
+diff --git a/platform/psn/backends/README.md b/platform/psn/backends/README.md
+index e021526d6b00b7d07bd5fa8759469c4a128aff51..ac18080cc9945cf391b18dd7265eb547d27a7a93 100644
+--- a/platform/psn/backends/README.md
++++ b/platform/psn/backends/README.md
+@@ -77,8 +77,8 @@ not a claim about a PSN subscription or Steam parental enforcement. Title and
+ content-policy inputs are validated locally. Sony application secrets are never
+ forwarded or logged. Token issuer 256 describes the local compatibility adapter,
+ not Sony issuance. Authorization-code requests and invitation dialog UI return
+-an explicit unsupported result. Sending/accepting through a provider overlay is
+-a separate path.
++an explicit unsupported result. A guest SEND request with exactly one fixed
++recipient is supported without opening a picker, as described below.
+ 
+ ## Lifetime and failure
+ 
+@@ -111,3 +111,60 @@ malformed/account-change/overflow failures, credentials, redirects and endpoint
+ validation, and explicit local-user mapping with IDs `70001` and `0`. These are
+ offline contract checks. They do not establish Steam
+ delivery, successful in-game joining or friend-page refresh in a live game.
++
++## Selected-friend invitations
++
++The guest InvitationDialog SEND action may supply exactly one selected account
++(`OpenA`) or legacy online ID (`Open`) and a canonical decimal session ID. The
++backend copies these inputs and returns an asynchronous handle. Through the
++existing WebAPI relay it reads `GET /v1/users/me/friendList`, requires one exact
++account match or one unambiguous legacy-name match, then submits
++`POST /v1/sessions/{sessionId}/invitations` with `{"to":["accountId"]}`. The
++provider owns friendship, presence, session namespace and membership validation,
++and performs the actual platform invitation. No Steam symbols or provider source
++are linked into the host; no new relay endpoint or ABI is required.
++
++Only provider success with HTTP 204 completes the guest result successfully and
++returns the resolved recipient. This confirms dispatch, not remote delivery or
++acceptance. Missing/ambiguous recipients, incomplete snapshots, provider/HTTP
++errors and lost responses complete with an error and no confirmed recipient.
++The mutation is never automatically retried. Cancel before mutation suppresses
++the send; cancel after dispatch cannot retract an invitation already issued by
++the provider. Release waits until the worker stops using the request.
++
++Empty selection/picker requests, receive dialogs, multiple recipients and custom
++messages remain explicitly unsupported. No dialog selection or successful send
++is fabricated from opening or closing the Steam overlay. Fixed-recipient fixture
++tests cover copied inputs, both API identity forms, guest OpenA/results, numeric
++names, absent/ambiguous recipients, failures, active cancellation and a lost
++mutation response. These checks do not establish live platform delivery.
++
++## Optional timing diagnostics
++
++Set `PSN_BRIDGE_TRACE_TIMING=1` in the environment before starting the
++supervised session to emit timing records to the host's stderr log. Only the
++exact value `1` enables this mode; it is off by default. No configuration or
++protocol fields change.
++
++The records contain monotonic milliseconds since backend initialization and
++fixed operation categories. They never contain paths, queries, account or
++session IDs, names, authorization headers, tokens or request/response bodies.
++Only accepted invitations and WebAPI completions are logged:
++
++- `invitation_received`: the backend validated and queued an accepted
++  invitation from the relay; `fetch_ms` covers that local HTTP event read.
++- `invitation_to_host`: `event_next` returned the event to the host;
++  `queue_ms` measures its wait inside this backend.
++- `web_complete`: the host first consumed a completed WebAPI result.
++  `queue_ms` covers waiting for the request worker, `service_ms` covers the
++  request work until completion or cancellation, and `consume_ms` covers
++  the retained result's wait for its first poll. Status and HTTP code are numeric.
++  Repeated polls of the same result do not duplicate this record.
++
++These measurements do not show Steam's callback, lobby validation or session
++blob transfer before the accepted event reaches the relay. Delivery to the
++host is also distinct from the game's later SystemService event consumption
++and actual lobby entry. The WebAPI service duration includes the relay/provider
++work without attributing it to an internal phase. This diagnostic does not
++change polling intervals, joins or timeouts, and does not establish gameplay
++latency by itself.
+diff --git a/platform/psn/backends/bridge_backend.cpp b/platform/psn/backends/bridge_backend.cpp
+index 217d9222d482ee5fa73ab72ae59480a928d4d172..89eca1551828b11ac6c4d4eace7494f26e3fcf01 100644
+--- a/platform/psn/backends/bridge_backend.cpp
++++ b/platform/psn/backends/bridge_backend.cpp
+@@ -9,6 +9,7 @@
+ #include <chrono>
+ #include <condition_variable>
+ #include <cstdio>
++#include <cstdlib>
+ #include <cstring>
+ #include <curl/curl.h>
+ #include <deque>
+@@ -19,11 +20,13 @@
+ #include <set>
+ #include <stdexcept>
+ #include <string>
++#include <string_view>
+ #include <thread>
+ #include <vector>
+ 
+ namespace {
+ using Json = nlohmann::json;
++using Clock = std::chrono::steady_clock;
+ constexpr size_t body_limit = 256 * 1024, wire_limit = 1024 * 1024;
+ constexpr size_t event_limit = 1024, job_limit = 128;
+ struct Invalid : std::runtime_error {
+@@ -112,13 +115,20 @@ int32_t status(int32_t s) {
+     }
+ }
+ struct Job {
+-    bool auth = false, active = false, done = false;
++    enum Kind { web, auth, invitation } kind = web;
++    bool active = false, done = false;
+     std::atomic<bool> canceled{false};
+     Json request;
+     PsnAuthResult auth_result{};
++    PsnInvitationUser recipient{};
++    PsnInvitationResult invitation_result{};
++    std::string session;
+     int32_t result = 0, http = 0;
+     std::string body, content_type;
+     PsnHeader header{};
++    Clock::time_point queued_at{}, started_at{}, completed_at{};
++    const char *timing_class = "other";
++    bool timing_logged = false;
+ };
+ struct Subscription {
+     uint32_t kind, label;
+@@ -127,6 +137,7 @@ struct Subscription {
+ };
+ struct Event {
+     PsnEvent value{};
++    Clock::time_point received_at{};
+     bool service_present = false;
+     std::string service, type, data;
+     std::vector<std::pair<std::string, std::string>> values;
+@@ -161,7 +172,55 @@ struct Instance {
+     std::map<uint64_t, Subscription> subscriptions;
+     std::deque<std::shared_ptr<Event>> events;
+     std::shared_ptr<Event> borrowed;
++    bool trace_timing = false;
++    Clock::time_point timing_origin = Clock::now();
+ };
++long long milliseconds(Clock::time_point from, Clock::time_point to) noexcept {
++    return std::max<long long>(0, std::chrono::duration_cast<std::chrono::milliseconds>(to - from).count());
++}
++// Only fixed categories reach the timing log. Never emit any caller-supplied
++// path, query, account/session identifier, header, name or payload.
++const char *web_timing_class(std::string_view path, uint32_t method) noexcept {
++    path = path.substr(0, path.find('?'));
++    if (path == "/v1/sessions" && method == 1)
++        return "session_create";
++    constexpr std::string_view prefix = "/v1/sessions/";
++    if (!path.starts_with(prefix))
++        return "other";
++    path.remove_prefix(prefix.size());
++    auto end = path.find('/');
++    auto session = path.substr(0, end);
++    if (session.empty() || session.find_first_not_of("0123456789") != session.npos)
++        return "other";
++    auto suffix = end == path.npos ? std::string_view{} : path.substr(end);
++    if (suffix.empty())
++        return method == 0 ? "session_read" : method == 3 ? "session_delete" : "session_update";
++    if (suffix == "/members")
++        return method == 1 ? "membership_add" : "members";
++    if (suffix.starts_with("/members/") && method == 3)
++        return "membership_leave";
++    if (suffix == "/sessionData")
++        return "session_data";
++    if (suffix == "/changeableSessionData")
++        return "session_changeable_data";
++    if (suffix == "/sessionImage")
++        return "session_image";
++    if (suffix == "/invitations")
++        return "session_invitations";
++    return "other";
++}
++void trace_web_completion(Instance &i, Job &job) noexcept {
++    if (!i.trace_timing || job.timing_logged)
++        return;
++    job.timing_logged = true;
++    const auto now = Clock::now();
++    const auto started = job.started_at == Clock::time_point{} ? job.completed_at : job.started_at;
++    std::fprintf(stderr,
++        "PSN timing: web_complete t_ms=%lld class=%s queue_ms=%lld service_ms=%lld consume_ms=%lld result=%d http=%d\n",
++        milliseconds(i.timing_origin, now), job.timing_class,
++        milliseconds(job.queued_at, started), milliseconds(started, job.completed_at),
++        milliseconds(job.completed_at, now), job.result, job.http);
++}
+ struct Transfer {
+     Instance *instance;
+     Job *job;
+@@ -196,6 +255,8 @@ struct Reply {
+     Json json;
+ };
+ Reply http(Instance &i, const std::string &path, const Json *body = nullptr, Job *job = nullptr) {
++    if (i.stopping || (job && job->canceled))
++        return {CURLE_ABORTED_BY_CALLBACK, 0, {}};
+     std::unique_ptr<CURL, decltype(&curl_easy_cleanup)> curl(curl_easy_init(), curl_easy_cleanup);
+     require(curl != nullptr);
+     Transfer transfer{&i, job, {}, false};
+@@ -238,6 +299,79 @@ Reply http(Instance &i, const std::string &path, const Json *body = nullptr, Job
+     }
+     return {result, code, std::move(parsed)};
+ }
++Json invitation_web(const char *method, const char *group, const std::string &path,
++                    const std::string &body = {}) {
++    return {{"method", method}, {"api_group", group}, {"path", path},
++            {"content_type", "application/json"}, {"headers", Json::object()},
++            {"bodyHex", hex({body.data(), body.size()})}};
++}
++void send_invitation(Instance &i, Job &job, Job &result) {
++    // The guest already selected one recipient. Resolve its copied identity
++    // through the provider's ordinary friend snapshot; never open another picker.
++    auto lookup = invitation_web("GET", "friendList", "/v1/users/me/friendList");
++    auto reply = http(i, "/psn/v1/webapi", &lookup, &job);
++    if (reply.transport != CURLE_OK || reply.http != 200) {
++        result.result = PSN_BACKEND_UNAVAILABLE;
++        return;
++    }
++    result.result = status(integer(reply.json.at("status")));
++    if (result.result)
++        return;
++    if (integer(reply.json.at("httpStatus")) != 200) {
++        result.result = PSN_BACKEND_UNAVAILABLE;
++        return;
++    }
++    auto snapshot = Json::parse(unhex(reply.json.at("bodyHex")));
++    const auto &friends = snapshot.at("friendList");
++    require(friends.is_array() && friends.size() <= 5000 &&
++            number(snapshot.at("start")) == 0 && number(snapshot.at("size")) == friends.size() &&
++            number(snapshot.at("totalResults")) == friends.size());
++    std::set<uint64_t> accounts;
++    unsigned matches = 0;
++    PsnInvitationUser selected{};
++    for (const auto &entry : friends) {
++        PsnInvitationUser candidate{};
++        const auto &user = entry.at("user");
++        candidate.account_id = decimal(user.at("accountId"));
++        copy(candidate.online_id, text(user.at("onlineId"), 16, false));
++        require(accounts.insert(candidate.account_id).second);
++        if (entry.at("presence").at("onlineStatus") != "online")
++            continue;
++        if (job.recipient.account_id ? candidate.account_id == job.recipient.account_id
++                                     : !std::strcmp(candidate.online_id, job.recipient.online_id)) {
++            selected = candidate;
++            ++matches;
++        }
++    }
++    if (matches != 1) {
++        result.result = PSN_BACKEND_UNAVAILABLE;
++        return;
++    }
++    // Cancel between the read and mutation must not submit an invitation.
++    // Cancellation after dispatch cannot retract a platform invitation.
++    if (i.stopping || job.canceled) {
++        result.result = PSN_BACKEND_ABORTED;
++        return;
++    }
++    const auto body = Json{{"to", {std::to_string(selected.account_id)}}}.dump();
++    auto send = invitation_web("POST", "sessionInvitation",
++                               "/v1/sessions/" + job.session + "/invitations", body);
++    reply = http(i, "/psn/v1/webapi", &send, &job);
++    // Mutations are never retried after an uncertain transport outcome.
++    if (reply.transport != CURLE_OK || reply.http != 200) {
++        result.result = PSN_BACKEND_UNAVAILABLE;
++        return;
++    }
++    result.result = status(integer(reply.json.at("status")));
++    if (result.result)
++        return;
++    if (integer(reply.json.at("httpStatus")) != 204) {
++        result.result = PSN_BACKEND_UNAVAILABLE;
++        return;
++    }
++    result.invitation_result.user_count = 1;
++    result.invitation_result.users[0] = selected;
++}
+ void fail(Instance &i, int32_t error) {
+     if (!i.failure)
+         i.failure = error;
+@@ -247,6 +381,8 @@ void fail(Instance &i, int32_t error) {
+         job->canceled = true;
+         if (!job->done) {
+             job->done = true;
++            if (i.trace_timing)
++                job->completed_at = Clock::now();
+             job->result = error;
+             job->auth_result.result = error;
+         }
+@@ -324,6 +460,7 @@ void poll_events(Instance &i) {
+             return;
+         cursor = i.cursor;
+     }
++    const auto fetch_started = i.trace_timing ? Clock::now() : Clock::time_point{};
+     auto reply = http(i, "/psn/v1/events?after=" + std::to_string(cursor));
+     if (reply.transport != CURLE_OK)
+         throw std::runtime_error("transport retry");
+@@ -340,6 +477,8 @@ void poll_events(Instance &i) {
+             continue; // A retried response never replays a delivered invitation.
+         require(sequence == cursor + 1);
+         auto e = event(entry.at("event"), i.identity, i.local_user_id);
++        if (i.trace_timing && e->value.kind == 3)
++            e->received_at = Clock::now();
+         if (e->value.kind == 1) {
+             auto id = e->value.data.identity;
+             require(id.state == 2 && id.account_id == i.identity.account_id);
+@@ -363,6 +502,13 @@ void poll_events(Instance &i) {
+         cursor = sequence;
+     }
+     i.events.insert(i.events.end(), batch.begin(), batch.end());
++    if (i.trace_timing)
++        for (const auto &e : batch)
++            if (e->value.kind == 3)
++                std::fprintf(stderr,
++                    "PSN timing: invitation_received t_ms=%lld fetch_ms=%lld\n",
++                    milliseconds(i.timing_origin, e->received_at),
++                    milliseconds(fetch_started, e->received_at));
+     i.cursor = cursor;
+ }
+ void run(Instance &i) noexcept {
+@@ -381,6 +527,8 @@ void run(Instance &i) noexcept {
+                 if (found != i.jobs.end() && !found->second->done) {
+                     job = found->second;
+                     job->active = true;
++                    if (i.trace_timing)
++                        job->started_at = Clock::now();
+                     break;
+                 }
+             }
+@@ -390,22 +538,26 @@ void run(Instance &i) noexcept {
+             // curl.
+             Job result;
+             try {
+-                // Use the real job's atomic cancellation during the transfer.
+-                auto reply = http(i, job->auth ? "/psn/v1/token" : "/psn/v1/webapi", &job->request,
+-                                  job.get());
+-                if (reply.transport != CURLE_OK || reply.http != 200)
+-                    result.result = PSN_BACKEND_UNAVAILABLE;
+-                else {
+-                    auto &j = reply.json;
+-                    result.result = status(integer(j.at("status")));
+-                    if (job->auth && !result.result) {
+-                        result.auth_result.issuer_id = integer(j.at("issuerId"));
+-                        copy(result.auth_result.value, text(j.at("token"), 4096, false));
+-                    } else if (!job->auth && !result.result) {
+-                        result.http = integer(j.at("httpStatus"));
+-                        require(result.http >= 100 && result.http <= 599);
+-                        result.content_type = text(j.at("contentType"), 1024, false);
+-                        result.body = unhex(j.at("bodyHex"));
++                if (job->kind == Job::invitation) {
++                    send_invitation(i, *job, result);
++                } else {
++                    // Use the real job's atomic cancellation during the transfer.
++                    auto reply = http(i, job->kind == Job::auth ? "/psn/v1/token" : "/psn/v1/webapi",
++                                      &job->request, job.get());
++                    if (reply.transport != CURLE_OK || reply.http != 200)
++                        result.result = PSN_BACKEND_UNAVAILABLE;
++                    else {
++                        auto &j = reply.json;
++                        result.result = status(integer(j.at("status")));
++                        if (job->kind == Job::auth && !result.result) {
++                            result.auth_result.issuer_id = integer(j.at("issuerId"));
++                            copy(result.auth_result.value, text(j.at("token"), 4096, false));
++                        } else if (job->kind == Job::web && !result.result) {
++                            result.http = integer(j.at("httpStatus"));
++                            require(result.http >= 100 && result.http <= 599);
++                            result.content_type = text(j.at("contentType"), 1024, false);
++                            result.body = unhex(j.at("bodyHex"));
++                        }
+                     }
+                 }
+             } catch (...) {
+@@ -416,9 +568,12 @@ void run(Instance &i) noexcept {
+                 job->result = result.result;
+                 job->auth_result = result.auth_result;
+                 job->auth_result.result = result.result;
++                job->invitation_result = result.invitation_result;
+                 job->http = result.http;
+                 job->body = std::move(result.body);
+                 job->content_type = std::move(result.content_type);
++                if (i.trace_timing)
++                    job->completed_at = Clock::now();
+                 job->done = true;
+             }
+             job->active = false;
+@@ -471,6 +626,8 @@ int32_t open(const char *configuration, void **out) {
+         auto j = Json::parse(input(configuration, 4096, false));
+         require(j.is_object() && (j.size() == 2 || (j.size() == 3 && j.contains("local_user_id"))));
+         auto i = std::make_unique<Instance>();
++        const char *timing = std::getenv("PSN_BRIDGE_TRACE_TIMING");
++        i->trace_timing = timing && !std::strcmp(timing, "1");
+         if (j.contains("local_user_id")) {
+             i->local_user_id = integer(j.at("local_user_id"));
+             require(i->local_user_id >= 0);
+@@ -586,6 +743,8 @@ int32_t submit(Instance &i, std::shared_ptr<Job> job, uint64_t *out) {
+     if (i.jobs.size() >= job_limit || i.next_job == UINT64_MAX)
+         return PSN_BACKEND_BUSY;
+     auto id = i.next_job++;
++    if (i.trace_timing)
++        job->queued_at = Clock::now();
+     i.jobs.emplace(id, std::move(job));
+     try {
+         i.pending.push_back(id);
+@@ -604,7 +763,7 @@ int32_t auth_start(void *opaque, const PsnAuthRequest *r, uint64_t *out) {
+         return PSN_BACKEND_UNSUPPORTED;
+     return guarded([&]() -> int32_t {
+         auto job = std::make_shared<Job>();
+-        job->auth = true;
++        job->kind = Job::auth;
+         job->request = {{"kind", 1},
+                         {"client_id", input(r->client_id, 4096, false)},
+                         {"scope", input(r->scope ? r->scope : "", 4096)}};
+@@ -621,7 +780,7 @@ int32_t auth_poll(void *opaque, uint64_t id, PsnAuthResult *out) {
+     auto &i = *static_cast<Instance *>(opaque);
+     std::lock_guard lock(i.mutex);
+     auto found = i.jobs.find(id);
+-    if (found == i.jobs.end() || !found->second->auth)
++    if (found == i.jobs.end() || found->second->kind != Job::auth)
+         return PSN_INVALID_ARGUMENT;
+     if (!found->second->done)
+         return 1;
+@@ -655,6 +814,7 @@ int32_t web_start(void *opaque, const PsnWebRequest *r, uint64_t *out) {
+             headers[name] = value;
+         }
+         auto job = std::make_shared<Job>();
++        job->timing_class = web_timing_class(path, r->method);
+         job->request = {{"method", methods[r->method]},
+                         {"api_group", input(r->api_group, 256, false)},
+                         {"path", path},
+@@ -672,11 +832,12 @@ int32_t web_poll(void *opaque, uint64_t id, PsnWebResponse *out) {
+     auto &i = *static_cast<Instance *>(opaque);
+     std::lock_guard lock(i.mutex);
+     auto found = i.jobs.find(id);
+-    if (found == i.jobs.end() || found->second->auth)
++    if (found == i.jobs.end() || found->second->kind != Job::web)
+         return PSN_INVALID_ARGUMENT;
+     auto &job = *found->second;
+     if (!job.done)
+         return 1;
++    trace_web_completion(i, job);
+     *out = {};
+     out->result = job.result;
+     out->http_status = job.http;
+@@ -699,6 +860,8 @@ void cancel(void *opaque, uint64_t id) {
+     auto &job = *found->second;
+     job.canceled = true;
+     job.done = true;
++    if (i.trace_timing)
++        job.completed_at = Clock::now();
+     job.result = job.auth_result.result = PSN_BACKEND_ABORTED;
+     i.wake.notify_all();
+ }
+@@ -761,14 +924,57 @@ int32_t event_next(void *opaque, PsnEvent *out) {
+         i.events.pop_front();
+         i.borrowed->bind();
+         *out = i.borrowed->value;
++        if (i.trace_timing && out->kind == 3) {
++            const auto now = Clock::now();
++            std::fprintf(stderr,
++                "PSN timing: invitation_to_host t_ms=%lld queue_ms=%lld\n",
++                milliseconds(i.timing_origin, now), milliseconds(i.borrowed->received_at, now));
++        }
+         return 1;
+     });
+ }
+-int32_t invitation_start(void *, const PsnInvitationRequest *, uint64_t *) {
+-    return PSN_BACKEND_UNSUPPORTED;
++int32_t invitation_start(void *opaque, const PsnInvitationRequest *r, uint64_t *out) {
++    if (!opaque || !r || !out || r->user_id != static_cast<Instance *>(opaque)->local_user_id)
++        return PSN_INVALID_ARGUMENT;
++    if (r->mode != 1 || r->user_count != 1 || r->max_selectable_users)
++        return PSN_BACKEND_UNSUPPORTED;
++    if (!r->users)
++        return PSN_INVALID_ARGUMENT;
++    return guarded([&]() -> int32_t {
++        if (!input(r->message ? r->message : "", 512).empty())
++            return PSN_BACKEND_UNSUPPORTED;
++        auto job = std::make_shared<Job>();
++        job->kind = Job::invitation;
++        job->session = input(r->session_id, 45, false);
++        // The provider's session identifiers are canonical decimal uint64 IDs;
++        // validating before path construction also excludes URL/path injection.
++        decimal(job->session);
++        job->recipient.account_id = r->users[0].account_id;
++        if (!job->recipient.account_id)
++            copy(job->recipient.online_id, input(r->users[0].online_id, 16, false));
++        return submit(*static_cast<Instance *>(opaque), job, out);
++    });
++}
++int32_t invitation_poll(void *opaque, uint64_t id, PsnInvitationResult *out) {
++    if (!opaque || !out)
++        return PSN_INVALID_ARGUMENT;
++    auto &i = *static_cast<Instance *>(opaque);
++    std::lock_guard lock(i.mutex);
++    auto found = i.jobs.find(id);
++    if (found == i.jobs.end() || found->second->kind != Job::invitation)
++        return PSN_INVALID_ARGUMENT;
++    const auto &job = *found->second;
++    if (!job.done)
++        return 1;
++    *out = {};
++    if (job.result) {
++        out->error_code = job.result;
++        out->result = 1;
++    } else {
++        *out = job.invitation_result;
++    }
++    return 0;
+ }
+-int32_t invitation_poll(void *, uint64_t, PsnInvitationResult *) { return PSN_BACKEND_UNSUPPORTED; }
+-void invitation_noop(void *, uint64_t) {}
+ const PsnBackendV1 backend{sizeof(PsnBackendV1),
+                            PSN_BACKEND_ABI_V1,
+                            PSN_PROFILE_SOCIAL_V1,
+@@ -791,8 +997,8 @@ const PsnBackendV1 backend{sizeof(PsnBackendV1),
+                            event_next,
+                            invitation_start,
+                            invitation_poll,
+-                           invitation_noop,
+-                           invitation_noop};
++                           cancel,
++                           release};
+ } // namespace
+ #ifdef _WIN32
+ #define PSN_EXPORT __declspec(dllexport)
+diff --git a/platform/psn/tests/invitation_http_fixture.py b/platform/psn/tests/invitation_http_fixture.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..f73146e871a19e19452fa81d046ba90d512ea5bb
+--- /dev/null
++++ b/platform/psn/tests/invitation_http_fixture.py
+@@ -0,0 +1,110 @@
++# SPDX-License-Identifier: GPL-2.0-or-later
++"""Exercise fixed-recipient dialog sends through the real backend DLL and HTTP binding."""
++import json
++from pathlib import Path
++import socket
++import subprocess
++import sys
++import tempfile
++import threading
++import time
++
++from bridge_http_fixture import Handler as BaseHandler, Server as BaseServer, SENDER
++
++SESSION = '76561198099999999'
++
++
++class Server(BaseServer):
++    def handle_error(self, *_):
++        self.handler_failed = True
++
++
++class Handler(BaseHandler):
++    def web_reply(self, status=0, http=200, body=None):
++        raw = b'' if body is None else json.dumps(body).encode()
++        self.reply(200, dict(status=status, httpStatus=http,
++                             contentType='application/json', bodyHex=raw.hex()))
++
++    def do_POST(self):
++        if not self.authorized():
++            return
++        assert self.path == '/psn/v1/webapi'
++        data = json.loads(self.rfile.read(int(self.headers['Content-Length'])))
++        assert set(data) == {'method', 'api_group', 'path', 'content_type', 'headers', 'bodyHex'}
++        assert data['headers'] == {} and data['content_type'] == 'application/json'
++        mode = self.server.mode
++        if data['path'] == '/v1/users/me/friendList':
++            assert data['method'] == 'GET' and data['api_group'] == 'friendList' and data['bodyHex'] == ''
++            with self.server.lock:
++                self.server.lookups += 1
++            self.server.marker.write_text('lookup')
++            # Keep every response pending long enough to verify copied inputs and
++            # asynchronous guest polling. Cancellation is coordinated by marker.
++            time.sleep(1.5 if mode == 'cancel-lookup' else 0.05)
++            if mode == 'lookup-provider-error':
++                self.web_reply(status=-3)
++                return
++            if mode == 'lookup-http-error':
++                self.web_reply(http=503)
++                return
++            name = '123456789' if mode == 'numeric-name' else 'Friend'
++            account = int(SENDER) if mode == 'bad-list' else SENDER
++            entries = [dict(user=dict(accountId=account, onlineId=name),
++                            presence=dict(onlineStatus='offline' if mode == 'offline' else 'online'))]
++            if mode == 'ambiguous':
++                entries.append(dict(user=dict(accountId=str(int(SENDER) + 1), onlineId=name),
++                                    presence=dict(onlineStatus='online')))
++            if mode == 'account':
++                # Explicit account selection wins even when two friends share a name.
++                entries.append(dict(user=dict(accountId=str(int(SENDER) + 1), onlineId=name),
++                                    presence=dict(onlineStatus='online')))
++            self.web_reply(body=dict(friendList=entries, start=0, size=len(entries),
++                                     totalResults=len(entries) + (mode == 'incomplete-list')))
++            return
++        assert data['path'] == f'/v1/sessions/{SESSION}/invitations'
++        assert data['method'] == 'POST' and data['api_group'] == 'sessionInvitation'
++        assert json.loads(bytes.fromhex(data['bodyHex'])) == {'to': [SENDER]}
++        with self.server.lock:
++            self.server.sends += 1
++        self.server.marker.write_text('send')
++        if mode == 'cancel-send':
++            time.sleep(1.5)
++        if mode == 'lost-response':
++            self.connection.shutdown(socket.SHUT_RDWR)
++            self.connection.close()
++            return
++        self.web_reply(status=-6 if mode == 'send-provider-error' else 0,
++                       http=403 if mode == 'send-http-error' else 204)
++
++
++def main():
++    modes = ('account', 'legacy', 'numeric-name', 'zero-user', 'guest', 'ambiguous', 'unknown',
++             'offline', 'bad-list', 'incomplete-list', 'lookup-provider-error', 'lookup-http-error',
++             'send-provider-error', 'send-http-error', 'lost-response', 'cancel-lookup', 'cancel-send',
++             'invalid')
++    with tempfile.TemporaryDirectory(prefix='psn-invitation-fixture-', dir=Path.cwd()) as temporary:
++        for mode in modes:
++            server = Server(('127.0.0.1', 0), Handler)
++            server.mode, server.events, server.replayed, server.failure = mode, [], False, ''
++            server.lookups, server.sends, server.handler_failed = 0, 0, False
++            server.marker = Path(temporary) / mode
++            server.lock = threading.Lock()
++            thread = threading.Thread(target=server.serve_forever, daemon=True)
++            thread.start()
++            try:
++                subprocess.run([sys.argv[1], sys.argv[2], f'http://127.0.0.1:{server.server_port}',
++                                mode, str(server.marker)], check=True, timeout=12)
++                assert not server.handler_failed
++                expected_send = mode in {'account', 'legacy', 'numeric-name', 'zero-user', 'guest',
++                                         'send-provider-error', 'send-http-error', 'lost-response', 'cancel-send'}
++                assert server.lookups == (mode != 'invalid'), (mode, server.lookups)
++                assert server.sends == expected_send, (mode, server.sends)
++            finally:
++                server.shutdown()
++                server.server_close()
++                thread.join()
++            print('PASS fixed-recipient invitation', mode, flush=True)
++
++
++if __name__ == '__main__':
++    main()
+diff --git a/platform/psn/tests/test_psn_bridge.cpp b/platform/psn/tests/test_psn_bridge.cpp
+index 0dc31daf49764222e5f2fa124784d9c5781dc958..59af00d0d47014d235838f631ee3b4f2144422d4 100644
+--- a/platform/psn/tests/test_psn_bridge.cpp
++++ b/platform/psn/tests/test_psn_bridge.cpp
+@@ -201,6 +201,8 @@ int main(int argc, char **argv) {
+     invalid.body = {nullptr, 256 * 1024 + 1};
+     assert(b->web_start(instance, &invalid, &request) == PSN_BACKEND_UNSUPPORTED);
+     PsnInvitationRequest invite{};
++    invite.user_id = local_user;
++    invite.mode = 2;
+     assert(b->invitation_start(instance, &invite, &request) == PSN_BACKEND_UNSUPPORTED);
+     PsnWebRequest slow{};
+     slow.user_id = local_user;
+diff --git a/platform/psn/tests/test_psn_invitation.cpp b/platform/psn/tests/test_psn_invitation.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..96d31da6cfc6684ef5c13f6cabe4eb54948d1b2f
+--- /dev/null
++++ b/platform/psn/tests/test_psn_invitation.cpp
+@@ -0,0 +1,197 @@
++/* SPDX-License-Identifier: GPL-2.0-or-later */
++extern "C" {
++#include "../psn_host.h"
++}
++#include <cassert>
++#include <chrono>
++#include <cstdio>
++#include <cstdlib>
++#include <cstring>
++#include <fstream>
++#include <nlohmann/json.hpp>
++#include <string>
++#include <thread>
++using namespace std::chrono_literals;
++constexpr uint64_t recipient = UINT64_C(76561198000000002);
++
++static void environment(const char *key, const std::string &value) {
++#ifdef _WIN32
++    assert(!_putenv_s(key, value.c_str()));
++#else
++    assert(!setenv(key, value.c_str(), 1));
++#endif
++}
++static void pause() { std::this_thread::sleep_for(5ms); }
++static void wait_stage(const char *path, const char *expected) {
++    for (unsigned n = 0; n < 1000; ++n) {
++        std::ifstream file(path);
++        std::string stage;
++        if (file >> stage && stage == expected)
++            return;
++        pause();
++    }
++    assert(false);
++}
++template <class T> T symbol(const char *name) {
++    auto value = psn_host_resolve(name);
++    assert(value);
++    return reinterpret_cast<T>(value);
++}
++
++// Guest layouts exercise the real host conversion and its asynchronous result,
++// independently from the direct backend tests below.
++struct GuestSession { char data[46], padding[2]; };
++struct GuestAddress {
++    int32_t type, padding;
++    struct { const uint64_t *users; uint32_t count, reserved; } fixed;
++};
++struct GuestSend {
++    const char *message;
++    const GuestSession *session;
++    GuestAddress address;
++    uint8_t reserved[24];
++};
++struct GuestParam {
++    uint64_t base_size;
++    uint8_t base_reserved[36];
++    uint32_t magic, size;
++    int32_t mode, user;
++    uint32_t padding;
++    void *callback_argument;
++    const GuestSend *data;
++    uint8_t reserved[64];
++};
++struct GuestUser { char online[20]; uint32_t padding; uint64_t account; };
++struct GuestUsers { uint32_t count, padding; GuestUser users[16]; };
++struct GuestResult {
++    void *argument;
++    int32_t error, result;
++    GuestUsers *users;
++    uint8_t reserved[32];
++};
++static_assert(sizeof(GuestParam) == 144 && sizeof(GuestResult) == 56 &&
++              sizeof(GuestSend) == 64 && sizeof(GuestUser) == 32);
++using NoArg = int32_t(PSN_GUEST_ABI *)();
++using Open = int32_t(PSN_GUEST_ABI *)(const GuestParam *);
++using Result = int32_t(PSN_GUEST_ABI *)(GuestResult *);
++
++int main(int argc, char **argv) {
++    assert(argc == 5);
++    const std::string mode = argv[3];
++    const int32_t user = mode == "zero-user" ? 0 : 70001;
++    environment("BB_PSN_BACKEND", argv[1]);
++    environment("BB_PSN_BACKEND_CONFIG", nlohmann::json({{"url", argv[2]},
++        {"token", std::string(64, 'a')}, {"local_user_id", user}}).dump());
++    assert(!psn_host_set_local_users(&user, 1) && !psn_host_start());
++    char session[] = "76561198099999999";
++    PsnInvitationUser selected{};
++    selected.account_id = mode == "unknown" ? recipient + 100 : recipient;
++    const bool legacy = mode == "legacy" || mode == "numeric-name" || mode == "ambiguous";
++    if (legacy) {
++        selected.account_id = 0;
++        std::strcpy(selected.online_id, mode == "numeric-name" ? "123456789" : "Friend");
++    }
++    PsnInvitationRequest request{user, 1, session, "", &selected, 1, 0};
++
++    if (mode == "guest") {
++        GuestSession guest_session{};
++        std::strcpy(guest_session.data, session);
++        uint64_t account = recipient;
++        GuestSend send{"", &guest_session, {1, 0, {&account, 1, 0}}, {}};
++        GuestParam param{};
++        param.base_size = 48; param.size = sizeof(param); param.mode = 1; param.user = user;
++        int marker = 42;
++        param.callback_argument = &marker; param.data = &send;
++        assert(!symbol<NoArg>("sceInvitationDialogInitialize")());
++        assert(!symbol<Open>("sceInvitationDialogOpenA")(&param));
++        account = 0;
++        std::memset(guest_session.data, 'X', sizeof(guest_session.data));
++        GuestUsers users{};
++        GuestResult result{};
++        result.users = &users;
++        assert(symbol<Result>("sceInvitationDialogGetResultA")(&result) != 0);
++        for (unsigned n = 0; n < 1000 && symbol<NoArg>("sceInvitationDialogUpdateStatus")() == 2; ++n)
++            pause();
++        assert(symbol<NoArg>("sceInvitationDialogGetStatus")() == 3);
++        assert(!symbol<Result>("sceInvitationDialogGetResultA")(&result));
++        assert(result.argument == &marker && !result.error && !result.result && users.count == 1);
++        assert(users.users[0].account == recipient && !strcmp(users.users[0].online, "Friend"));
++        assert(!symbol<NoArg>("sceInvitationDialogTerminate")());
++    } else {
++        void *instance;
++        const auto *backend = psn_host_lock(&instance);
++        uint64_t handle = 0;
++        if (mode == "invalid") {
++            assert(backend->invitation_start(instance, nullptr, &handle) == PSN_INVALID_ARGUMENT);
++            request.user_id = user + 1;
++            assert(backend->invitation_start(instance, &request, &handle) == PSN_INVALID_ARGUMENT);
++            request.user_id = user;
++            for (const char *invalid : {"", "0", "01", "-1", "18446744073709551616", "1/invitations", "1?x=2"}) {
++                request.session_id = invalid;
++                assert(backend->invitation_start(instance, &request, &handle) == PSN_INVALID_ARGUMENT);
++            }
++            request.session_id = session;
++            request.message = "unsupported message";
++            assert(backend->invitation_start(instance, &request, &handle) == PSN_BACKEND_UNSUPPORTED);
++            request.message = "";
++            request.user_count = 2;
++            assert(backend->invitation_start(instance, &request, &handle) == PSN_BACKEND_UNSUPPORTED);
++            request.user_count = 0; request.max_selectable_users = 1;
++            assert(backend->invitation_start(instance, &request, &handle) == PSN_BACKEND_UNSUPPORTED);
++            request.mode = 2;
++            assert(backend->invitation_start(instance, &request, &handle) == PSN_BACKEND_UNSUPPORTED);
++            psn_host_unlock();
++        } else {
++            const auto started = std::chrono::steady_clock::now();
++            assert(!backend->invitation_start(instance, &request, &handle));
++            assert(std::chrono::steady_clock::now() - started < 250ms);
++            std::memset(session, 'X', sizeof(session));
++            selected = {}; // The queued operation must own both input copies.
++            PsnInvitationResult result{};
++            assert(backend->invitation_poll(instance, handle, &result) == 1);
++            PsnWebResponse wrong{};
++            assert(backend->web_poll(instance, handle, &wrong) == PSN_INVALID_ARGUMENT);
++            psn_host_unlock();
++            const bool canceled = mode == "cancel-lookup" || mode == "cancel-send";
++            if (canceled) {
++                wait_stage(argv[4], mode == "cancel-lookup" ? "lookup" : "send");
++                backend = psn_host_lock(&instance);
++                const auto cancel_start = std::chrono::steady_clock::now();
++                backend->invitation_cancel(instance, handle);
++                assert(!backend->invitation_poll(instance, handle, &result));
++                assert(result.error_code == PSN_BACKEND_ABORTED && result.result == 1 && !result.user_count);
++                backend->invitation_release(instance, handle);
++                psn_host_unlock();
++                assert(std::chrono::steady_clock::now() - cancel_start < 2500ms);
++            } else {
++                bool complete = false;
++                for (unsigned n = 0; n < 1200; ++n) {
++                    backend = psn_host_lock(&instance);
++                    const auto rc = backend->invitation_poll(instance, handle, &result);
++                    psn_host_unlock();
++                    if (!rc) { complete = true; break; }
++                    assert(rc == 1);
++                    pause();
++                }
++                assert(complete);
++                const bool success = mode == "account" || mode == "legacy" || mode == "numeric-name" || mode == "zero-user";
++                if (success) {
++                    assert(!result.error_code && !result.result && result.user_count == 1);
++                    assert(result.users[0].account_id == recipient);
++                    assert(!strcmp(result.users[0].online_id, mode == "numeric-name" ? "123456789" : "Friend"));
++                } else {
++                    assert(result.error_code && result.result == 1 && !result.user_count);
++                }
++                backend = psn_host_lock(&instance);
++                PsnInvitationResult again{};
++                assert(!backend->invitation_poll(instance, handle, &again));
++                assert(!memcmp(&result, &again, sizeof(result)));
++                backend->invitation_release(instance, handle);
++                assert(backend->invitation_poll(instance, handle, &again) == PSN_INVALID_ARGUMENT);
++                psn_host_unlock();
++            }
++        }
++    }
++    psn_host_stop();
++    puts("Fixed-recipient invitation contract passed");
++}
+diff --git a/platform/psn/tests/test_psn_timing.cpp b/platform/psn/tests/test_psn_timing.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..c3848b0255d2b9f0f027e271b7977db6718081e6
+--- /dev/null
++++ b/platform/psn/tests/test_psn_timing.cpp
+@@ -0,0 +1,84 @@
++/* SPDX-License-Identifier: GPL-2.0-or-later */
++extern "C" {
++#include "../psn_host.h"
++}
++#include <cassert>
++#include <chrono>
++#include <cstdlib>
++#include <cstring>
++#include <nlohmann/json.hpp>
++#include <string>
++#include <thread>
++using namespace std::chrono_literals;
++static void environment(const char *key, const std::string &value) {
++#ifdef _WIN32
++    assert(!_putenv_s(key, value.c_str()));
++#else
++    assert(!setenv(key, value.c_str(), 1));
++#endif
++}
++static uint64_t start(const char *path, uint32_t method) {
++    void *instance;
++    const auto *b = psn_host_lock(&instance);
++    const char body[] = "private-timing-payload";
++    const PsnHeader header{"X-Private-Timing", "private-timing-header"};
++    PsnWebRequest request{};
++    request.user_id = 1;
++    request.method = method;
++    request.api_group = "private-timing-group";
++    request.path = path;
++    request.content_type = "application/octet-stream";
++    request.headers = &header;
++    request.header_count = 1;
++    request.body = {body, sizeof(body) - 1};
++    uint64_t handle = 0;
++    assert(!b->web_start(instance, &request, &handle));
++    psn_host_unlock();
++    return handle;
++}
++static void complete(uint64_t handle) {
++    const auto deadline = std::chrono::steady_clock::now() + 5s;
++    for (;;) {
++        void *instance;
++        const auto *b = psn_host_lock(&instance);
++        PsnWebResponse response{};
++        const auto result = b->web_poll(instance, handle, &response);
++        if (!result) {
++            assert(!response.result && response.http_status == 200 &&
++                   std::string(static_cast<const char *>(response.body.data), response.body.size) ==
++                       "private-timing-response");
++            // Re-reading a retained result must not duplicate a completion record.
++            assert(!b->web_poll(instance, handle, &response));
++            b->web_release(instance, handle);
++            psn_host_unlock();
++            return;
++        }
++        psn_host_unlock();
++        assert(result == 1 && std::chrono::steady_clock::now() < deadline);
++        std::this_thread::sleep_for(5ms);
++    }
++}
++int main(int argc, char **argv) {
++    assert(argc == 4);
++    environment("BB_PSN_BACKEND", argv[1]);
++    environment("BB_PSN_BACKEND_CONFIG",
++                nlohmann::json({{"url", argv[2]}, {"token", argv[3]}}).dump());
++    const int32_t user = 1;
++    assert(!psn_host_set_local_users(&user, 1) && !psn_host_start());
++    const auto first = start("/v1/sessions/76561198099999999/members?private-timing-query", 1);
++    const auto second = start("/v1/sessions/76561198099999999/sessionData?private-timing-query", 0);
++    // The server delays the first response. The second request waits in the
++    // backend queue, while the first retained result is consumed later.
++    complete(second);
++    std::this_thread::sleep_for(200ms);
++    complete(first);
++    const auto deadline = std::chrono::steady_clock::now() + 5s;
++    while (!psn_host_system_count()) {
++        assert(std::chrono::steady_clock::now() < deadline);
++        std::this_thread::sleep_for(5ms);
++    }
++    assert(psn_host_system_count() == 1);
++    unsigned char event[180]{};
++    assert(!psn_host_system_receive(event) && psn_host_system_count() == 0);
++    psn_host_stop();
++}
+diff --git a/platform/psn/tests/timing_http_fixture.py b/platform/psn/tests/timing_http_fixture.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..005d6c0816d14bd86cd377aa515248a50ffd60da
+--- /dev/null
++++ b/platform/psn/tests/timing_http_fixture.py
+@@ -0,0 +1,110 @@
++# SPDX-License-Identifier: GPL-2.0-or-later
++"""Opt-in timing observations on a synthetic loopback service; no Steam/game."""
++import http.server
++import json
++import os
++import re
++import subprocess
++import sys
++import threading
++import time
++
++TOKEN = 'a' * 64
++OWNER, SENDER, SESSION = '76561198000000001', '76561198000000002', '76561198099999999'
++
++
++class Handler(http.server.BaseHTTPRequestHandler):
++    def log_message(self, *_):
++        pass
++
++    def reply(self, value):
++        raw = json.dumps(value).encode()
++        self.send_response(200)
++        self.send_header('Content-Length', str(len(raw)))
++        self.end_headers()
++        self.wfile.write(raw)
++
++    def authorized(self):
++        assert self.headers['Authorization'] == 'Bearer ' + TOKEN
++
++    def do_GET(self):
++        self.authorized()
++        if self.path == '/psn/v1/info':
++            self.reply(dict(version=1, accountId=OWNER, onlineId='PrivateOwner',
++                            signedIn=True, capabilities=[
++                                'identity', 'id-token', 'webapi', 'push', 'invitation-accepted']))
++            return
++        assert self.path.startswith('/psn/v1/events?after=')
++        after = int(self.path.split('=')[1])
++        invitation = dict(version=1, kind='invitationAccepted', sessionId=SESSION,
++                          invitationId='private-timing-invitation')
++        invitation['from'] = dict(accountId=SENDER, onlineId='PrivateSender')
++        invitation['to'] = dict(accountId=OWNER, onlineId='PrivateOwner')
++        self.reply(dict(version=1, events=[] if after else [
++            dict(sequence=1, event=invitation)]))
++
++    def do_POST(self):
++        self.authorized()
++        assert self.path == '/psn/v1/webapi'
++        data = json.loads(self.rfile.read(int(self.headers['Content-Length'])))
++        assert data['api_group'] == 'private-timing-group'
++        assert data['headers'] == {'X-Private-Timing': 'private-timing-header'}
++        assert bytes.fromhex(data['bodyHex']) == b'private-timing-payload'
++        time.sleep(0.20 if '/members?' in data['path'] else 0.05)
++        self.reply(dict(status=0, httpStatus=200, contentType='application/octet-stream',
++                        bodyHex=b'private-timing-response'.hex()))
++
++
++def main():
++    for setting in (None, '0', 'true', '1'):
++        server = http.server.ThreadingHTTPServer(('127.0.0.1', 0), Handler)
++        thread = threading.Thread(target=server.serve_forever, daemon=True)
++        thread.start()
++        try:
++            env = os.environ.copy()
++            env.pop('PSN_BRIDGE_TRACE_TIMING', None)
++            if setting is not None:
++                env['PSN_BRIDGE_TRACE_TIMING'] = setting
++            result = subprocess.run(
++                [sys.argv[1], sys.argv[2], f'http://127.0.0.1:{server.server_port}', TOKEN],
++                env=env, capture_output=True, text=True, timeout=10)
++            assert result.returncode == 0, result.stderr
++            records = result.stderr.splitlines()
++            if setting != '1':
++                assert not records, 'Timing emitted without exact opt-in'
++                continue
++            assert len(records) == 4, 'Unexpected or duplicated timing output'
++            forbidden = (TOKEN, OWNER, SENDER, SESSION, 'private-timing', 'PrivateOwner',
++                         'PrivateSender', 'X-Private-Timing', '/v1/', 'http://', 'Bearer',
++                         b'private-timing-payload'.hex(), b'private-timing-response'.hex())
++            assert all(value not in result.stderr for value in forbidden), 'Private data in timing log'
++            received = [re.fullmatch(
++                r'PSN timing: invitation_received t_ms=(\d+) fetch_ms=(\d+)', line)
++                for line in records if 'invitation_received' in line]
++            delivered = [re.fullmatch(
++                r'PSN timing: invitation_to_host t_ms=(\d+) queue_ms=(\d+)', line)
++                for line in records if 'invitation_to_host' in line]
++            assert len(received) == len(delivered) == 1 and received[0] and delivered[0]
++            assert abs(int(delivered[0][1]) - int(received[0][1]) - int(delivered[0][2])) <= 1
++            completed = {}
++            for line in records:
++                if 'web_complete' not in line:
++                    continue
++                record = re.fullmatch(
++                    r'PSN timing: web_complete t_ms=(\d+) class=([a-z_]+) queue_ms=(\d+) '
++                    r'service_ms=(\d+) consume_ms=(\d+) result=0 http=200', line)
++                assert record, 'Unexpected completion format'
++                completed[record[2]] = tuple(map(int, (record[1], record[3], record[4], record[5])))
++            assert set(completed) == {'membership_add', 'session_data'}
++            assert completed['membership_add'][2] >= 150, 'Service delay not observed'
++            assert completed['membership_add'][3] >= 150, 'Retained-result delay not observed'
++            assert completed['session_data'][1] >= 100, 'Worker queue delay not observed'
++        finally:
++            server.shutdown()
++            server.server_close()
++            thread.join()
++    print('Timing opt-in, queue/service/consumption observations and privacy passed')
++
++
++if __name__ == '__main__':
++    main()

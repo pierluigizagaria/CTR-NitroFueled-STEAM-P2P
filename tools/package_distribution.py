@@ -11,7 +11,7 @@ from release_support import version, write_zip
 
 
 def player_guide(channel, tag, pin, source_name):
-    return f'''# CTR-NitroFueled-STEAM-P2P — {channel} complete preview
+    return f'''# CTR-NitroFueled-STEAM-P2P — {pin['display_name']} complete preview
 
 This package includes the rebuilt native host, its PSN adapter, the independent
 Steam P2P bridge, provider and local publisher server. Game and firmware files
@@ -23,12 +23,12 @@ are not included. Build/package tests do not establish live multiplayer acceptan
 4. Use the native launcher to choose your game files and start the game.
 
 Always enter P2P through `ctrnf-p2p.exe`. It starts the local server and enables
-the required signature patch. Use the same channel and complete package build
+the required signature patch. Use the same upstream distribution and complete package build
 on both PCs, with distinct Steam accounts. This preview is {tag}; compare the
 full ZIP filename when updating. The configured host mode is `{pin['host_mode']}`.
 AppID 480 is Valve's SDK example ID; it is not an AppID assigned to this project.
 
-For updates use a complete package for this channel. Stock upstream updates are
+For updates use a complete package for {pin['display_name']}. Stock upstream updates are
 disabled in this integration build because they replace the required adapter.
 Preserve existing native settings, saves and server data; never overwrite your
 `ctrnf-p2p.ini` with defaults when updating. Normal and unlock-all progression
@@ -40,7 +40,8 @@ game. `ctrnf-p2p-cli.exe --check` is a read-only file/configuration check.
 
 The original host is attributed in LICENSE, THIRD-PARTY.txt and the manifest:
 {pin['upstream']['repository']} at {pin['upstream']['tag']}.
-This integration's source commit is {pin['revision']} in {pin['repository']}.
+The integration is reconstructed by the tracked P2P recipe `{pin['recipe']['path']}`.
+Its generated source commit is {pin['revision']}, with tree {pin['source_tree']}.
 The matching host/submodule/dependency source companion is `{source_name}`;
 its hash is in `p2p-distribution-manifest.json`. Keep it available alongside this ZIP.
 Separate bridge, provider, server, patch and Valve licenses remain under licenses/.
@@ -75,7 +76,9 @@ def assemble(args):
     if (source_manifest.get('component') != 'ctrnf-p2p-host-source'
             or source_manifest.get('channel') != args.channel
             or source_manifest.get('revision') != pin['revision']
-            or source_manifest.get('psn_tree') != pin['psn_tree']):
+            or source_manifest.get('psn_tree') != pin['psn_tree']
+            or source_manifest.get('source_tree') != pin['source_tree']
+            or source_manifest.get('host') != pin):
         raise ValueError('Source companion does not match the locked host')
     defaults = set()
     if 'bbport.ini' in host:
@@ -93,6 +96,8 @@ def assemble(args):
         raise ValueError('The selected PSN integration requires psn-bridge-backend.dll')
     build_manifest = json.loads(Path(args.host_build_manifest).read_text(encoding='utf-8'))
     if (build_manifest.get('schema_version') != 1 or build_manifest.get('source_revision') != pin['revision']
+            or build_manifest.get('source_tree') != pin['source_tree']
+            or build_manifest.get('integration_recipe') != pin['recipe']
             or build_manifest.get('shared_psn_tree') != pin['psn_tree']
             or build_manifest.get('clean_source') is not True):
         raise ValueError('Host build evidence does not match the clean locked source')
@@ -122,13 +127,17 @@ def assemble(args):
     files = {}
     if 'p2p-distribution.json' in host:
         marker = json.loads(host.pop('p2p-distribution.json'))
-        if marker.get('channel') != args.channel:
+        # The preserved integration history still contains its historical marker.
+        legacy = {'getlostin-ctr-nitrofueled-pc': 'channel-a',
+                  'ryu7w7-octr-nitrofueled-pc': 'channel-b'}
+        if marker.get('channel') not in (args.channel, legacy[args.channel]):
             raise ValueError('Host portable marker belongs to a different channel')
     add_files(files, host, defaults)
     add_files(files, backend)
     add_files(files, mod)
     generated = {'p2p-distribution.json': json_bytes({
         'schema_version': 1, 'channel': args.channel, 'version': tag,
+        'distribution': pin['display_name'],
         'host_revision': pin['revision'], 'host_mode': pin['host_mode'],
         'updates': 'Install a complete package from this distribution; stock updates are disabled.'})}
     add_files(files, generated)

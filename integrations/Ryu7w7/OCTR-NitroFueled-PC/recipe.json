@@ -1,0 +1,78 @@
+{
+  "commits": [
+    {
+      "author": "Pierluigi Zagaria <pierluigizagaria@gmail.com> 1792444910 +0200",
+      "committer": "Pierluigi Zagaria <pierluigizagaria@gmail.com> 1792583046 +0200",
+      "deletions": [],
+      "message": "Add a reusable PSN host module with an explicit backend ABI\n\nKeep PS4 request, callback and invitation ownership inside a standalone host adapter. Add contract tests for lifecycle, copied buffers, concurrency and dynamic backend loading.\n",
+      "original_revision": "a6b166d74d9cc5f155b812a0b338cf876d9842ab",
+      "original_tree": "e9ba6313c43e88cba0ad98c17541e60e4a8e4a9f",
+      "patch": "0001-a6b166d74d9c.patch",
+      "sha256": "d052e1330cc63ed8011a1713b458fcc5a62dbfa370ad51f93f2dad761774b6d3"
+    },
+    {
+      "author": "Pierluigi Zagaria <pierluigizagaria@gmail.com> 1792444930 +0200",
+      "committer": "Pierluigi Zagaria <pierluigizagaria@gmail.com> 1792583058 +0200",
+      "deletions": [],
+      "message": "Integrate optional PSN backends without changing the RyuNET default\n\nSelect the shared adapter before guest startup, keep publisher routing independent, and isolate Discord invitation and RyuNET network policy in external mode. Build the shared contract tests with the existing test command.\n",
+      "original_revision": "3b73f7610426c79dd41c8d7fdd4b959591b2d866",
+      "original_tree": "10c9cf299db5215b9616533e0db4bb4d57011d51",
+      "patch": "0002-3b73f7610426.patch",
+      "sha256": "64749330ef12e99ee429a3588dd4a6a4e55b83c8ac256f463ff3b9a0ccab36b1"
+    },
+    {
+      "author": "Pierluigi Zagaria <pierluigizagaria@gmail.com> 1792448840 +0200",
+      "committer": "Pierluigi Zagaria <pierluigizagaria@gmail.com> 1792583077 +0200",
+      "deletions": [],
+      "message": "Add an authenticated local bridge backend for PSN notifications\n",
+      "original_revision": "d8dbc68662c0e7dc36322de8741d1f8867cd2ace",
+      "original_tree": "89b32a7d747aa5c56a9a39b12c70cb3a871f561e",
+      "patch": "0003-d8dbc68662c0.patch",
+      "sha256": "27a0bf793441c093e8d98ffe94b0e733630fd307fe6d2d4e082d9660074e8377"
+    },
+    {
+      "author": "Pierluigi Zagaria <pierluigizagaria@gmail.com> 1792490980 +0200",
+      "committer": "Pierluigi Zagaria <pierluigizagaria@gmail.com> 1792583101 +0200",
+      "deletions": [],
+      "message": "Decouple PSN backends from host user IDs and transport policy\n",
+      "original_revision": "83a01cc444944c8873794064f9d2cee197037bfb",
+      "original_tree": "bf5df87e969f666a23a07f4323e82d629f0057de",
+      "patch": "0004-83a01cc44494.patch",
+      "sha256": "0b0e07aa42d1197551b36bffec2e390d333e0dfb3e10056262ba23503bcb82cc"
+    },
+    {
+      "author": "Pierluigi Zagaria <pierluigizagaria@gmail.com> 1792583633 +0200",
+      "committer": "Pierluigi Zagaria <pierluigizagaria@gmail.com> 1792583633 +0200",
+      "deletions": [],
+      "message": "Keep external PSN backends independent of upstream social services\n",
+      "original_revision": "0876c34a5af56d57bae1745427f7368f93fd4e79",
+      "original_tree": "7af627cc5956b1607569dc4e1de96f802602287b",
+      "patch": "0005-0876c34a5af5.patch",
+      "sha256": "9eb4620db798962431f9eabe93dc57c1a7987def2523e2eecab0b432df8026f9"
+    },
+    {
+      "author": "Pierluigi Zagaria <pierluigizagaria@gmail.com> 1792583634 +0200",
+      "committer": "Pierluigi Zagaria <pierluigizagaria@gmail.com> 1792583634 +0200",
+      "deletions": [],
+      "message": "Build P2P distributions with a stable launcher and separate update channel\n",
+      "original_revision": "f18827c2628de571cde59912e50749a0062d63ee",
+      "original_tree": "172f237d0029996a67dd60370a15c3a48f3912d3",
+      "patch": "0006-f18827c2628d.patch",
+      "sha256": "509a5a7cb268b61f2e6f95b801ebfb9b5f15c5e28aacbaf41fd9be09e338b36a"
+    },
+    {
+      "author": "Pierluigi Zagaria <pierluigizagaria@gmail.com> 1792617731 +0200",
+      "committer": "Pierluigi Zagaria <pierluigizagaria@gmail.com> 1792617731 +0200",
+      "deletions": [],
+      "message": "Relay selected-friend invitations and expose opt-in timing\n",
+      "original_revision": "db7664c2e0aff7ece059cbe21e13133c2c025b7a",
+      "original_tree": "62503985ff455e4ec38616965c02c0ed5d17584c",
+      "patch": "0007-db7664c2e0af.patch",
+      "sha256": "c5ea06cc9ec14a7d2c431bef639f99732bc4d0e9e09efbc8f216572ac2b3c211"
+    }
+  ],
+  "original_integration_revision": "db7664c2e0aff7ece059cbe21e13133c2c025b7a",
+  "original_upstream_revision": "26b35630f62c6ea233acb87aae3fe1f70b89034c",
+  "schema_version": 1,
+  "upstream_repository": "https://github.com/Ryu7w7/OCTR-NitroFueled-PC.git"
+}

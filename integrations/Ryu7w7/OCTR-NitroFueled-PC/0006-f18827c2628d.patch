@@ -1,0 +1,335 @@
+diff --git a/build.sh b/build.sh
+index 7a3e600d47f08e8d2afa5dcd9f202d18437701fe..ca9107caec0417dc323a0c627671849cc75b004c 100644
+--- a/build.sh
++++ b/build.sh
+@@ -39,7 +39,7 @@ MINGW*|MSYS*)
+         fi
+     done
+     cmake -S gpu -B out/gpu-win -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DBB_PGO=off \
+-        -DBB_LTO="${BB_LTO:-OFF}" -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ >/dev/null
++        -DBB_LTO="${BB_LTO:-OFF}" -DBB_P2P_DISTRIBUTION="${BB_P2P_DISTRIBUTION:-OFF}" -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ >/dev/null
+     echo "GPU library and loader: LTO ${BB_LTO:-OFF}"
+     if ! ninja -C out/gpu-win sacredfire bb-gpu-capabilities ctr-launcher > out/gpu-build.log 2>&1; then
+         grep -v '^\[' out/gpu-build.log | tail -40 >&2
+diff --git a/docs/sacredfire/p2p-distribution.md b/docs/sacredfire/p2p-distribution.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..94f5137a2308ec13e62a83b462f43ec5d55939f7
+--- /dev/null
++++ b/docs/sacredfire/p2p-distribution.md
+@@ -0,0 +1,49 @@
++# P2P distribution integration
++
++`p2p/channel-b` tracks upstream releases and keeps the optional PSN adapter as a
++small local change. This branch is based on upstream `v0.6`
++(`26b35630f62c6ea233acb87aae3fe1f70b89034c`). The original contributor identities,
++GPL-2.0-or-later license, and third-party notices remain applicable.
++
++Build the Windows runtime and launcher with the existing MSYS2 CLANG64 toolchain:
++
++```sh
++BB_P2P_DISTRIBUTION=ON bash build.sh --test
++cmake -S platform/psn -B out/psn-bridge-tests -G Ninja \
++  -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_C_COMPILER=clang \
++  -DCMAKE_CXX_COMPILER=clang++ -DPSN_BRIDGE_BACKEND=ON -DPSN_HOST_TESTS=ON
++cmake --build out/psn-bridge-tests
++ctest --test-dir out/psn-bridge-tests --output-on-failure
++BB_P2P_DISTRIBUTION=ON python packaging/windows/make_portable.py
++```
++
++`MSYS2_ROOT` can select an existing project-local toolchain. The ordinary build
++leaves `BB_P2P_DISTRIBUTION` off. With the flag on, the Windows launcher cannot
++query or install stock upstream releases and the portable launcher keeps the
++stable filename `CTR-NitroFueled-PC.exe`. The game-logo icon resource is excluded
++from these executables; the launcher uses the system application icon. The complete distribution also supplies
++`p2p-distribution.json` at its root; its presence disables stock update checks in
++`run.py` and the GTK launcher. Updates must come from the complete distribution's
++own release channel so the host and adapter remain compatible. No user settings
++are changed to achieve this.
++
++Runtime artifacts are `out/sacredfire.exe`, `out/bb-gpu-capabilities.exe`, and
++`out/CTR-NitroFueled-PC.exe`. The optional relay backend and its dependency DLLs
++are under `out/psn-bridge-tests/backends/`; use the documented backend configuration
++from `platform/psn/backends/README.md`. The independent bridge sets `BB_PSN_BACKEND`
++and the loopback relay configuration for the launched process. Source and binary
++revisions must be recorded by the distribution pipeline.
++
++When a backend is selected, platform identity, friends, and invitations are owned
++by that backend. The upstream RyuNET friends worker and signed service requests
++stay inactive; the overlay directs the player to the game's online friend list.
++Without a selected backend, upstream nickname, friends, moderation, server theme,
++and race countdown behavior remain unchanged.
++
++Package only clean build artifacts and source-controlled runtime inputs. Existing
++`user/`, saves, databases, personal configuration, game data, logs, and installed
++profiles are never package inputs. Artwork in `art/` and `packaging/windows/steamgrid/`
++has separate provenance and is not relicensed by this integration. The distribution
++pipeline must decide which assets it can include and retain the applicable notices.
++Contract tests establish adapter behavior only; they do not establish a live P2P
++race or compatibility with every upstream game path.
+diff --git a/gpu/CMakeLists.txt b/gpu/CMakeLists.txt
+index 964b2b48b9d5d3f3fc3da8de49a452f0a37472f5..820ffaedbe3b0030aa211d00bb89f5c93b6d8070 100644
+--- a/gpu/CMakeLists.txt
++++ b/gpu/CMakeLists.txt
+@@ -23,6 +23,7 @@ endif()
+ # profile). Covers bbgpu and the static libraries linked into it. No -march: the same build
+ # runs on the Steam Deck.
+ option(BB_LTO "Link-time optimization of bbgpu" ON)
++option(BB_P2P_DISTRIBUTION "Disable stock updates for an independently released P2P build" OFF)
+ set(BB_PGO "off" CACHE STRING "Profile-guided optimization: off, generate, use")
+ set(BB_PGO_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../pgo" CACHE PATH "Profile directory")
+ if (BB_LTO)
+@@ -230,10 +231,14 @@ if (WIN32)
+     # The resource scripts embed these files; CMake does not scan .rc includes, so without this
+     # a changed icon or manifest kept the old one in the executables.
+     set(BB_WIN_RES ${CMAKE_CURRENT_SOURCE_DIR}/../packaging/windows)
++    set(BB_WIN_ICON_DEPENDS "")
++    if (NOT BB_P2P_DISTRIBUTION)
++        set(BB_WIN_ICON_DEPENDS "${BB_WIN_RES}/icons/ctr.ico;")
++    endif()
+     set_source_files_properties(${BB_WIN_RES}/sacredfire.rc PROPERTIES
+-        OBJECT_DEPENDS "${BB_WIN_RES}/icons/ctr.ico;${BB_WIN_RES}/sacredfire.manifest")
++        OBJECT_DEPENDS "${BB_WIN_ICON_DEPENDS}${BB_WIN_RES}/sacredfire.manifest")
+     set_source_files_properties(${BB_WIN_RES}/launcher.rc PROPERTIES
+-        OBJECT_DEPENDS "${BB_WIN_RES}/icons/ctr.ico;${BB_WIN_RES}/launcher.manifest")
++        OBJECT_DEPENDS "${BB_WIN_ICON_DEPENDS}${BB_WIN_RES}/launcher.manifest")
+     file(GLOB BB_RUNTIME CONFIGURE_DEPENDS ../src/runtime*.c)
+     file(GLOB BB_ATRAC9 CONFIGURE_DEPENDS ../third_party/LibAtrac9/C/src/*.c)
+     add_library(atrac9 STATIC ${BB_ATRAC9})
+@@ -243,6 +248,7 @@ if (WIN32)
+         ../src/isa_rewrite.c ../src/isa_emulate.c
+         ../packaging/windows/sacredfire.rc)
+     set_target_properties(sacredfire PROPERTIES C_STANDARD 11 C_EXTENSIONS OFF)
++    target_compile_definitions(sacredfire PRIVATE $<$<BOOL:${BB_P2P_DISTRIBUTION}>:BB_P2P_DISTRIBUTION=1>)
+     # isa_emulate runs inside guest code: no XMM/YMM.
+     set_source_files_properties(../src/isa_emulate.c PROPERTIES COMPILE_OPTIONS "-mgeneral-regs-only")
+     # Newer clang (MSYS2) warns about write-only counters kept for diagnostics.
+@@ -263,7 +269,8 @@ if (WIN32)
+         third_party/imgui/imgui_widgets.cpp third_party/imgui/backends/imgui_impl_win32.cpp
+         third_party/imgui/backends/imgui_impl_dx11.cpp ../packaging/windows/launcher.rc)
+     target_include_directories(ctr-launcher PRIVATE third_party/imgui third_party/imgui/backends)
+-    target_compile_definitions(ctr-launcher PRIVATE UNICODE _UNICODE)
++    target_compile_definitions(ctr-launcher PRIVATE UNICODE _UNICODE
++        $<$<BOOL:${BB_P2P_DISTRIBUTION}>:BB_P2P_DISTRIBUTION=1>)
+     target_link_options(ctr-launcher PRIVATE -static -municode -s)
+     target_link_libraries(ctr-launcher PRIVATE d3d11 dxgi d3dcompiler dwmapi windowscodecs ole32 shell32 uuid winhttp bcrypt advapi32 ws2_32)
+     set_target_properties(ctr-launcher PROPERTIES OUTPUT_NAME CTR-NitroFueled-PC INTERPROCEDURAL_OPTIMIZATION OFF)
+diff --git a/launcher/sacredfire_launcher.py b/launcher/sacredfire_launcher.py
+index aa72c89e6841347b31fedde563a4ea7ebf90cb5b..69972ddb8ecf45f622362c1604cad95b598d2478 100644
+--- a/launcher/sacredfire_launcher.py
++++ b/launcher/sacredfire_launcher.py
+@@ -38,7 +38,7 @@ import discord_ipc  # noqa: E402
+ import discord_oauth  # noqa: E402
+ import ryunet_http  # noqa: E402
+ import appimage_update  # noqa: E402
+-from run import external_psn_backend  # noqa: E402
++from run import external_psn_backend, p2p_distribution  # noqa: E402
+ 
+ PACKAGED = bool(os.environ.get("BB_PREBUILT"))
+ 
+@@ -1132,6 +1132,9 @@ class LauncherWindow(Adw.ApplicationWindow):
+ 
+     def check_update(self, manual=False):
+         """Asks GitHub for the latest release in the background; a newer one shows the banner."""
++        if p2p_distribution():
++            self.version_row.set_subtitle(tr("Update this P2P build from its distribution release page."))
++            return
+         import threading
+         if manual:
+             self.version_row.set_subtitle(tr("Checking..."))
+@@ -1161,6 +1164,8 @@ class LauncherWindow(Adw.ApplicationWindow):
+         self.update_banner.set_revealed(True)
+ 
+     def on_update(self, _banner):
++        if p2p_distribution():
++            return
+         release = getattr(self, "update_release", None)
+         appimage = appimage_update.running_appimage()
+         if not release:
+diff --git a/launcher/windows/launcher.cpp b/launcher/windows/launcher.cpp
+index 232f9d5e72e26cd89156c885dd264a7fbf5aac87..2dec6bc7492a4577a1ac16f699d242525611bfd7 100644
+--- a/launcher/windows/launcher.cpp
++++ b/launcher/windows/launcher.cpp
+@@ -785,6 +785,15 @@ void SyncOnlineBuffers() {
+ 
+ std::string CurrentNick() { return Trim(g_app.game.Get("online_name", g_app.game.Get("user_name"))); }
+ 
++bool P2pDistribution() {
++#ifdef BB_P2P_DISTRIBUTION
++    return true;
++#else
++    std::error_code ec;
++    return fs::is_regular_file(g_app.root / L"p2p-distribution.json", ec);
++#endif
++}
++
+ bool ExternalPsnBackend() {
+     // The runtime validates the library and its ABI. Never load it in both launcher and game.
+     return GetEnvironmentVariableW(L"BB_PSN_BACKEND", nullptr, 0) > 1;
+@@ -4773,6 +4782,7 @@ bool CreateDesktopShortcut(std::string& out_error) {
+ /// Steam entry or any other shortcut naming it opens this launcher, and the desktop shortcut
+ /// made by the old launcher is made again with the new name.
+ void MigrateOldLauncher() {
++    if (P2pDistribution()) return;
+     App& a = g_app;
+     std::error_code ec;
+     const fs::path self = LauncherExe();
+@@ -4982,6 +4992,7 @@ void StartUpdateInstall();
+ 
+ /// Asks GitHub for the latest release; with auto_install a newer one is installed at once.
+ void StartUpdateCheck(bool auto_install) {
++    if (P2pDistribution()) return;
+     if (UpdateBusy()) return;
+     if (g_update.worker.joinable()) g_update.worker.join();
+     g_update.stage = UpdateState::Checking;
+@@ -5016,6 +5027,7 @@ void StartUpdateCheck(bool auto_install) {
+ }
+ 
+ void StartUpdateInstall() {
++    if (P2pDistribution()) return;
+     App& a = g_app;
+     if (g_update.stage != UpdateState::Available && g_update.stage != UpdateState::Dismissed &&
+         g_update.stage != UpdateState::Failed)
+@@ -5184,6 +5196,11 @@ void UpdateBanner() {
+ void UpdateSection() {
+     App& a = g_app;
+     ImGui::SeparatorText(T("Actualizaciones", "Updates"));
++    if (P2pDistribution()) {
++        ImGui::TextWrapped("%s", T("Actualiza esta compilación P2P desde su página de distribución.",
++                                  "Update this P2P build from its distribution release page."));
++        return;
++    }
+     ImGui::PushTextWrapPos(0.0f);
+     ImGui::TextColored(kGrey, "%s",
+                        T("Descarga la última versión publicada en GitHub y la instala encima. Tus ajustes, amigos, apodo, "
+@@ -6506,6 +6523,8 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
+                                               GetSystemMetrics(SM_CYICON), LR_DEFAULTCOLOR));
+     wc.hIconSm = static_cast<HICON>(LoadImageW(instance, MAKEINTRESOURCEW(1), IMAGE_ICON, GetSystemMetrics(SM_CXSMICON),
+                                                 GetSystemMetrics(SM_CYSMICON), LR_DEFAULTCOLOR));
++    if (!wc.hIcon) wc.hIcon = LoadIconW(nullptr, IDI_APPLICATION);
++    if (!wc.hIconSm) wc.hIconSm = LoadIconW(nullptr, IDI_APPLICATION);
+     wc.hCursor = LoadCursorW(nullptr, IDC_ARROW);
+     RegisterClassExW(&wc);
+     const int width = int(1120 * scale), height = int(840 * scale);
+diff --git a/packaging/windows/launcher.rc b/packaging/windows/launcher.rc
+index bf0ef178d9603d092d888dfbc6c27813ce9ce8d4..2e4f77d400dc5dd0e4dc991b387506adf441dd62 100644
+--- a/packaging/windows/launcher.rc
++++ b/packaging/windows/launcher.rc
+@@ -1,4 +1,6 @@
+ // CTR-NitroFueled-PC.exe (launcher/windows): icon and manifest.
+ #include <winuser.h>
++#ifndef BB_P2P_DISTRIBUTION
+ 1 ICON "icons/ctr.ico"
++#endif
+ 1 RT_MANIFEST "launcher.manifest"
+diff --git a/packaging/windows/make_portable.py b/packaging/windows/make_portable.py
+index 065c22508d9f0d17e79f59860f9ef737badf806a..7da60949b90398fecce07a4a37b7dc6679059480 100644
+--- a/packaging/windows/make_portable.py
++++ b/packaging/windows/make_portable.py
+@@ -35,7 +35,8 @@ LAUNCHER = 'CTR-NitroFueled-PC.exe'
+ # Its name in the package (the build keeps the ASCII name above for the toolchain). An update
+ # unzipped over an older release leaves CTR-NitroFueled-PC.exe there: the new launcher turns it
+ # into a copy of itself and renames the desktop shortcut (launcher.cpp, MigrateOldLauncher).
+-PACKAGED_LAUNCHER = 'Crash\u2122 Team Racing Nitro-Fueled.exe'
++PACKAGED_LAUNCHER = (LAUNCHER if os.environ.get('BB_P2P_DISTRIBUTION', '').upper() in ('ON', '1', 'TRUE')
++                     else 'Crash\u2122 Team Racing Nitro-Fueled.exe')
+ # The Python that runs run.py and scripts/ (python.org's "embeddable package": no installer, no
+ # registry, no PATH). Pinned by version and SHA-256.
+ PYTHON_VERSION = '3.14.8'
+diff --git a/packaging/windows/sacredfire.rc b/packaging/windows/sacredfire.rc
+index 45933276df3f36990df3cb893990aeffa80b4d3b..4682d740b40a3d10fc07b6a549737e3b6b9859ab 100644
+--- a/packaging/windows/sacredfire.rc
++++ b/packaging/windows/sacredfire.rc
+@@ -2,5 +2,7 @@
+ // UTF-8 paths, long paths and DPI awareness (sacredfire.manifest). The file's icon is the
+ // project's emblem (icons/ctr.ico); the game window shows the game's own icon (sce_sys/icon0.png),
+ // set at run time.
++#ifndef BB_P2P_DISTRIBUTION
+ 1 ICON "icons/ctr.ico"
++#endif
+ CREATEPROCESS_MANIFEST_RESOURCE_ID RT_MANIFEST "sacredfire.manifest"
+diff --git a/run.py b/run.py
+index eaf06998856dfb13891f943f5a4cb429d0220177..929d92d6e9fecc3b5ce5498a8d139ab33f86e414 100644
+--- a/run.py
++++ b/run.py
+@@ -292,9 +292,17 @@ def parse_version(text):
+     return int(m.group(1)), int(m.group(2)), int(m.group(3) or 0), stage
+ 
+ 
++def p2p_distribution():
++    """A complete P2P package is updated by its own release channel."""
++    return (PORT / "p2p-distribution.json").is_file()
++
++
+ def update_notice(env, version):
+     """A release newer than this one: BB_UPDATE_AVAILABLE=<tag>, which the game shows as a notice
+     (gpu/shim/bbport_overlay.cpp). Off with BB_UPDATE_CHECK=0; nothing when GitHub does not answer."""
++    if p2p_distribution():
++        env.pop('BB_UPDATE_AVAILABLE', None)
++        return
+     have = parse_version(version)
+     if env.get('BB_UPDATE_CHECK') == '0' or not have:
+         return
+diff --git a/tests/test_p2p_distribution.py b/tests/test_p2p_distribution.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..84543df19a01f073776837bf7f35a5c66bc3518d
+--- /dev/null
++++ b/tests/test_p2p_distribution.py
+@@ -0,0 +1,58 @@
++"""A complete P2P distribution must not query or install stock upstream updates."""
++import ast
++import importlib.util
++import os
++from pathlib import Path
++import sys
++import tempfile
++from types import SimpleNamespace
++import unittest
++from unittest import mock
++
++from paths import ROOT
++sys.path.insert(0, str(ROOT))
++import run
++
++
++class DistributionTests(unittest.TestCase):
++    def test_marker_stops_network_and_clears_inherited_notice(self):
++        with tempfile.TemporaryDirectory() as tmp, mock.patch.object(run, 'PORT', Path(tmp)):
++            (Path(tmp) / 'p2p-distribution.json').write_text('{"schema_version":1}', encoding='utf-8')
++            env = {'BB_UPDATE_AVAILABLE': 'v99.0'}
++            with mock.patch('urllib.request.urlopen', side_effect=AssertionError('stock update request')):
++                run.update_notice(env, 'v0.6')
++            self.assertNotIn('BB_UPDATE_AVAILABLE', env)
++
++    def test_unmarked_default_still_queries_upstream(self):
++        with tempfile.TemporaryDirectory() as tmp, mock.patch.object(run, 'PORT', Path(tmp)):
++            reply = mock.MagicMock()
++            reply.__enter__.return_value.read.return_value = b'{"tag_name":"v0.6"}'
++            with mock.patch('urllib.request.urlopen', return_value=reply) as request:
++                run.update_notice({}, 'v0.6')
++            request.assert_called_once()
++
++    def test_gtk_update_callbacks_stop_before_network_or_install(self):
++        source = ROOT / 'launcher' / 'sacredfire_launcher.py'
++        tree = ast.parse(source.read_text(encoding='utf-8'))
++        window = next(node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == 'LauncherWindow')
++        selected = [node for node in window.body if isinstance(node, ast.FunctionDef)
++                    and node.name in {'check_update', 'on_update'}]
++        namespace = {'p2p_distribution': lambda: True, 'tr': lambda text: text}
++        exec(compile(ast.Module(body=selected, type_ignores=[]), str(source), 'exec'), namespace)
++        row = mock.Mock()
++        namespace['check_update'](SimpleNamespace(version_row=row), manual=True)
++        row.set_subtitle.assert_called_once()
++        namespace['on_update'](SimpleNamespace(), None)
++
++    def test_packaged_launcher_name_is_stable_only_for_p2p_builds(self):
++        path = ROOT / 'packaging' / 'windows' / 'make_portable.py'
++        for flag, expected in [('ON', 'CTR-NitroFueled-PC.exe'), ('OFF', 'Crash\u2122 Team Racing Nitro-Fueled.exe')]:
++            with self.subTest(flag=flag), mock.patch.dict(os.environ, {'BB_P2P_DISTRIBUTION': flag}):
++                spec = importlib.util.spec_from_file_location('portable_fixture', path)
++                module = importlib.util.module_from_spec(spec)
++                spec.loader.exec_module(module)
++                self.assertEqual(module.PACKAGED_LAUNCHER, expected)
++
++
++if __name__ == '__main__':
++    unittest.main()

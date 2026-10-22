@@ -1,0 +1,1051 @@
+diff --git a/README.md b/README.md
+index fc80e6ba43ea1b7ec869dc6bd35db3dce9fe4e28..d00ee060abdd24394ed458c0c583c8642763ebd4 100644
+--- a/README.md
++++ b/README.md
+@@ -18,6 +18,10 @@ On top of that, this fork adds **online play** (see [Online](#online) below): pu
+ private rooms, groups, friends and the Pit Stop through the RyuNET server, with your own
+ nickname, Discord account linking and Discord invites.
+ 
++Developers can integrate an optional platform backend through the reusable
++[PSN host module](platform/psn/README.md). RyuNET remains the default; the module adds
++no Steam dependency and does not include a production backend.
++
+ > **No game files are included.** You need your own dump of the game and its 1.21 update.
+ > Both builds of the 1.21 update work: the one for firmware 5.05 (the reference) and the one for
+ > 6.72+ (since v0.2.1).
+diff --git a/build.sh b/build.sh
+index c0d08a0cb3b20285e18bb62f64bdfa6db4d5383c..1fc722850decaa536c5b7ae6fa0550fa73bd9c66 100644
+--- a/build.sh
++++ b/build.sh
+@@ -2,6 +2,12 @@
+ set -euo pipefail
+ cd -- "$(dirname -- "$0")"
+ mkdir -p out
++psn_contract_tests() {
++    cmake -S platform/psn -B out/psn-tests -G Ninja -DCMAKE_BUILD_TYPE=Debug \
++        -DCMAKE_C_COMPILER="$1" -DPSN_HOST_TESTS=ON
++    cmake --build out/psn-tests
++    ctest --test-dir out/psn-tests --output-on-failure
++}
+ # Windows: MSYS2 CLANG64 (packages in packaging/windows/README.md). The GPU library is static
+ # there and CMake links sacredfire.exe as well; no PGO (GCC-only flags), LTO off by default.
+ case $(uname -s) in
+@@ -32,6 +38,7 @@ MINGW*|MSYS*)
+     version=${BB_VERSION:-$(git describe --tags --match 'v*' --always 2>/dev/null || echo unknown)}
+     printf '%s-windows\n' "$version" > out/VERSION
+     echo "Built $PWD/out/sacredfire.exe ($(cat out/VERSION))"
++    if [[ ${1:-} == --test ]]; then psn_contract_tests clang; fi
+     exit 0
+     ;;
+ esac
+@@ -95,8 +102,8 @@ if ! ninja -C out/gpu bbgpu > out/gpu-build.log 2>&1; then
+     echo 'GPU library build failed (full log: out/gpu-build.log)' >&2; exit 1
+ fi
+ # $ORIGIN/gpu: packaged copies keep the library next to the binary without patching it.
+-gpu=(-Lout/gpu -lbbgpu -Wl,-rpath,'$ORIGIN/gpu' -Wl,-rpath,"$PWD/out/gpu" -rdynamic)
+-runtime=(src/runtime*.c)
++gpu=(-Lout/gpu -lbbgpu -Wl,-rpath,'$ORIGIN/gpu' -Wl,-rpath,"$PWD/out/gpu" -rdynamic -ldl)
++runtime=(src/runtime*.c platform/psn/psn_host.c platform/psn/psn_identity.c platform/psn/psn_webapi.c)
+ # isa_emulate runs inside guest code: no XMM/YMM.
+ "$CC" -std=c11 -O2 -g -Wall -Wextra -Werror -mgeneral-regs-only -c src/isa_emulate.c -o out/isa_emulate.o
+ # Third-party decoders: compiled once, without this project's -Werror policy.
+@@ -121,6 +128,7 @@ echo "Version: $version (out/VERSION)"
+ # GPU check for run.sh (live_resolution=auto) and the launcher's gamepad list (--gamepads).
+ "$CC" -std=c11 -O2 -Wall -Wextra -Werror "${includes[@]}" tools/gpu_capabilities.c "${libraries[@]}" -o out/bb-gpu-capabilities
+ if [[ ${1:-} == --test ]]; then
++    psn_contract_tests "$CC"
+     "$CC" -std=c11 -O2 -g -Wall -Wextra -Werror -pthread "${includes[@]}" -I. -Isrc tests/test_pad.c "${libraries[@]}" -o out/pad-test
+     out/pad-test
+     "$CC" -std=c11 -O2 -g -Wall -Wextra -Werror -pthread -I. -Isrc tests/test_runtime.c "${runtime[@]}" out/libatrac9.a -lm "${gpu[@]}" "${libraries[@]}" -o out/runtime-test
+diff --git a/docs/sacredfire/STATUS.md b/docs/sacredfire/STATUS.md
+index 0eb5a0dcdbb120296f8790cf9a9dc55f2cf18974..355bd248772a0a4a6e9f85efeeb652feec62d067 100644
+--- a/docs/sacredfire/STATUS.md
++++ b/docs/sacredfire/STATUS.md
+@@ -2,6 +2,11 @@
+ 
+ Updated 2026-10-09.
+ 
++2026-10-19: an opt-in [shared PSN host module](psn-host-backend.md) is available for
++external platform backends. The existing RyuNET path remains the default. Windows
++build and contract tests are covered; production-backend and in-game validation
++are separate and have not been performed for this integration.
++
+ ## Milestones
+ 
+ | milestone | state |
+diff --git a/gpu/CMakeLists.txt b/gpu/CMakeLists.txt
+index 9e0409433affaa9065f7b88f53b7330a24d55d9b..964b2b48b9d5d3f3fc3da8de49a452f0a37472f5 100644
+--- a/gpu/CMakeLists.txt
++++ b/gpu/CMakeLists.txt
+@@ -2,6 +2,7 @@
+ # drivers, adapted to the native_probe runtime through shims in shim/.
+ cmake_minimum_required(VERSION 3.24)
+ project(bbgpu LANGUAGES C CXX)
++add_subdirectory(../platform/psn psn-host)
+ set(CMAKE_CXX_STANDARD 23)
+ set(CMAKE_CXX_STANDARD_REQUIRED ON)
+ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+@@ -248,7 +249,7 @@ if (WIN32)
+     target_compile_options(sacredfire PRIVATE $<$<COMPILE_LANGUAGE:C>:-Wall -Wextra -Werror
+         -Wno-unknown-warning-option -Wno-unused-but-set-global>)
+     target_include_directories(sacredfire PRIVATE .. ../src)
+-    target_link_libraries(sacredfire PRIVATE bbgpu atrac9 onecore bcrypt ws2_32 -pthread)
++    target_link_libraries(sacredfire PRIVATE bbgpu atrac9 psn-host onecore bcrypt ws2_32 -pthread)
+     # The PS4 range (64 GiB - 1 TiB) must stay free: no high-entropy ASLR for heaps and stacks.
+     # The guest main thread runs on the process stack: 16 MiB, committed (no stack probes).
+     target_link_options(sacredfire PRIVATE -Wl,--disable-high-entropy-va "SHELL:-Xlinker --stack -Xlinker 16777216,16777216")
+diff --git a/launcher/sacredfire_launcher.py b/launcher/sacredfire_launcher.py
+index fba7e34a7ee836bee3049e364922c7b7f62a3cb4..aa72c89e6841347b31fedde563a4ea7ebf90cb5b 100644
+--- a/launcher/sacredfire_launcher.py
++++ b/launcher/sacredfire_launcher.py
+@@ -38,6 +38,7 @@ import discord_ipc  # noqa: E402
+ import discord_oauth  # noqa: E402
+ import ryunet_http  # noqa: E402
+ import appimage_update  # noqa: E402
++from run import external_psn_backend  # noqa: E402
+ 
+ PACKAGED = bool(os.environ.get("BB_PREBUILT"))
+ 
+@@ -606,10 +607,13 @@ def import_saves(user_dir, source):
+     return ""
+ 
+ 
+-def discord_activity_for(ini, started, party):
++def discord_activity_for(ini, started, party, external=None):
+     """What Discord shows while the game runs, from bbport.ini: online with the nickname and a
+     joinable party (the Windows launcher's), or offline. party: (players, max) of the lobby the
+     player hosts, None when unknown."""
++    if (external_psn_backend() if external is None else external):
++        return discord_ipc.Activity(tr("Playing"), start=started, large_image="logo",
++                                    large_text="Crash Team Racing Nitro-Fueled")
+     nick, server = ini.get("online_name", "").strip(), ini.get("online_server", ONLINE_SERVER).strip()
+     if ini.get("online") != "1":
+         return discord_ipc.Activity(tr("Playing offline"), start=started, large_image="logo",
+@@ -634,11 +638,14 @@ def parse_join_secret(secret):
+     return parts[1], parts[2]
+ 
+ 
+-def apply_join(server, nick):
++def apply_join(server, nick, external=None):
+     """An accepted invite: the host becomes a friend (the game lists friends' lobbies as
+     joinable), online on that server, and the game joins their session by itself, as a PS4
+     invitation accepted in the system UI (src/runtime_services.c reads ryunet_join.txt next to
+-    bbport.ini, also while it runs). Returns the friends list written."""
++    bbport.ini, also while it runs). Returns the friends list written, or None for an external
++    backend, whose invitations and identity are not controlled by RyuNET."""
++    if (external_psn_backend() if external is None else external):
++        return None
+     ini, lines = load_ini()
+     friends = [f.strip() for f in ini.get("online_friends", "").split(",") if f.strip()]
+     if nick.lower() not in [f.lower() for f in friends]:
+@@ -784,6 +791,7 @@ class LauncherWindow(Adw.ApplicationWindow):
+         set_language(self.settings.get("ui_language", ""))
+         self.ini, self.ini_lines = load_ini()
+         self.process = None
++        self.running_external_backend = False
+         self.stream = None
+         self.game_started = 0  # Unix time the game started, for Discord's "elapsed"
+         self.presence = discord_ipc.Presence()
+@@ -1946,6 +1954,11 @@ class LauncherWindow(Adw.ApplicationWindow):
+     def server(self):
+         return self.server_row.get_text().strip() or ONLINE_SERVER
+ 
++    def external_backend(self):
++        # Settings can be edited while playing; invitation routing belongs to the running session.
++        return (self.running_external_backend if self.process is not None else
++                external_psn_backend(self.environment()))
++
+     def nick(self):
+         return self.nick_row.get_text().strip()
+ 
+@@ -1970,6 +1983,10 @@ class LauncherWindow(Adw.ApplicationWindow):
+         self.nick_timer = GLib.timeout_add(700, ask)
+ 
+     def ask_nick_status(self):
++        if self.external_backend():
++            self.nick_info = {}
++            self.show_nick_status()
++            return
+         server, nick = self.server(), self.nick()
+         asked = f"{server}|{nick}"
+         self.nick_asked = asked
+@@ -1988,7 +2005,10 @@ class LauncherWindow(Adw.ApplicationWindow):
+         status = (info or {}).get("status", "")
+         linked = bool(info and info.get("linked"))
+         ban = (info or {}).get("banned")
+-        if ban:
++        if self.external_backend():
++            text = tr("The selected PSN backend manages identity, friends and invitations.")
++            link_available = False
++        elif ban:
+             until = (info or {}).get("ban_until") or 0
+             text = " ".join((
+                 tr("Your connection (IP) is banned from online play.") if (info or {}).get("ban_kind") == "ip"
+@@ -2031,7 +2051,7 @@ class LauncherWindow(Adw.ApplicationWindow):
+ 
+     def start_discord_link(self, mode):
+         """mode: "link" this nickname, or "recover" the one linked to the Discord account."""
+-        if self.discord_busy:
++        if self.external_backend() or self.discord_busy:
+             return
+         self.store()
+         server, app_id = self.server(), self.discord_app_id()
+@@ -2104,6 +2124,8 @@ class LauncherWindow(Adw.ApplicationWindow):
+         return tr("The server could not confirm the account with Discord. Try again."), ""
+ 
+     def confirm_discord_unlink(self):
++        if self.external_backend():
++            return
+         server, nick = self.server(), self.nick()
+ 
+         def unlink():
+@@ -2120,12 +2142,12 @@ class LauncherWindow(Adw.ApplicationWindow):
+         """What Discord shows while the game runs; joinable online (the Windows launcher's)."""
+         if self.process is None:
+             return None
+-        return discord_activity_for(self.ini, self.game_started, self.party)
++        return discord_activity_for(self.ini, self.game_started, self.party, self.external_backend())
+ 
+     def poll_party(self):
+         """The lobby this player hosts, every 5 s while the game runs online: Discord's
+         "1 of 8" follows players joining and leaving."""
+-        if self.process is None or self.ini.get("online") != "1" or self.party_busy:
++        if self.external_backend() or self.process is None or self.ini.get("online") != "1" or self.party_busy:
+             return
+         if time.monotonic() - self.party_asked < 5:
+             return
+@@ -2141,7 +2163,7 @@ class LauncherWindow(Adw.ApplicationWindow):
+         """Server announcements ("maintenance in 5 minutes"), every 30 s while online play is on:
+         a new one goes to the game in ryunet_announce.txt next to bbport.ini (drawn over the
+         picture) and to a toast."""
+-        if self.ini.get("online") != "1" or self.announce_busy or time.monotonic() - self.announce_asked < 30:
++        if self.external_backend() or self.ini.get("online") != "1" or self.announce_busy or time.monotonic() - self.announce_asked < 30:
+             return
+         self.announce_busy, self.announce_asked = True, time.monotonic()
+         server = self.ini.get("online_server", ONLINE_SERVER)
+@@ -2157,6 +2179,8 @@ class LauncherWindow(Adw.ApplicationWindow):
+ 
+     def on_discord_join(self, secret):
+         """A join secret from Discord: "ctr1|<server>|<nickname>"."""
++        if self.external_backend():
++            return
+         parsed = parse_join_secret(secret)
+         if not parsed:
+             self.toasts.add_toast(Adw.Toast(title=tr("That Discord invite is not from this launcher.")))
+@@ -2178,7 +2202,9 @@ class LauncherWindow(Adw.ApplicationWindow):
+         """The host becomes a friend (the game lists friends' lobbies as joinable) and the game
+         joins their session by itself, as a PS4 invitation accepted in the system UI
+         (src/runtime_services.c reads ryunet_join.txt next to bbport.ini)."""
+-        apply_join(server, nick)
++        friends = apply_join(server, nick, self.external_backend())
++        if friends is None:
++            return
+         self.ini, self.ini_lines = load_ini()
+         self.online_row.set_active(True)
+         self.server_row.set_text(server)
+@@ -2194,7 +2220,7 @@ class LauncherWindow(Adw.ApplicationWindow):
+ 
+     def tick(self):
+         """Every second: Discord's presence and its invites, the party size, announcements."""
+-        self.presence.accept_requests = self.settings.get("discord_accept_requests", True)
++        self.presence.accept_requests = not self.external_backend() and self.settings.get("discord_accept_requests", True)
+         self.presence.update(self.settings.get("discord_rpc", True), self.discord_app_id(), self.discord_activity())
+         while (secret := self.presence.take_join()) is not None:
+             self.on_discord_join(secret)
+@@ -2335,7 +2361,9 @@ class LauncherWindow(Adw.ApplicationWindow):
+             self.stop_game()
+             return
+         self.store()
+-        if self.ini.get("online") == "1" and not nick_ok(self.ini.get("online_name", "")):
++        env = self.environment()
++        external = external_psn_backend(env)
++        if not external and self.ini.get("online") == "1" and not nick_ok(self.ini.get("online_name", "")):
+             self.toasts.add_toast(Adw.Toast(title=tr("Online play needs your own nickname (3-16 letters, digits, _ or -; not RyuPC or Player)"),
+                                             timeout=8))
+             return
+@@ -2343,10 +2371,11 @@ class LauncherWindow(Adw.ApplicationWindow):
+         self.issue_notice.set_visible(False)
+         launcher = Gio.SubprocessLauncher.new(
+             Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_MERGE)
+-        launcher.set_environ([f"{k}={v}" for k, v in self.environment().items()])
++        launcher.set_environ([f"{k}={v}" for k, v in env.items()])
+         launcher.set_cwd(str(PORT_DIR))
+         try:
+             self.process = launcher.spawnv(["setsid", "bash", str(PORT_DIR / "run.sh")])
++            self.running_external_backend = external
+         except GLib.Error as error:
+             self.toasts.add_toast(Adw.Toast(title=tr("Could not start: {}").format(error.message)))
+             return
+@@ -2447,6 +2476,7 @@ def play():
+         return 1
+     os.chdir(PORT_DIR)
+     env = game_environment(settings)
++    external = external_psn_backend(env)
+     steam_shortcuts.stable_appimage_link()
+     if not settings.get("discord_rpc", True):
+         os.execvpe("bash", ["bash", str(PORT_DIR / "run.sh")], env)  # nothing to do alongside
+@@ -2463,7 +2493,7 @@ def play():
+ 
+     import threading
+     presence = discord_ipc.Presence()
+-    presence.accept_requests = settings.get("discord_accept_requests", True)
++    presence.accept_requests = not external and settings.get("discord_accept_requests", True)
+     app_id = settings.get("discord_app_id") or DISCORD_APP_ID
+     started = int(time.time())
+     state = {"party": None, "party_at": 0.0, "announce_at": 0.0, "seen": "", "busy": set()}
+@@ -2482,10 +2512,12 @@ def play():
+ 
+     while child.poll() is None:
+         ini, _lines = load_ini()
+-        online = ini.get("online") == "1"
++        online = not external and ini.get("online") == "1"
+         server, nick = ini.get("online_server", ONLINE_SERVER), ini.get("online_name", "")
+-        presence.update(True, app_id, discord_activity_for(ini, started, state["party"]))
++        presence.update(True, app_id, discord_activity_for(ini, started, state["party"], external))
+         while (secret := presence.take_join()) is not None:
++            if external:
++                continue
+             parsed = parse_join_secret(secret)
+             if not parsed or parsed[1].lower() == nick.lower():
+                 continue
+@@ -2494,7 +2526,7 @@ def play():
+                 print(f"SacredFire: Discord invite from {parsed[1]} for another server ({parsed[0]}) ignored; "
+                       "accept it with the launcher open", file=sys.stderr)
+                 continue
+-            apply_join(*parsed)
++            apply_join(*parsed, external=external)
+             print(f"SacredFire: {parsed[1]}'s Discord invite accepted: the game joins their match", file=sys.stderr)
+         now = time.monotonic()
+         if online and now - state["party_at"] >= 5:
+diff --git a/launcher/windows/launcher.cpp b/launcher/windows/launcher.cpp
+index b0b3ec444fa934eaf7501c93eda064a2b068169f..232f9d5e72e26cd89156c885dd264a7fbf5aac87 100644
+--- a/launcher/windows/launcher.cpp
++++ b/launcher/windows/launcher.cpp
+@@ -785,6 +785,11 @@ void SyncOnlineBuffers() {
+ 
+ std::string CurrentNick() { return Trim(g_app.game.Get("online_name", g_app.game.Get("user_name"))); }
+ 
++bool ExternalPsnBackend() {
++    // The runtime validates the library and its ABI. Never load it in both launcher and game.
++    return GetEnvironmentVariableW(L"BB_PSN_BACKEND", nullptr, 0) > 1;
++}
++
+ /// The server derives the player's ID from the nickname, so everyone left on the old default
+ /// (RyuPC) was ONE player online: one wallet, and matchmaking evicting each other. These names
+ /// are refused; run.py refuses them too.
+@@ -980,6 +985,7 @@ std::string ProofHeader(const std::string& key_hash, const char* method, const s
+ /// The body, or "" when the server could not be reached. Called from background threads.
+ std::string HttpRequest(const std::string& server, const wchar_t* method, const std::wstring& path,
+                         const std::string& form = {}, int timeout_ms = 3000, bool register_key = false) {
++    if (ExternalPsnBackend()) return {};
+     std::string host;
+     INTERNET_PORT port = 0;
+     SplitServer(server, host, port);
+@@ -1067,6 +1073,7 @@ NickCheck::Result AskNickStatus(const std::string& server, const std::string& ni
+ /// Cached answer for the current nickname, asking the server in the background once per
+ /// nickname. "?" while the question is out.
+ std::string NickAvailability() {
++    if (ExternalPsnBackend()) return "";
+     const std::string nick = CurrentNick();
+     const std::string server = Trim(g_app.game.Get("online_server", "octr.ryu7w7.xyz"));
+     if (NickProblem(nick) || server.empty()) return "";
+@@ -1090,6 +1097,7 @@ std::string NickAvailability() {
+ /// Whether the server can link Discord accounts, asked once in the background without a
+ /// nickname (a reinstalled launcher has none yet).
+ bool DiscordLinkAvailable() {
++    if (ExternalPsnBackend()) return false;
+     const std::string server = Trim(g_app.game.Get("online_server", "octr.ryu7w7.xyz"));
+     if (server.empty()) return false;
+     const std::string id = server + "|*";
+@@ -1227,6 +1235,7 @@ struct NatState {
+ NatState g_nat;
+ 
+ void StartNatCheck(const std::string& server) {
++    if (ExternalPsnBackend()) return;
+     {
+         std::scoped_lock lock{g_nat.mutex};
+         if (g_nat.running) return;
+@@ -1245,6 +1254,10 @@ void StartNatCheck(const std::string& server) {
+ /// Short label and colour for the Play page ("NAT: type 2 (moderate)"); starts the first test
+ /// for this server.
+ std::string NatLabel(const std::string& server, ImVec4& color) {
++    if (ExternalPsnBackend()) {
++        color = kGrey;
++        return T("Backend PSN externo", "External PSN backend");
++    }
+     bool running, done;
+     std::string checked;
+     NatCheck::Result r;
+@@ -1557,7 +1570,9 @@ void UpdateDiscord() {
+         return;
+     }
+     DiscordPresence::Activity activity;
+-    if (a.game.Flag("online", true)) {
++    if (ExternalPsnBackend()) {
++        activity.details = T("Jugando", "Playing");
++    } else if (a.game.Flag("online", true)) {
+         activity.details = T("Jugando online", "Playing online");
+         const std::string nick = CurrentNick();
+         if (!nick.empty()) activity.state = std::string(T("Apodo: ", "Nickname: ")) + nick;
+@@ -1590,6 +1605,7 @@ void UpdateDiscord() {
+ /// discord-<app id> URL protocol, registered for the current user as Discord's own SDKs do.
+ /// Written on every start, so a portable folder that moved points at its new place.
+ void RegisterDiscordLaunch(const std::string& app_id) {
++    if (ExternalPsnBackend()) return;
+     if (app_id.empty() || app_id.find_first_not_of("0123456789") != std::string::npos) return;
+     wchar_t exe[MAX_PATH];
+     const DWORD n = GetModuleFileNameW(nullptr, exe, MAX_PATH);
+@@ -1613,7 +1629,7 @@ void RegisterDiscordLaunch(const std::string& app_id) {
+ /// What the PLAY button does: online without a usable nickname asks for one first (NickPopup).
+ void PressPlay() {
+     App& a = g_app;
+-    if (a.game.Flag("online", true) && (NickProblem(CurrentNick()) || NickTaken())) a.ask_nick = true;
++    if (!ExternalPsnBackend() && a.game.Flag("online", true) && (NickProblem(CurrentNick()) || NickTaken())) a.ask_nick = true;
+     else StartGame();
+ }
+ 
+@@ -1636,6 +1652,7 @@ std::string Format(const char* format, const std::string& a, const std::string&
+ /// An invite accepted in Discord, for a server we use (or agreed to switch to): the host
+ /// becomes a friend (the game lists friends' lobbies as joinable) and the game starts.
+ void AcceptDiscordJoin(const std::string& server, const std::string& nick) {
++    if (ExternalPsnBackend()) return;
+     App& a = g_app;
+     a.game.Set("online", "1");
+     a.game.Set("online_server", server);
+@@ -1675,6 +1692,7 @@ void AcceptDiscordJoin(const std::string& server, const std::string& nick) {
+ 
+ /// A join secret from Discord: "ctr1|<server>|<nickname>", written by UpdateDiscord.
+ void OnDiscordJoin(const std::string& secret) {
++    if (ExternalPsnBackend()) return;
+     App& a = g_app;
+     const auto p1 = secret.find('|');
+     const auto p2 = p1 == std::string::npos ? p1 : secret.find('|', p1 + 1);
+@@ -1781,6 +1799,7 @@ struct AnnouncePoll {
+ AnnouncePoll g_announce;
+ 
+ void PollAnnouncement() {
++    if (ExternalPsnBackend()) return;
+     App& a = g_app;
+     if (!a.game.Flag("online", true)) return;
+     const std::string server = Trim(a.game.Get("online_server", "octr.ryu7w7.xyz"));
+@@ -1819,7 +1838,7 @@ void PollJobs() {
+     UpdateDiscord();
+     ApplyRecoveredNick();
+     PollAnnouncement();
+-    DiscordPresence::SetAcceptJoinRequests(a.launcher.Flag("discord_accept_requests", true));
++    DiscordPresence::SetAcceptJoinRequests(!ExternalPsnBackend() && a.launcher.Flag("discord_accept_requests", true));
+     for (std::string secret; DiscordPresence::TakeJoin(secret);) OnDiscordJoin(secret);
+     if (a.pending_play && !a.game_running && GameReady()) {
+         a.pending_play = false;
+@@ -2428,7 +2447,10 @@ void PlayTab() {
+             ImGui::TextColored(kYellow, "%s", T("Comprobando el juego...", "Checking the game..."));
+         } else if (a.game_ok) {
+             ImGui::TextColored(kGreen, "%s %s", T("Listo:", "Ready:"), Describe(a.game_info).c_str());
+-            if (a.game.Flag("online", true)) {
++            if (ExternalPsnBackend()) {
++                ImGui::TextColored(kGrey, "%s", T("El backend PSN seleccionado gestiona la identidad, amigos e invitaciones.",
++                                                  "The selected PSN backend manages identity, friends and invitations."));
++            } else if (a.game.Flag("online", true)) {
+                 std::string srv = a.game.Get("online_server", "octr.ryu7w7.xyz");
+                 if (srv.empty()) srv = "octr.ryu7w7.xyz";
+                 const std::string nick = CurrentNick().empty() ? std::string("-") : CurrentNick();
+@@ -2998,6 +3020,7 @@ DiscordLinkState g_discord_link;
+ enum class DiscordLinkMode { Link, Unlink, Recover };
+ 
+ void StartDiscordLink(DiscordLinkMode mode) {
++    if (ExternalPsnBackend()) return;
+     const bool unlink = mode == DiscordLinkMode::Unlink;
+     App& a = g_app;
+     const std::string server = Trim(a.game.Get("online_server", "octr.ryu7w7.xyz"));
+@@ -3166,6 +3189,7 @@ void ApplyRecoveredNick() {
+ 
+ /// Under the nickname: its Discord account, and Link / Recover / Unlink.
+ void DiscordAccountSection() {
++    if (ExternalPsnBackend()) return;
+     if (NickProblem(CurrentNick())) {
+         DiscordRecoverOffer();
+         return;
+@@ -3233,6 +3257,7 @@ void DiscordAccountSection() {
+ }
+ 
+ void NatTypeSection(const std::string& server) {
++    if (ExternalPsnBackend()) return;
+     bool running, done;
+     NatCheck::Result result;
+     {
+@@ -3301,8 +3326,13 @@ void NatTypeSection(const std::string& server) {
+ 
+ void OnlineTab() {
+     App& a = g_app;
+-    ImGui::TextColored(kGrey, "%s", T("Juego online con un servidor RyuNET. Se aplica al pulsar Jugar.",
+-                                      "Online play through a RyuNET server. Applied when you press Play."));
++    if (ExternalPsnBackend()) {
++        ImGui::TextWrapped("%s", T("El backend PSN seleccionado gestiona la identidad, amigos e invitaciones. El servidor del editor se configura por separado.",
++                                   "The selected PSN backend manages identity, friends and invitations. The publisher server is configured separately."));
++    } else {
++        ImGui::TextColored(kGrey, "%s", T("Juego online con un servidor RyuNET. Se aplica al pulsar Jugar.",
++                                          "Online play through a RyuNET server. Applied when you press Play."));
++    }
+ 
+     ImGui::SeparatorText(T("Servidor", "Server"));
+     {
+@@ -3354,7 +3384,7 @@ void OnlineTab() {
+         // unlinking it first (DiscordAccountSection), not by typing over it.
+         const NickCheck::Result nick_info = NickInfo();
+         const bool nick_locked = nick_info.status == "yours" && nick_info.linked;
+-        ImGui::BeginDisabled(nick_locked);
++        ImGui::BeginDisabled(nick_locked || ExternalPsnBackend());
+         NickInput(T("Apodo (Nickname)", "Nickname"));
+         if (ImGui::IsItemDeactivatedAfterEdit()) SaveGameIni();
+         ImGui::EndDisabled();
+@@ -3367,7 +3397,7 @@ void OnlineTab() {
+                            "distinta en el servidor (monedas, objetos del Pit Stop), así que no uses el de otra persona.",
+                            "Your online name, required: 3 to 16 letters, digits, _ or -. Each nickname is a separate account "
+                            "on the server (coins, Pit Stop items), so do not use someone else's."));
+-        if (const char* problem = NickProblem(CurrentNick())) {
++        if (const char* problem = ExternalPsnBackend() ? nullptr : NickProblem(CurrentNick())) {
+             ImGui::TextColored(kYellow, "%s", problem);
+             if (a.game.Flag("online", true)) DiscordRecoverOffer();
+         } else if (a.game.Flag("online", true)) {
+@@ -3375,10 +3405,12 @@ void OnlineTab() {
+             DiscordAccountSection();
+         }
+ 
+-        // Friends: the in-game menu's Friends tab (Insert / L3+R3) finds, adds and invites them;
+-        // the names of the old Friends field (online_friends) get friend requests once.
+-        ImGui::TextColored(kGrey, "%s", T("Amigos: dentro del juego, menú (Insert / L3+R3) > Amigos.",
+-                                          "Friends: in the game, menu (Insert / L3+R3) > Friends."));
++        if (!ExternalPsnBackend()) {
++            // Friends: the in-game menu's Friends tab (Insert / L3+R3) finds, adds and invites them;
++            // the names of the old Friends field (online_friends) get friend requests once.
++            ImGui::TextColored(kGrey, "%s", T("Amigos: dentro del juego, menú (Insert / L3+R3) > Amigos.",
++                                              "Friends: in the game, menu (Insert / L3+R3) > Friends."));
++        }
+ 
+         // Which Pit Stop items (characters, skins, karts) count as yours online: the server's,
+         // bought with coins and tied to the nickname, or the save's (run.py sends it at login).
+diff --git a/run.py b/run.py
+index 03e35bcb0013ee37fb32adb77119c3aedbaae4f0..f890e753c2ee0de6c4d0fbf1b4c692c3f1a554a4 100644
+--- a/run.py
++++ b/run.py
+@@ -312,6 +312,11 @@ def update_notice(env, version):
+         say(f'A newer release is available: {tag} (update from the launcher)')
+ 
+ 
++def external_psn_backend(env=None):
++    """An explicit backend owns platform identity and social services for this launch."""
++    return bool((os.environ if env is None else env).get('BB_PSN_BACKEND'))
++
++
+ def setup_online(env, config, data):
+     ini_values = {}
+     try:
+@@ -322,22 +327,39 @@ def setup_online(env, config, data):
+     except OSError:
+         pass
+ 
++    external = external_psn_backend(env)
++    if external:
++        backend = Path(env['BB_PSN_BACKEND'])
++        if not backend.is_absolute():
++            fail('BB_PSN_BACKEND must be an absolute library path.')
++        if not backend.is_file() or not os.access(backend, os.R_OK):
++            fail('BB_PSN_BACKEND must name a readable library file.')
++        # Empty values also clear inherited settings when online_config exports them to run.sh.
++        # A backend must never accidentally inherit RyuNET credentials or synthetic identities.
++        for key in ('BB_ONLINE_NAME', 'BB_ONLINE_ACCOUNT_ID', 'BB_ONLINE_FRIENDS',
++                    'BB_ONLINE_KEY', 'BB_ONLINE_KEYHASH'):
++            env[key] = ''
++        env['BB_ONLINE_TUNNEL'] = '0'
+     name = env.get('BB_ONLINE_NAME', ini_values.get('online_name', ini_values.get('user_name', ''))).strip()
+     online = env.get('BB_ONLINE', ini_values.get('online', '0'))
+-    if online == '1' and not nick_ok(name):
++    if online == '1' and not external and not nick_ok(name):
+         fail('Online play needs your own nickname: 3 to 16 letters, digits, _ or -, and not a default '
+              'name like RyuPC. Set it in the launcher (Online tab) or as online_name= in bbport.ini.\n'
+              'El juego online necesita tu propio apodo: de 3 a 16 letras, números, _ o -, y no un nombre '
+              'por defecto como RyuPC. Ponlo en el launcher (pestaña Online) o como online_name= en bbport.ini.')
+-    env['BB_USER_NAME'] = name or OFFLINE_NAME
++    if not external:
++        env['BB_USER_NAME'] = name or OFFLINE_NAME
+ 
+     if online != '1':
+         return
+ 
+     env['BB_ONLINE'] = '1'
+     env['BB_NET_TRACE'] = '1'
+-    server = env.get('BB_ONLINE_SERVER', ini_values.get('online_server', 'octr.ryu7w7.xyz'))
++    server = env.get('BB_ONLINE_SERVER', ini_values.get('online_server', '' if external else 'octr.ryu7w7.xyz'))
+     if not server or server.strip() == '':
++        if external:
++            say('External PSN backend selected; publisher routing left unchanged')
++            return
+         server = 'octr.ryu7w7.xyz'
+     host = server
+     auth_port = env.get('BB_ONLINE_HTTP_PORT', ini_values.get('online_http_port', '8080'))
+@@ -349,12 +371,13 @@ def setup_online(env, config, data):
+ 
+     env['BB_ONLINE_SERVER'] = host
+     env['BB_ONLINE_HTTP_PORT'] = auth_port  # the runtime's own requests (Friends tab)
+-    env['BB_ONLINE_NAME'] = name
+-    key = online_key(data)
+-    env.pop('BB_ONLINE_KEY', None)  # the key is not sent any more: requests are signed with its hash
+-    if key:
+-        env['BB_ONLINE_KEYHASH'] = key_hash(server_key(key, host))
+-        claim_nick(host, auth_port, name, env['BB_ONLINE_KEYHASH'])
++    if not external:
++        env['BB_ONLINE_NAME'] = name
++        key = online_key(data)
++        env.pop('BB_ONLINE_KEY', None)  # the key is not sent any more: requests are signed with its hash
++        if key:
++            env['BB_ONLINE_KEYHASH'] = key_hash(server_key(key, host))
++            claim_nick(host, auth_port, name, env['BB_ONLINE_KEYHASH'])
+     # online_inventory=save: keep the Pit Stop items of this save (a "100%" save) online
+     # instead of the ones bought on the server, which are tied to the nickname.
+     if env.get('BB_ONLINE_INVENTORY', ini_values.get('online_inventory', 'server')).strip().lower() == 'save':
+@@ -362,13 +385,13 @@ def setup_online(env, config, data):
+     else:
+         env.pop('BB_ONLINE_INVENTORY', None)
+     account_id = env.get('BB_ONLINE_ACCOUNT_ID', ini_values.get('online_account_id', ''))
+-    if account_id:
++    if account_id and not external:
+         env['BB_ONLINE_ACCOUNT_ID'] = account_id
+     online_port = env.get('BB_ONLINE_PORT', ini_values.get('online_port', ''))
+     if online_port:
+         env['BB_ONLINE_PORT'] = online_port
+     friends = env.get('BB_ONLINE_FRIENDS', ini_values.get('online_friends', ''))
+-    if friends:
++    if friends and not external:
+         env['BB_ONLINE_FRIENDS'] = friends
+ 
+     overrides_file = data / 'host_overrides.json'
+@@ -400,6 +423,9 @@ def setup_online(env, config, data):
+         "friends.dev.demonware.net": f"http://{host}:{auth_port}",
+     }
+     overrides_file.write_text(json.dumps(overrides, indent=2) + '\n', encoding='utf-8')
++    if external:
++        say(f'External PSN backend selected; publisher server {host}:{auth_port}')
++        return
+     say(f'RyuNET Online active -> server {host}:{auth_port}, user {name}')
+     # Every player loads the theme the server announces (bbport.ini theme= only applies offline),
+     # and the server's race-end countdown.
+diff --git a/scripts/online_config.py b/scripts/online_config.py
+index 78caccb621829dccb2044a683f0ce2d1f4065a8f..c912215e7e278026c8e0a734c6e82f1706825ad9 100644
+--- a/scripts/online_config.py
++++ b/scripts/online_config.py
+@@ -1,6 +1,6 @@
+ #!/usr/bin/env python3
+ # SPDX-License-Identifier: GPL-2.0-or-later
+-"""Shared RyuNET launch settings for the Windows and Linux runners."""
++"""Shared platform and publisher launch settings for the Windows and Linux runners."""
+ import argparse
+ import os
+ import sys
+@@ -9,12 +9,13 @@ from pathlib import Path
+ # Add project root to sys.path to reuse setup_online
+ PORT_ROOT = Path(__file__).resolve().parent.parent
+ sys.path.insert(0, str(PORT_ROOT))
+-from run import setup_online, update_notice
++from run import external_psn_backend, setup_online, update_notice
+ 
+ EXPORT_KEYS = (
+     "BB_USER_NAME", "BB_ONLINE", "BB_NET_TRACE", "BB_ONLINE_SERVER", "BB_ONLINE_HTTP_PORT", "BB_ONLINE_NAME",
+     "BB_ONLINE_ACCOUNT_ID", "BB_ONLINE_PORT", "BB_ONLINE_FRIENDS", "BB_ONLINE_KEY", "BB_ONLINE_KEYHASH", "BB_ONLINE_INVENTORY",
+     "BB_THEME", "BB_END_RACE_TIMEOUT", "BB_UPDATE_AVAILABLE",
++    "BB_PSN_BACKEND", "BB_PSN_BACKEND_CONFIG", "BB_ONLINE_TUNNEL",
+ )
+ 
+ 
+@@ -27,9 +28,12 @@ def main():
+     env = dict(os.environ)
+     try:
+         setup_online(env, args.config, args.data)
+-        message = f"RyuNET Online configured for {env.get('BB_ONLINE_NAME', 'offline')}"
++        message = ("External PSN backend selected" if external_psn_backend(env) else
++                   f"RyuNET Online configured for {env.get('BB_ONLINE_NAME', 'offline')}")
+     except Exception as e:
+         print(f"Online setup warning: {e}", file=sys.stderr)
++        if external_psn_backend(env):
++            return 1  # An explicitly selected backend never falls back to RyuNET.
+         message = None
+     # A newer release: the game shows a notice (run.py update_notice; VERSION as packaged).
+     try:
+@@ -44,4 +48,4 @@ def main():
+ 
+ 
+ if __name__ == "__main__":
+-    main()
++    sys.exit(main())
+diff --git a/src/runtime.c b/src/runtime.c
+index 507fd4fc943d30332fea67b61ecbca13f7a9852c..7a02954bfb6e32139d1744810621ffb3e35de304 100644
+--- a/src/runtime.c
++++ b/src/runtime.c
+@@ -1,6 +1,7 @@
+ /* Narrow, explicit PS4 libc contracts. No automatic success stubs. */
+ #define _CRT_RAND_S
+ #include "runtime.h"
++#include "runtime_psn.h"
+ #include "gpu/bbgpu.h"
+ #include <stdio.h>
+ #include <stdlib.h>
+@@ -69,6 +70,10 @@ static ABI void *guest_tls_get_addr(const uint64_t *index) {
+ }
+ 
+ void runtime_start(uint64_t flags) {
++    if (runtime_psn_start() != 0) {
++        fputs("STOP: the explicitly selected PSN backend is unavailable.\n", stderr);
++        exit(21);
++    }
+     capabilities = flags;
+     if (!(flags & 1)) return;
+ #ifdef _WIN32
+@@ -255,6 +260,8 @@ uintptr_t runtime_resolve(const char *name, int is_data) {
+     if (memory) return memory;
+     uintptr_t kernel = runtime_kernel_resolve(name);
+     if (kernel) return kernel;
++    uintptr_t psn = runtime_psn_resolve(name);
++    if (psn) return psn;
+     uintptr_t services = runtime_services_resolve(name);
+     if (services) return services;
+     uintptr_t ajm = runtime_ajm_resolve(name);
+diff --git a/src/runtime_http.c b/src/runtime_http.c
+index 47c7ea02bf9c9a13e4f60ae0627f67e4bf685d66..ee6bbdaea895b6d69a5f7b12deea883e6404119c 100644
+--- a/src/runtime_http.c
++++ b/src/runtime_http.c
+@@ -2,6 +2,7 @@
+  * runtime_ryunet_request), which must come before any system header. */
+ #include "runtime_net.h"
+ #include "runtime_http.h"
++#include "runtime_psn.h"
+ #include "runtime_net_overrides.h"
+ #include "bb_sha256.h"
+ #include <stdio.h>
+@@ -454,7 +455,7 @@ int32_t runtime_http_send_request(int32_t req, const void *post_data, size_t siz
+      * never crosses the network, and a copied signature is refused. Sent only to hosts
+      * redirected to the RyuNET server, never to a real one. */
+     char proof[160];
+-    if (c->is_plain_http && hlen < (int)sizeof(header_buf) - 200 &&
++    if (!runtime_psn_selected() && c->is_plain_http && hlen < (int)sizeof(header_buf) - 200 &&
+         runtime_ryunet_proof(method_str, r->path, proof, sizeof proof)) {
+         hlen += snprintf(header_buf + hlen, sizeof(header_buf) - hlen, "X-RyuNET-Proof: %s\r\n", proof);
+     }
+diff --git a/src/runtime_net.c b/src/runtime_net.c
+index d0fcb578c1ca2d3791fa42a275c43fd3569e67a7..f4f8b247f532e54b71c2081eb166ee25570b5d00 100644
+--- a/src/runtime_net.c
++++ b/src/runtime_net.c
+@@ -3,6 +3,7 @@
+ #include "runtime_net_tunnel.h"
+ #include "runtime_friends.h"
+ #include "runtime.h"
++#include "runtime_psn.h"
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <string.h>
+@@ -23,6 +24,7 @@ static int g_net_initialized = 0;
+ static int32_t g_net_errno = 0;
+ 
+ int runtime_net_is_online(void) {
++    if (runtime_psn_selected()) return 1;
+     const char *val = getenv("BB_ONLINE");
+     return (val && strcmp(val, "1") == 0);
+ }
+@@ -304,6 +306,7 @@ static uint64_t now_ms(void) {
+ /* The server's NAT port (UDP 3074, BB_ONLINE_NAT_PORT); 0 when the tunnel is off
+  * (BB_ONLINE_TUNNEL=0, offline, or the server's address does not resolve). */
+ static int tunnel_server(struct sockaddr_in *out) {
++    if (runtime_psn_selected()) return 0;
+     static int state = -1;
+     static struct sockaddr_in server;
+     if (state < 0) {
+@@ -417,10 +420,12 @@ int32_t runtime_net_bind(int s, const OrbisNetSockaddr *addr, uint32_t addrlen)
+     sin.sin_family = in->sin_family;
+     sin.sin_port = in->sin_port;
+     const int game_port = ntohs(in->sin_port) == 3074;
+-    const char *p_env = getenv("BB_ONLINE_PORT");
++    const int external_psn = runtime_psn_selected();
++    if (external_psn) sin.sin_addr = in->sin_addr;
++    const char *p_env = external_psn ? NULL : getenv("BB_ONLINE_PORT");
+     if (p_env && atoi(p_env) > 0) {
+         sin.sin_port = htons((uint16_t)atoi(p_env));
+-    } else if (ntohs(sin.sin_port) == 3074 && server_is_this_machine()) {
++    } else if (!external_psn && ntohs(sin.sin_port) == 3074 && server_is_this_machine()) {
+         sin.sin_port = htons(3075);
+     }
+ 
+@@ -433,7 +438,7 @@ int32_t runtime_net_bind(int s, const OrbisNetSockaddr *addr, uint32_t addrlen)
+ 
+     runtime_net_trace("sceNetBind(fd=%d, port=%u)", s, ntohs(sin.sin_port));
+     int ret = bind(vs->s, (struct sockaddr *)&sin, sizeof(sin));
+-    if (ret != 0 && (WSAGetLastError() == WSAEADDRINUSE || WSAGetLastError() == 10048)) {
++    if (!external_psn && ret != 0 && (WSAGetLastError() == WSAEADDRINUSE || WSAGetLastError() == 10048)) {
+         for (int p_retry = 1; p_retry <= 10; p_retry++) {
+             sin.sin_port = htons(ntohs(sin.sin_port) + 1);
+             runtime_net_trace("sceNetBind: port busy, retrying port %u", ntohs(sin.sin_port));
+@@ -503,6 +508,7 @@ int32_t runtime_net_accept(int s, OrbisNetSockaddr *addr, uint32_t *addrlen) {
+  * server sees that port and gives it to the peers. Same length as "3074": the request's
+  * Content-Length stays right. BB_UPNP_PORT=3074 keeps the game's own. */
+ static int upnp_external_port(void) {
++    if (runtime_psn_selected()) return 3074;
+     static int port;
+     if (port) return port;
+     const char *env = getenv("BB_UPNP_PORT");
+diff --git a/src/runtime_psn.c b/src/runtime_psn.c
+new file mode 100644
+index 0000000000000000000000000000000000000000..e97d0b30cd44b49651033b6a238dcb96c267c4c0
+--- /dev/null
++++ b/src/runtime_psn.c
+@@ -0,0 +1,19 @@
++/* SPDX-License-Identifier: GPL-2.0-or-later */
++/* OCTR's only symbol-binding glue. The PS4 contracts live in the reusable module. */
++#include "runtime_psn.h"
++#include "../platform/psn/psn_host.h"
++#include "runtime.h"
++
++int runtime_psn_selected(void) { return psn_host_selected(); }
++int runtime_psn_start(void) { return psn_host_start(); }
++int32_t runtime_psn_system_count(void) { return psn_host_system_count(); }
++int32_t runtime_psn_system_receive(void *event) { return psn_host_system_receive(event); }
++uintptr_t runtime_psn_resolve(const char *name) {
++    if (!psn_host_selected())
++        return 0;
++    /* Keep libc imports under the existing loader's ownership. */
++    const char *library = strchr(name, '#');
++    if (library && (!strncmp(library, "#libc", 5) || !strncmp(library, "#libSceLibcInternal", 19)))
++        return 0;
++    return psn_host_resolve(runtime_symbol(name));
++}
+diff --git a/src/runtime_psn.h b/src/runtime_psn.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..526c99765f10730ec4461c73896caf275f8e4017
+--- /dev/null
++++ b/src/runtime_psn.h
+@@ -0,0 +1,10 @@
++/* SPDX-License-Identifier: GPL-2.0-or-later */
++#ifndef RUNTIME_PSN_H
++#define RUNTIME_PSN_H
++#include <stdint.h>
++int runtime_psn_selected(void);
++int runtime_psn_start(void);
++uintptr_t runtime_psn_resolve(const char *name);
++int32_t runtime_psn_system_count(void);
++int32_t runtime_psn_system_receive(void *event);
++#endif
+diff --git a/src/runtime_services.c b/src/runtime_services.c
+index 0f5b45d98859499595dc16906d94f834dca252a8..eb968bc644f1398c0c610bbb46465c82507cca6e 100644
+--- a/src/runtime_services.c
++++ b/src/runtime_services.c
+@@ -6,6 +6,7 @@
+  * Every entry here is an explicit contract; unknown functions still stop. */
+ #define _GNU_SOURCE
+ #include "runtime.h"
++#include "runtime_psn.h"
+ #include "gpu/bbgpu.h"
+ #include "ctr_trophies.h"
+ #include <stdio.h>
+@@ -250,10 +251,17 @@ static void invite_session_joined(const char *path) {
+ static ABI int32_t system_status(unsigned char *status) {
+     if (!status) return SYSTEM_PARAMETER;
+     memset(status,0,12); /* event_num=0, no overlay, foreground, normal CPU mode */
++    if (runtime_psn_selected()) {
++        int32_t count=runtime_psn_system_count();
++        if (count<0) return count;
++        memcpy(status,&count,sizeof(count));
++        return 0;
++    }
+     if (invite_due()) *(int32_t *)status=1;
+     return 0;
+ }
+ static ABI int32_t system_event(void *event) {
++    if (runtime_psn_selected()) return runtime_psn_system_receive(event);
+     if (!event) return SYSTEM_PARAMETER;
+     const time_t now=time(NULL);
+     pthread_mutex_lock(&s_invite_lock);
+diff --git a/tests/test_psn_backend_launcher.py b/tests/test_psn_backend_launcher.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..41c9310a0f78cf0b3bf2062e3bc219fbfd80f46d
+--- /dev/null
++++ b/tests/test_psn_backend_launcher.py
+@@ -0,0 +1,183 @@
++"""Optional PSN selection must not claim a RyuNET identity or consume its invitations."""
++import ast
++import contextlib
++import io
++import json
++import os
++from pathlib import Path
++import subprocess
++import sys
++import tempfile
++import time
++from types import SimpleNamespace
++import unittest
++from unittest import mock
++
++from paths import ROOT
++
++sys.path.insert(0, str(ROOT))
++sys.path.insert(0, str(ROOT / 'launcher'))
++import run
++import discord_ipc
++import ryunet_http
++
++
++class SetupTests(unittest.TestCase):
++    def setUp(self):
++        self.temp = tempfile.TemporaryDirectory()
++        self.addCleanup(self.temp.cleanup)
++        self.data = Path(self.temp.name)
++        self.config = self.data / 'bbport.ini'
++        self.library = self.data / 'backend.dll'
++        self.library.write_bytes(b'not loaded by the launcher')
++        self.config.write_text('online=1\nonline_name=RyuPC\nonline_server=127.0.0.1:8090\n'
++                               'online_account_id=100\nonline_friends=OldFriend\n', encoding='utf-8')
++        self.env = {'BB_PSN_BACKEND': str(self.library), 'BB_PSN_BACKEND_CONFIG': 'opaque=one two',
++                    'BB_ONLINE_KEYHASH': 'previous', 'BB_ONLINE_KEY': 'previous', 'BB_ONLINE_TUNNEL': '1'}
++
++    def setup_external(self):
++        with mock.patch.multiple(run, online_key=mock.Mock(side_effect=AssertionError('key access')),
++                                 claim_nick=mock.Mock(side_effect=AssertionError('nickname claim')),
++                                 season_theme=mock.Mock(side_effect=AssertionError('theme query'))), \
++                contextlib.redirect_stdout(io.StringIO()):
++            run.setup_online(self.env, self.config, self.data)
++
++    def test_external_identity_is_independent_of_publisher(self):
++        before = self.config.read_bytes()
++        self.setup_external()
++        self.assertEqual(self.config.read_bytes(), before)
++        self.assertEqual(self.env['BB_PSN_BACKEND_CONFIG'], 'opaque=one two')
++        self.assertEqual(self.env['BB_ONLINE_SERVER'], '127.0.0.1')
++        self.assertEqual(self.env['BB_ONLINE_TUNNEL'], '0')
++        for name in ('NAME', 'ACCOUNT_ID', 'FRIENDS', 'KEY', 'KEYHASH'):
++            self.assertEqual(self.env['BB_ONLINE_' + name], '')
++        routing = json.loads((self.data / 'host_overrides.json').read_text())
++        self.assertEqual(routing['lavender-ps4-auth3.prod.demonware.net'], 'http://127.0.0.1:8090')
++        self.assertFalse((self.data / 'ryunet_online.key').exists())
++
++    def test_no_implicit_publisher_or_overwrite_without_selection(self):
++        self.config.write_text('online=1\n', encoding='utf-8')
++        self.setup_external()
++        self.assertNotIn('BB_ONLINE_SERVER', self.env)
++        self.assertFalse((self.data / 'host_overrides.json').exists())
++        existing = self.data / 'host_overrides.json'
++        existing.write_text('{"custom": "127.0.0.1"}', encoding='utf-8')
++        before = existing.read_bytes()
++        self.setup_external()
++        self.assertEqual(existing.read_bytes(), before)
++
++    def test_invalid_explicit_backend_fails_without_legacy_fallback(self):
++        for value in ('backend.dll', str(self.data / 'missing.dll'), str(self.data)):
++            with self.subTest(value=value), contextlib.redirect_stderr(io.StringIO()):
++                self.env['BB_PSN_BACKEND'] = value
++                with self.assertRaises(SystemExit):
++                    self.setup_external()
++        self.assertFalse((self.data / 'host_overrides.json').exists())
++
++    def test_empty_selector_keeps_legacy_nickname_validation(self):
++        self.env['BB_PSN_BACKEND'] = ''
++        with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
++            run.setup_online(self.env, self.config, self.data)
++
++    def test_legacy_claim_theme_and_routing_unchanged(self):
++        self.config.write_text('online=1\nonline_name=PlayerOne\nonline_server=127.0.0.1:8090\n', encoding='utf-8')
++        env = {}
++        with mock.patch.object(run, 'online_key', return_value='ab' * 32) as key, \
++                mock.patch.object(run, 'claim_nick') as claim, \
++                mock.patch.object(run, 'season_theme', return_value='winter') as theme, \
++                contextlib.redirect_stdout(io.StringIO()):
++            run.setup_online(env, self.config, self.data)
++        key.assert_called_once_with(self.data)
++        claim.assert_called_once_with('127.0.0.1', '8090', 'PlayerOne', env['BB_ONLINE_KEYHASH'])
++        theme.assert_called_once_with('127.0.0.1', '8090')
++        self.assertEqual(env['BB_ONLINE_NAME'], 'PlayerOne')
++        self.assertEqual(env['BB_THEME'], 'winter')
++        self.assertNotIn('BB_ONLINE_TUNNEL', env)
++
++    def test_shell_export_clears_inherited_identity_and_preserves_config(self):
++        output = self.data / 'environment'
++        result = subprocess.run([sys.executable, str(ROOT / 'scripts' / 'online_config.py'),
++                                 '--config', str(self.config), '--data', str(self.data), '--env-file', str(output)],
++                                env={**os.environ, **self.env}, capture_output=True, text=True)
++        self.assertEqual(result.returncode, 0, result.stderr)
++        entries = dict(record.decode('utf-8').split('=', 1) for record in output.read_bytes().split(b'\0') if record)
++        self.assertEqual(entries['BB_ONLINE_KEYHASH'], '')
++        self.assertEqual(entries['BB_ONLINE_ACCOUNT_ID'], '')
++        self.assertEqual(entries['BB_ONLINE_TUNNEL'], '0')
++        self.assertEqual(entries['BB_PSN_BACKEND_CONFIG'], 'opaque=one two')
++
++    def test_shell_setup_error_does_not_continue_with_partial_settings(self):
++        (self.data / 'host_overrides.json').mkdir()
++        output = self.data / 'environment'
++        result = subprocess.run([sys.executable, str(ROOT / 'scripts' / 'online_config.py'),
++                                 '--config', str(self.config), '--data', str(self.data), '--env-file', str(output)],
++                                env={**os.environ, **self.env}, capture_output=True, text=True)
++        self.assertNotEqual(result.returncode, 0)
++        self.assertFalse(output.exists())
++
++
++class DiscordIsolationTests(unittest.TestCase):
++    @classmethod
++    def setUpClass(cls):
++        # Execute the production helpers without importing GTK or opening a launcher window.
++        source = ROOT / 'launcher' / 'sacredfire_launcher.py'
++        tree = ast.parse(source.read_text(encoding='utf-8'))
++        names = {'nick_ok', 'discord_activity_for', 'apply_join'}
++        selected = [node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name in names]
++        window = next(node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == 'LauncherWindow')
++        methods = {'external_backend', 'on_discord_join', 'accept_join', 'poll_party', 'poll_announcement',
++                   'start_discord_link', 'confirm_discord_unlink'}
++        selected += [node for node in window.body if isinstance(node, ast.FunctionDef) and node.name in methods]
++        cls.namespace = {'external_psn_backend': run.external_psn_backend, 'discord_ipc': discord_ipc,
++                         'ryunet_http': ryunet_http, 'tr': lambda text: text, 'time': time,
++                         'ONLINE_SERVER': 'octr.ryu7w7.xyz', 'RESERVED_NICKS': run.RESERVED_NICKS}
++        exec(compile(ast.Module(body=selected, type_ignores=[]), str(source), 'exec'), cls.namespace)
++
++    def test_external_presence_has_no_legacy_nickname_or_join_secret(self):
++        ini = {'online': '1', 'online_name': 'OldNick', 'online_server': 'server.example'}
++        activity = self.namespace['discord_activity_for'](ini, 100, (1, 8), True)
++        self.assertFalse(activity.join_secret)
++        self.assertFalse(activity.party_id)
++        self.assertNotIn('OldNick', activity.state)
++        legacy = self.namespace['discord_activity_for'](ini, 100, (1, 8), False)
++        self.assertEqual(legacy.join_secret, 'ctr1|server.example|OldNick')
++
++    def test_external_invite_does_not_read_or_mutate_profile(self):
++        read = mock.Mock(side_effect=AssertionError('read profile'))
++        with mock.patch.dict(self.namespace, {'load_ini': read}):
++            self.assertIsNone(self.namespace['apply_join']('other.example', 'Host', True))
++        read.assert_not_called()
++
++    def test_gtk_callbacks_stop_before_profile_changes_or_legacy_queries(self):
++        window = SimpleNamespace(external_backend=lambda: True)
++        # These callbacks must return before touching any other window or profile state.
++        self.namespace['on_discord_join'](window, 'ctr1|server.example|Host')
++        self.namespace['accept_join'](window, 'server.example', 'Host')
++        self.namespace['poll_party'](window)
++        self.namespace['poll_announcement'](window)
++        self.namespace['start_discord_link'](window, 'link')
++        self.namespace['confirm_discord_unlink'](window)
++
++    def test_gtk_routing_stays_with_running_session(self):
++        window = SimpleNamespace(process=object(), running_external_backend=True,
++                                 environment=lambda: {})
++        self.assertTrue(self.namespace['external_backend'](window))
++        window.running_external_backend = False
++        window.environment = lambda: {'BB_PSN_BACKEND': '/future/backend.so'}
++        self.assertFalse(self.namespace['external_backend'](window))
++        window.process = None
++        self.assertTrue(self.namespace['external_backend'](window))
++
++    def test_legacy_invite_still_updates_friends_and_system_event_file(self):
++        with tempfile.TemporaryDirectory() as tmp:
++            ini = Path(tmp) / 'bbport.ini'
++            save = mock.Mock()
++            with mock.patch.dict(self.namespace, {'load_ini': lambda: ({'online_friends': 'Friend'}, []),
++                                                 'save_ini': save, 'ini_path': lambda: ini}):
++                self.assertEqual(self.namespace['apply_join']('server.example', 'Host', False), 'Friend,Host')
++            self.assertEqual(save.call_args.args[0]['online_server'], 'server.example')
++            self.assertIn('session=cusa13795-session-Host\nhost=Host\n', (ini.parent / 'ryunet_join.txt').read_text())
++
++
++if __name__ == '__main__':
++    unittest.main()

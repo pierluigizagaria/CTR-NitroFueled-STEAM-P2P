@@ -6,8 +6,8 @@ the matching mod. Their host modes are:
 
 | Package | Upstream host | `[game]` setting |
 | --- | --- | --- |
-| `channel-a` | [GetLostIn](https://github.com/GetLostIn/CTR-NitroFueled-PC) | `host = psn` |
-| `channel-b` | [OCTR](https://github.com/Ryu7w7/OCTR-NitroFueled-PC) | `host = octr` |
+| `getlostin-ctr-nitrofueled-pc` | [GetLostIn/CTR-NitroFueled-PC](https://github.com/GetLostIn/CTR-NitroFueled-PC) | `host = psn` |
+| `ryu7w7-octr-nitrofueled-pc` | [Ryu7w7/OCTR-NitroFueled-PC](https://github.com/Ryu7w7/OCTR-NitroFueled-PC) | `host = octr` |
 
 Both currently require our integrated host build; stock upstream releases do
 not provide this extension. The separate `host = native` route supports the
@@ -16,8 +16,8 @@ unmodified GetLostIn `online` build at
 
 ## Upstream proposals
 
-The open [GetLostIn #79](https://github.com/GetLostIn/CTR-NitroFueled-PC/pull/79)
-and [OCTR #38](https://github.com/Ryu7w7/OCTR-NitroFueled-PC/pull/38) PRs propose
+The open [GetLostIn/CTR-NitroFueled-PC #79](https://github.com/GetLostIn/CTR-NitroFueled-PC/pull/79)
+and [Ryu7w7/OCTR-NitroFueled-PC #38](https://github.com/Ryu7w7/OCTR-NitroFueled-PC/pull/38) PRs propose
 the shared `PsnBackendV1` interface; the GetLostIn proposal targets `main`.
 If accepted and included in upstream releases, compatible builds could load an
 independently supplied backend and mod after compatibility validation. That
@@ -34,8 +34,8 @@ but does not include `psn-bridge-backend.dll` or its runtime dependencies.
 
 For either PSN route:
 
-1. Use the corresponding integrated host revision from `distribution-lock.json`
-   or the matching complete package. A stock upstream binary is not sufficient.
+1. Reconstruct the corresponding host using the pinned recipe under
+   `integrations/` (see [Releasing](RELEASING.md)), or use the matching complete package. A stock upstream binary is not sufficient.
 2. Build that host's optional `psn-bridge-backend` target with
    `PSN_BRIDGE_BACKEND=ON`, or obtain the backend and its dependency set from the
    same complete package. Keep the host, backend ABI and mod versions matched.
@@ -43,7 +43,7 @@ For either PSN route:
    beside `CTR-NitroFueled-PC.exe`, the bridge, provider and publisher server.
    Supplying only that DLL can fail if its dependent libraries are missing.
 4. Use an orbiSteamworks build exposing PSN events version 1. Set `[game]`
-   `host = psn` for channel-a or `host = octr` for channel-b in `ctrnf-p2p.ini`.
+   `host = psn` for GetLostIn/CTR-NitroFueled-PC or `host = octr` for Ryu7w7/OCTR-NitroFueled-PC in `ctrnf-p2p.ini`.
    The standalone ZIP's default `host = native` is for the legacy host only.
 
 Complete packages already contain these files and the matching INI. The backend
@@ -60,23 +60,23 @@ Game files, preferences, saves and patch selection remain owned by the port.
 The required signature patch is enabled in the same way as the native adapter.
 
 orbiSteamworks performs the Steam-to-PSN notification mapping. The bridge only
-relays copied notifications. OCTR owns guest callback registration, filters,
+relays copied notifications. Each host owns guest callback registration, filters,
 memory and SystemService delivery. It re-fetches friend/session data through
 the provider's existing WebAPI surface. Accepting a Steam invitation and joining
 the game party remain separate operations. Steam continues to run in the bridge;
-the OCTR adapter does not initialize a second Steam client context.
+the Ryu7w7/OCTR-NitroFueled-PC adapter does not initialize a second Steam client context.
 
 Both PSN routes use the existing companion capability for admission. They disable
-the fabricated-token admission needed by the unmodified native host. RyuNET
-nickname claims and synthetic friend lists are disabled when OCTR selects an
+the fabricated-token admission needed by the unmodified legacy host. RyuNET
+nickname claims and synthetic friend lists are disabled when Ryu7w7/OCTR-NitroFueled-PC selects an
 external PSN backend. Transport is configured separately: the bridge sets
 `BB_ONLINE=1`, `BB_ONLINE_TUNNEL=0` and `BB_NET_PRESERVE_ENDPOINTS=1` so its route
-uses the guest's endpoints without OCTR port remapping or UPnP-body rewriting.
-Selecting a PSN backend alone does not change OCTR's socket policy; ordinary
-OCTR startup is unchanged.
+uses the guest's endpoints without Ryu7w7/OCTR-NitroFueled-PC port remapping or UPnP-body rewriting.
+Selecting a PSN backend alone does not change Ryu7w7/OCTR-NitroFueled-PC's socket policy; ordinary
+Ryu7w7/OCTR-NitroFueled-PC startup is unchanged.
 
-Channel-a keeps its native private-server routing with `BB_ONLINE_SERVER` and
-`BB_ONLINE_HTTP_PORT`; it does not use OCTR's transport switches. Both full
+GetLostIn/CTR-NitroFueled-PC keeps its native private-server routing with `BB_ONLINE_SERVER` and
+`BB_ONLINE_HTTP_PORT`; it does not use Ryu7w7/OCTR-NitroFueled-PC's transport switches. Both full
 packages include the adapter and select their host mode in `ctrnf-p2p.ini`.
 
 The scope is live presence invalidations, delivery of invitations accepted

@@ -12,7 +12,7 @@ The defaults work for normal play.
 | --- | --- |
 | `platform.provider` | `steam`, the only supported provider |
 | `steam.app_id` | `480` (the Steamworks SDK example, Spacewar). A different nonzero AppID must be authorized for this integration and available to every player's Steam account; owning an unrelated game is not sufficient authorization |
-| `game.host` | `native` (default, legacy GetLostIn online build), `psn` (channel-a), or `octr` (channel-b); full packages preselect the matching [PSN backend integration](OCTR.md) |
+| `game.host` | `native` (default, legacy GetLostIn online build), `psn` (GetLostIn/CTR-NitroFueled-PC), or `octr` (Ryu7w7/OCTR-NitroFueled-PC); full packages preselect the matching [PSN backend integration](OCTR.md) |
 | `server.unlock_all` | `false`. `true` makes the whole Pit Stop catalog available without spending coins and without recording purchases; see the [README](../README.md#configuration) |
 
 ## Advanced settings

@@ -1,0 +1,2 @@
+# Integration recipes and patches are hashed byte-for-byte on every platform.
+integrations/** -text

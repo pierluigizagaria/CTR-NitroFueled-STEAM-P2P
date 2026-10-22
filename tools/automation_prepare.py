@@ -12,11 +12,11 @@ import tempfile
 import uuid
 
 from distribution_support import json_bytes, locked_channel, sha256
-import prepare_upstream_update as updater
+import host_integration
 from release_support import revision, version
 
 
-CHANNELS = ('channel-a', 'channel-b')
+CHANNELS = ('getlostin-ctr-nitrofueled-pc', 'ryu7w7-octr-nitrofueled-pc')
 
 
 def git(repo, *args, data=None, env=None):
@@ -55,18 +55,11 @@ def timestamp_value(timestamp):
     return timestamp
 
 
-def host_url(slug):
-    if not isinstance(slug, str) or not re.fullmatch(r'[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+', slug):
-        raise ValueError('Controlled host repository must be an owner/repository slug')
-    return 'https://github.com/' + slug.removesuffix('.git') + '.git'
-
-
 def config(repo):
     value = json.loads((Path(repo) / 'automation.json').read_text(encoding='utf-8'))
-    if value.get('schema_version') != 1:
+    if value.get('schema_version') != 2 or 'host_repository' in value:
         raise ValueError('Unsupported automation configuration')
     version(value['release_tag'])
-    host_url(value['host_repository'])
     identity_value(value['commit_identity'])
     return value
 
@@ -81,24 +74,6 @@ def validate_lock(lock):
             locked_channel(path, channel)
     if len({lock['channels'][channel]['psn_tree'] for channel in CHANNELS}) != 1:
         raise ValueError('Both channels must use the same locked PSN tree')
-
-
-def check_host(repo, lock, repository, *, validate_remote=True):
-    expected_url = host_url(repository)
-    actual_url = git(repo, 'config', '--get', 'remote.origin.url')
-    if actual_url.removesuffix('.git') != expected_url.removesuffix('.git'):
-        raise ValueError('Host origin is not the configured controlled repository')
-    for channel in CHANNELS:
-        pin = lock['channels'][channel]
-        if pin['repository'].removesuffix('.git') != expected_url.removesuffix('.git'):
-            raise ValueError('The host lock differs from the controlled repository')
-        # The inspector fetches origin before planning; publication must separately use these leases.
-        if validate_remote:
-            remote = git(repo, 'rev-parse', '--verify', 'refs/remotes/origin/' + pin['branch'])
-            if remote != pin['revision']:
-                raise ValueError('Fetched host channel head differs from the lock: ' + channel)
-        if git(repo, 'rev-parse', pin['revision'] + ':platform/psn') != pin['psn_tree']:
-            raise ValueError('Fetched host PSN tree differs from the lock: ' + channel)
 
 
 @contextmanager
@@ -141,11 +116,11 @@ def fingerprint(base, lock, tag):
 
 
 def message(old, new):
-    changes = [channel + ': ' + old['channels'][channel]['upstream']['tag'] + ' -> '
+    changes = [old['channels'][channel]['display_name'] + ': ' + old['channels'][channel]['upstream']['tag'] + ' -> '
                + new['channels'][channel]['upstream']['tag'] + ' ('
                + new['channels'][channel]['upstream']['revision'][:12] + ')'
                for channel in CHANNELS if old['channels'][channel] != new['channels'][channel]]
-    return 'Update native P2P channels from upstream releases\n\n' + '\n'.join(changes) + '\n'
+    return 'Update P2P distributions from upstream releases\n\n' + '\n'.join(changes) + '\n'
 
 
 def prospective_commit(repo, base, old, new, identity, timestamp, commit_message):
@@ -169,7 +144,7 @@ def prospective_commit(repo, base, old, new, identity, timestamp, commit_message
 
 
 def validate_plan(receipt):
-    if receipt.get('schema_version') != 1:
+    if receipt.get('schema_version') != 2 or 'host_repository' in receipt:
         raise ValueError('Unsupported automation plan')
     old, new = receipt['original_lock'], receipt['new_lock']
     validate_lock(old)
@@ -179,10 +154,6 @@ def validate_plan(receipt):
     identity_value(receipt['commit_identity'])
     timestamp_value(receipt['commit_timestamp'])
     version(receipt['version'])
-    expected_url = host_url(receipt['host_repository'])
-    if any(old['channels'][channel]['repository'].removesuffix('.git') != expected_url.removesuffix('.git')
-           for channel in CHANNELS):
-        raise ValueError('The plan lock differs from the controlled repository')
     if type(receipt['changed']) is not bool or type(receipt['verify']) is not bool:
         raise ValueError('Plan changed/verify flags must be booleans')
     if set(receipt['channels']) != set(CHANNELS):
@@ -191,20 +162,23 @@ def validate_plan(receipt):
     for channel in CHANNELS:
         entry, before, after = receipt['channels'][channel], old['channels'][channel], new['channels'][channel]
         revision(entry['candidate_revision'])
+        revision(entry['source_tree'])
         if type(entry['changed']) is not bool:
             raise ValueError('Channel changed flags must be booleans')
         if (entry['expected_old_revision'] != before['revision'] or entry['psn_tree'] != before['psn_tree']
-                or entry['candidate_revision'] != after['revision'] or entry['upstream'] != after['upstream']):
+                or entry['candidate_revision'] != after['revision'] or entry['upstream'] != after['upstream']
+                or entry['source_tree'] != after['source_tree']):
             raise ValueError('Channel provenance does not match the lock: ' + channel)
         if entry['changed'] != (before['upstream'] != after['upstream']):
             raise ValueError('Inconsistent changed-channel flag')
-        if not entry['changed'] and before['revision'] != after['revision']:
+        if not entry['changed'] and (before['revision'], before['source_tree']) != (after['revision'], after['source_tree']):
             raise ValueError('An unchanged upstream cannot replace its integration commit')
         expected['channels'][channel]['revision'] = entry['candidate_revision']
+        expected['channels'][channel]['source_tree'] = entry['source_tree']
         expected['channels'][channel]['upstream']['tag'] = after['upstream']['tag']
         expected['channels'][channel]['upstream']['revision'] = after['upstream']['revision']
     if expected != new or receipt['changed'] != (old != new):
-        raise ValueError('Only channel/upstream revisions and upstream tags may change')
+        raise ValueError('Only distribution/upstream revisions, source trees and upstream tags may change')
     if receipt['fingerprint'] != fingerprint(receipt['base_revision'], new, receipt['version']):
         raise ValueError('Plan fingerprint mismatch')
     if receipt['commit_message'] != message(old, new):
@@ -213,12 +187,16 @@ def validate_plan(receipt):
         raise ValueError('Unchanged verification must use the base commit')
 
 
-def replay(host_repo, old_lock, channel, upstream, identity, timestamp):
-    with tempfile.TemporaryDirectory() as directory, commit_environment(identity, timestamp):
-        lock = Path(directory) / 'lock.json'
-        lock.write_bytes(json_bytes(old_lock))
-        result = updater.prepare(argparse.Namespace(host_source=host_repo, lock=lock, channel=channel,
-            upstream_tag=upstream['tag'], upstream_revision=upstream['revision']))
+def replay(repository, old_lock, channel, upstream, *, destination=None, source_cache=None):
+    """Rebuild from the reviewed recipe; no integration repository or branch is read."""
+    repository = Path(repository).resolve()
+    pin = old_lock['channels'][channel]
+    destination = (Path(destination).resolve() if destination else
+                   repository / 'out' / 'hosts' / (channel + '-' + uuid.uuid4().hex[:10]))
+    destination = output_destination(destination, [repository], [])
+    selected_cache = source_cache.get(channel) if isinstance(source_cache, dict) else source_cache
+    result = host_integration.materialize(repository, pin, destination, source_cache=selected_cache,
+        upstream=upstream, verify_pin=upstream == pin['upstream'])
     if result['status'] not in {'prepared', 'unchanged'}:
         error = ValueError('Upstream replay did not produce a clean candidate: ' + channel)
         error.candidate = result
@@ -236,8 +214,8 @@ def replay(host_repo, old_lock, channel, upstream, identity, timestamp):
     return result
 
 
-def plan(base_repo, host_repo, latest_reports, fixed_timestamp, identity=None, verify=False):
-    base_repo, host_repo = Path(base_repo).resolve(), Path(host_repo).resolve()
+def plan(base_repo, latest_reports, fixed_timestamp, identity=None, verify=False, *, source_cache=None):
+    base_repo = Path(base_repo).resolve()
     base = clean(base_repo)
     settings = config(base_repo)
     selected_identity = identity_value(identity or settings['commit_identity'])
@@ -246,7 +224,6 @@ def plan(base_repo, host_repo, latest_reports, fixed_timestamp, identity=None, v
     timestamp_value(fixed_timestamp)
     old = json.loads((base_repo / 'distribution-lock.json').read_text(encoding='utf-8'))
     validate_lock(old)
-    check_host(host_repo, old, settings['host_repository'])
     if set(latest_reports) != set(CHANNELS):
         raise ValueError('Official release reports must cover both channels')
     new, channels = deepcopy(old), {}
@@ -260,22 +237,24 @@ def plan(base_repo, host_repo, latest_reports, fixed_timestamp, identity=None, v
         changed = target != before['upstream']
         if report.get('status') != ('changed' if changed else 'unchanged'):
             raise ValueError('Release report status disagrees with its revision')
-        candidate = before['revision']
-        if changed:
-            result = replay(host_repo, old, channel, target, selected_identity, fixed_timestamp)
-            candidate = result['candidate_revision']
+        # Validate recipes even for unchanged pinned builds; a missing recipe must
+        # fail planning rather than reach a build with unverifiable source.
+        result = replay(base_repo, old, channel, target, source_cache=source_cache)
+        candidate = result['candidate_revision']
         new['channels'][channel]['revision'] = candidate
+        new['channels'][channel]['source_tree'] = result['source_tree']
         new['channels'][channel]['upstream'] = target
         channels[channel] = {'changed': changed, 'expected_old_revision': before['revision'],
-                             'candidate_revision': candidate, 'psn_tree': before['psn_tree'], 'upstream': target}
+                             'candidate_revision': candidate, 'source_tree': result['source_tree'],
+                             'psn_tree': before['psn_tree'], 'upstream': target}
     commit_message = message(old, new)
     candidate = prospective_commit(base_repo, base, old, new, selected_identity, fixed_timestamp, commit_message)
     clean(base_repo, base)
-    receipt = {'schema_version': 1, 'base_revision': base, 'candidate_revision': candidate,
+    receipt = {'schema_version': 2, 'base_revision': base, 'candidate_revision': candidate,
                'original_lock': old, 'new_lock': new, 'channels': channels,
                'commit_identity': selected_identity, 'commit_timestamp': fixed_timestamp,
                'commit_message': commit_message, 'version': settings['release_tag'],
-               'host_repository': settings['host_repository'], 'changed': old != new, 'verify': bool(verify),
+               'changed': old != new, 'verify': bool(verify),
                'fingerprint': fingerprint(base, new, settings['release_tag'])}
     validate_plan(receipt)
     return receipt
@@ -288,7 +267,6 @@ def apply_bridge(receipt, repo):
     settings = config(repo)
     if (settings['commit_identity'] != receipt['commit_identity']
             or settings['release_tag'] != receipt['version']
-            or settings['host_repository'] != receipt['host_repository']
             or json.loads((repo / 'distribution-lock.json').read_text(encoding='utf-8')) != receipt['original_lock']):
         raise ValueError('Base checkout configuration differs from the plan')
     candidate = prospective_commit(repo, receipt['base_revision'], receipt['original_lock'], receipt['new_lock'],
@@ -301,37 +279,30 @@ def apply_bridge(receipt, repo):
             'changed': receipt['changed'], 'clean_source': True, 'repository': str(repo)}
 
 
-def prepare_host(receipt, channel, hostrepo, *, validate_remote=True):
-    """Recreate a candidate; resume callers may separately validate old/new remote leases."""
+def prepare_host(receipt, channel, repository, *, destination=None, source_cache=None):
+    """Recreate the exact recipe result using only the P2P checkout and upstream."""
     validate_plan(receipt)
     if channel not in CHANNELS:
         raise ValueError('Unknown host channel')
-    hostrepo = Path(hostrepo).resolve()
+    repository = Path(repository).resolve()
     old, entry = receipt['original_lock'], receipt['channels'][channel]
-    check_host(hostrepo, old, receipt['host_repository'], validate_remote=validate_remote)
-    if entry['changed']:
-        result = replay(hostrepo, old, channel, entry['upstream'], receipt['commit_identity'], receipt['commit_timestamp'])
-    else:
-        result = {'candidate_revision': entry['candidate_revision'], 'psn_tree': entry['psn_tree']}
-    if result['candidate_revision'] != entry['candidate_revision'] or result['psn_tree'] != entry['psn_tree']:
-        error = ValueError('Recreated host candidate does not match the planned revision and PSN tree')
+    current = clean(repository)
+    if current not in {receipt['base_revision'], receipt['candidate_revision']}:
+        raise ValueError('Recipe checkout differs from the planned P2P revision')
+    current_lock = json.loads((repository / 'distribution-lock.json').read_text(encoding='utf-8'))
+    expected_lock = old if current == receipt['base_revision'] else receipt['new_lock']
+    if current_lock != expected_lock:
+        raise ValueError('Recipe checkout lock differs from the plan')
+    result = replay(repository, old, channel, entry['upstream'],
+                    destination=destination, source_cache=source_cache)
+    if any(result[field] != entry[field] for field in ('candidate_revision', 'source_tree', 'psn_tree')):
+        error = ValueError('Recreated host candidate does not match the planned revision and source trees')
         error.candidate = result
         raise error
-    if not result.get('candidate_worktree'):
-        if git(hostrepo, 'rev-parse', 'HEAD') == entry['candidate_revision'] and not git(hostrepo, 'status', '--porcelain'):
-            result['candidate_worktree'] = str(hostrepo)
-    if not result.get('candidate_worktree'):
-        listing = git(hostrepo, 'worktree', 'list', '--porcelain', '-z').split('\0')
-        owner = Path(listing[0].removeprefix('worktree ')).resolve()
-        directory = (owner / 'out/worktrees' / ('verify-' + channel + '-' + uuid.uuid4().hex[:10])).resolve()
-        if not directory.is_relative_to(owner):
-            raise ValueError('Candidate path escapes the host checkout')
-        directory.parent.mkdir(parents=True, exist_ok=True)
-        git(hostrepo, 'worktree', 'add', '--detach', directory, entry['candidate_revision'])
-        result['candidate_worktree'] = str(directory)
     clean(result['candidate_worktree'], entry['candidate_revision'])
-    return {'schema_version': 1, 'status': 'materialized', 'channel': channel,
+    return {'schema_version': 2, 'status': 'materialized', 'channel': channel,
             'candidate_revision': entry['candidate_revision'], 'psn_tree': entry['psn_tree'],
+            'source_tree': entry['source_tree'],
             'candidate_worktree': result['candidate_worktree'], 'host_source': result['candidate_worktree'],
             'clean_source': True}
 
@@ -358,26 +329,32 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest='operation', required=True)
     planning = commands.add_parser('plan')
-    for name in ('repository', 'host-source', 'reports', 'timestamp', 'output'):
+    for name in ('repository', 'reports', 'timestamp', 'output'):
         planning.add_argument('--' + name, required=True)
+    planning.add_argument('--source-cache')
     planning.add_argument('--verify', action='store_true')
     bridge = commands.add_parser('materialize-bridge')
     for name in ('repository', 'plan', 'output'):
         bridge.add_argument('--' + name, required=True)
     host = commands.add_parser('materialize-host')
-    for name in ('host-source', 'plan', 'channel', 'output'):
+    for name in ('repository', 'plan', 'channel', 'output'):
         host.add_argument('--' + name, required=True)
+    host.add_argument('--destination')
+    host.add_argument('--source-cache')
     args = parser.parse_args()
     try:
         destination = output_destination(args.output,
-            (getattr(args, 'repository', None), getattr(args, 'host_source', None)),
+            (args.repository,),
             (getattr(args, 'plan', None), getattr(args, 'reports', None)))
         if args.operation == 'plan':
-            result = plan(args.repository, args.host_source,
-                          json.loads(Path(args.reports).read_text(encoding='utf-8')), args.timestamp, verify=args.verify)
+            result = plan(args.repository,
+                          json.loads(Path(args.reports).read_text(encoding='utf-8')), args.timestamp,
+                          verify=args.verify, source_cache=args.source_cache)
         else:
             receipt = json.loads(Path(args.plan).read_text(encoding='utf-8'))
-            result = apply_bridge(receipt, args.repository) if args.operation == 'materialize-bridge' else prepare_host(receipt, args.channel, args.host_source)
+            result = (apply_bridge(receipt, args.repository) if args.operation == 'materialize-bridge'
+                      else prepare_host(receipt, args.channel, args.repository,
+                                        destination=args.destination, source_cache=args.source_cache))
         destination.parent.mkdir(parents=True, exist_ok=True)
         destination.write_bytes(json_bytes(result))
         print(json.dumps(result, indent=2))

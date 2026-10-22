@@ -10,13 +10,17 @@ from distribution_support import json_bytes, locked_channel, read_zip, sha256
 from release_support import output, run, version
 
 ROOT = Path(__file__).resolve().parents[1]
+CHANNELS = ('getlostin-ctr-nitrofueled-pc', 'ryu7w7-octr-nitrofueled-pc')
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--matrix', action='store_true')
-    parser.add_argument('--channel', choices=('channel-a', 'channel-b'))
+    parser.add_argument('--channel', choices=CHANNELS)
     parser.add_argument('--host-source', type=Path)
+    parser.add_argument('--materialize', action='store_true',
+                        help='Reconstruct the locked host from this repository\'s integration recipe')
+    parser.add_argument('--source-cache', type=Path, help='Optional local upstream Git object cache')
     parser.add_argument('--msys-root', type=Path)
     parser.add_argument('--mod-package', type=Path)
     parser.add_argument('--version', type=version)
@@ -28,12 +32,12 @@ def main():
     lock_path = ROOT / 'distribution-lock.json'
     if args.matrix:
         matrix = []
-        for channel in ('channel-a', 'channel-b'):
+        for channel in CHANNELS:
             _, pin = locked_channel(lock_path, channel)
             repository = pin['repository'].removeprefix('https://github.com/').removesuffix('.git')
             if repository.count('/') != 1 or not pin['repository'].startswith('https://github.com/'):
                 raise ValueError('Workflow checkout requires a GitHub repository')
-            matrix.append({'channel': channel, 'repository': repository, 'revision': pin['revision']})
+            matrix.append({'channel': channel, 'display_name': pin['display_name']})
         if len({locked_channel(lock_path, row['channel'])[1]['psn_tree'] for row in matrix}) != 1:
             raise ValueError('Channel PSN module trees differ; review the shared ABI before release')
         print(json.dumps({'include': matrix}, separators=(',', ':')))
@@ -41,9 +45,17 @@ def main():
     if not all((args.channel, args.host_source, args.msys_root, args.mod_package, args.version)):
         parser.error('Build/assembly requires channel, host-source, msys-root, mod-package and version')
     _, pin = locked_channel(lock_path, args.channel)
+    from host_integration import load_recipe
+    load_recipe(ROOT, pin)
     host = args.host_source.resolve()
+    if args.materialize:
+        from host_integration import materialize
+        materialize(ROOT, pin, host, source_cache=args.source_cache)
+        run('git', '-C', host, 'submodule', 'update', '--init', '--recursive')
     if output('git', '-C', host, 'rev-parse', 'HEAD') != pin['revision']:
         raise ValueError('Host checkout differs from the locked integration revision')
+    if output('git', '-C', host, 'rev-parse', 'HEAD^{tree}') != pin['source_tree']:
+        raise ValueError('Host checkout differs from the locked source tree')
     if output('git', '-C', host, 'rev-parse', 'HEAD:platform/psn') != pin['psn_tree']:
         raise ValueError('Host PSN subtree differs from the locked integration')
     source_dirty = bool(output('git', '-C', host, '-c', 'core.longpaths=true', 'status', '--porcelain'))
@@ -88,6 +100,7 @@ def main():
         files = read_zip(package, prefix=pin['portable_root'])
         files['psn-bridge-backend.dll'] = (backend / 'psn-bridge-backend.dll').read_bytes()
         receipt.write_bytes(json_bytes({'schema_version': 1, 'source_revision': pin['revision'],
+            'source_tree': pin['source_tree'], 'integration_recipe': pin['recipe'],
             'shared_psn_tree': pin['psn_tree'], 'clean_source': True,
             'binaries': {name: sha256(files[name]) for name in
                          (pin['launcher'], 'bin/sacredfire.exe', 'bin/bb-gpu-capabilities.exe', 'psn-bridge-backend.dll')},

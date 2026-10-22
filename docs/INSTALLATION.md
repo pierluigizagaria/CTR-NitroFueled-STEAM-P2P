@@ -1,6 +1,6 @@
 # Installing CTR-NitroFueled-STEAM-P2P
 
-Choose a complete Windows x64 `channel-a` or `channel-b` package from
+Choose a complete Windows x64 `getlostin-ctr-nitrofueled-pc` or `ryu7w7-octr-nitrofueled-pc` package from
 [Releases](https://github.com/pierluigizagaria/CTR-NitroFueled-STEAM-P2P/releases).
 Both contain the portable host, its PSN backend and runtime dependencies, plus
 the bridge, orbiSteamworks, Demonware Server, Valve's Steam API runtime and the
@@ -12,16 +12,16 @@ Steam account. `CTR-P2P-README.md` in the ZIP covers that package's installation
 1. Extract one package into a new folder, keeping existing installations in place.
 2. Configure your game files using the included `CTR-NitroFueled-PC.exe` launcher
    and that port's preparation instructions.
-3. Keep the supplied `ctrnf-p2p.ini`: channel-a uses `host = psn`; channel-b uses
+3. Keep the supplied `ctrnf-p2p.ini`: GetLostIn/CTR-NitroFueled-PC uses `host = psn`; Ryu7w7/OCTR-NitroFueled-PC uses
    `host = octr`. Both default to AppID 480 and normal progression.
 4. Start Steam and sign in, then run `ctrnf-p2p.exe` and start the game from its
    launcher.
 
-Channel-a rebuilds stable releases of the
-[GetLostIn native port](https://github.com/GetLostIn/CTR-NitroFueled-PC);
-channel-b rebuilds stable releases of
-[OCTR](https://github.com/Ryu7w7/OCTR-NitroFueled-PC).
-Each includes the matching adapter. Do not mix channel files or use a stock
+GetLostIn/CTR-NitroFueled-PC rebuilds stable releases of the
+[GetLostIn/CTR-NitroFueled-PC](https://github.com/GetLostIn/CTR-NitroFueled-PC);
+Ryu7w7/OCTR-NitroFueled-PC rebuilds stable releases of
+[Ryu7w7/OCTR-NitroFueled-PC](https://github.com/Ryu7w7/OCTR-NitroFueled-PC).
+Each includes the matching adapter. Do not mix distributions or use a stock
 upstream updater to replace a P2P build. The source archive beside each binary
 download matches its manifest.
 
@@ -105,7 +105,7 @@ Messages go to `ctrnf-p2p/bridge.log`; errors appear in a dialog.
 
 ### Complete packages
 
-Download the new complete package for the same channel and extract it into a new
+Download the new complete package for the same upstream project and extract it into a new
 folder. Keep the matching host, backend and mod together. Leave the old
 installation intact while configuring the new one. Use the port's instructions
 to select or transfer your existing game saves and settings; publisher progress
@@ -122,7 +122,7 @@ everything except `ctrnf-p2p.ini` into the port root. The ZIP contains no
 `demonware-server/` data. On integrated hosts, check the backend requirements in
 [the PSN integration guide](https://github.com/pierluigizagaria/CTR-NitroFueled-STEAM-P2P/blob/main/docs/OCTR.md)
 before replacing a component. Players should use the same
-package version and channel.
+package version and upstream project.
 
 ## Uninstall
 

@@ -1,0 +1,137 @@
+diff --git a/gpu/shim/bbport_overlay.cpp b/gpu/shim/bbport_overlay.cpp
+index e0790941659e78133c5045737b484f24056111bd..b4d9497b0c0e9c395be4d86e04ea8fdf1328bfe7 100644
+--- a/gpu/shim/bbport_overlay.cpp
++++ b/gpu/shim/bbport_overlay.cpp
+@@ -22,6 +22,7 @@
+ #include <miniz.h>
+ #include "bbport_settings.h"
+ #include "../../src/runtime_friends.h"
++#include "../../src/runtime_psn.h"
+ #include "imgui.h"
+ #include "imgui_internal.h" // RegisterUserTexture: the trophy pictures
+ #include "imgui_impl_vulkan.h"
+@@ -546,6 +547,11 @@ void ReportSection(const RfView& view, char (&who)[RF_NAME]) {
+ }
+ 
+ void FriendsTab() {
++    if (runtime_psn_selected()) {
++        ImGui::TextWrapped("%s", "Your selected platform backend manages friends and invitations. "
++                               "Use the game's online friend list to join a room.");
++        return;
++    }
+     static RfView view;
+     static unsigned seen = ~0u;
+     static char query[RF_NAME] = "";
+diff --git a/src/runtime_friends.c b/src/runtime_friends.c
+index 708de6e5ad5fbc1432acd91143eab1669fba67b1..7f6ea4913e137b19df1c0b1c9f482ac0560f543d 100644
+--- a/src/runtime_friends.c
++++ b/src/runtime_friends.c
+@@ -3,6 +3,7 @@
+  * menu's Friends tab asks (request, accept, decline, remove, invite, search). The tab reads a
+  * copy of the latest answer; changes become notices (runtime_friends_take_event). */
+ #include "runtime_friends.h"
++#include "runtime_psn.h"
+ #include "runtime_http.h"
+ #include "runtime_net.h"
+ #include <pthread.h>
+@@ -414,6 +415,7 @@ static void *friends_thread(void *arg) {
+ }
+ 
+ void runtime_friends_start(void) {
++    if (runtime_psn_selected()) return;
+     pthread_mutex_lock(&s_lock);
+     const int start = !s_started && runtime_net_is_online() && getenv("BB_ONLINE_KEYHASH") &&
+                       runtime_np_get_online_name() && *runtime_np_get_online_name();
+@@ -501,6 +503,7 @@ void runtime_friends_set_hidden(int hidden) {
+ }
+ 
+ void runtime_friends_join(const char *host) {
++    if (runtime_psn_selected()) return;
+     char name[RF_NAME];
+     clean_name(name, host);
+     if (name[0]) runtime_invite_join(name);
+diff --git a/src/runtime_http.c b/src/runtime_http.c
+index ee6bbdaea895b6d69a5f7b12deea883e6404119c..a92717c859f81fd8886de9ea79623a7616af5474 100644
+--- a/src/runtime_http.c
++++ b/src/runtime_http.c
+@@ -317,6 +317,7 @@ int32_t runtime_http_add_request_header(int32_t req, const char *name, const cha
+  * keyed with the hash of this installation's key for the server (BB_ONLINE_KEYHASH, from
+  * run.py), of the time, a nonce, the method and the request target. 0 without a key. */
+ int runtime_ryunet_proof(const char *method, const char *target, char *out, size_t out_size) {
++    if (runtime_psn_selected()) return 0;
+     const char *key_hash = getenv("BB_ONLINE_KEYHASH");
+     if (!key_hash || strlen(key_hash) != 64 || strspn(key_hash, "0123456789abcdef") != 64) return 0;
+     static unsigned long long counter;
+@@ -342,6 +343,7 @@ int runtime_ryunet_proof(const char *method, const char *target, char *out, size
+  * 8-second timeouts: for background threads. */
+ int runtime_ryunet_request(const char *method, const char *target, char *body, size_t body_size) {
+     if (body_size) body[0] = '\0';
++    if (runtime_psn_selected()) return 0;
+     const char *host = getenv("BB_ONLINE_SERVER");
+     const char *port = getenv("BB_ONLINE_HTTP_PORT");
+     if (!host || !*host) return 0;
+diff --git a/src/runtime_psn.h b/src/runtime_psn.h
+index 526c99765f10730ec4461c73896caf275f8e4017..b576bd322eed1905e1edceecdca6aed6f806e2b2 100644
+--- a/src/runtime_psn.h
++++ b/src/runtime_psn.h
+@@ -2,9 +2,15 @@
+ #ifndef RUNTIME_PSN_H
+ #define RUNTIME_PSN_H
+ #include <stdint.h>
++#ifdef __cplusplus
++extern "C" {
++#endif
+ int runtime_psn_selected(void);
+ int runtime_psn_start(void);
+ uintptr_t runtime_psn_resolve(const char *name);
+ int32_t runtime_psn_system_count(void);
+ int32_t runtime_psn_system_receive(void *event);
++#ifdef __cplusplus
++}
++#endif
+ #endif
+diff --git a/tests/test_net_policy.c b/tests/test_net_policy.c
+index fdef1f3fbc5b02ab51ed7b156d1f4c4e8616f0c9..6c55c4ab3e6bb8280a6628fc2314a7260f369901 100644
+--- a/tests/test_net_policy.c
++++ b/tests/test_net_policy.c
+@@ -5,6 +5,9 @@
+ #include "../src/runtime_net.c"
+ #include <assert.h>
+ 
++/* The socket fixture has no social worker or remote publisher. */
++void runtime_friends_start(void) {}
++
+ static void environment(const char *key, const char *value) {
+ #ifdef _WIN32
+     assert(_putenv_s(key, value ? value : "") == 0);
+diff --git a/tests/test_psn_backend_launcher.py b/tests/test_psn_backend_launcher.py
+index 36a7762e07a96c84ae7c147a8ca390bcc5e7d3be..8f2de54c0cce7de00b27bc934f28995e84aafe56 100644
+--- a/tests/test_psn_backend_launcher.py
++++ b/tests/test_psn_backend_launcher.py
+@@ -38,7 +38,7 @@ class SetupTests(unittest.TestCase):
+     def setup_external(self):
+         with mock.patch.multiple(run, online_key=mock.Mock(side_effect=AssertionError('key access')),
+                                  claim_nick=mock.Mock(side_effect=AssertionError('nickname claim')),
+-                                 season_theme=mock.Mock(side_effect=AssertionError('theme query'))), \
++                                 server_settings=mock.Mock(side_effect=AssertionError('theme query'))), \
+                 contextlib.redirect_stdout(io.StringIO()):
+             run.setup_online(self.env, self.config, self.data)
+ 
+@@ -99,14 +99,15 @@ class SetupTests(unittest.TestCase):
+         env = {}
+         with mock.patch.object(run, 'online_key', return_value='ab' * 32) as key, \
+                 mock.patch.object(run, 'claim_nick') as claim, \
+-                mock.patch.object(run, 'season_theme', return_value='winter') as theme, \
++                mock.patch.object(run, 'server_settings', return_value={'theme': 'halloween', 'end_race_timeout': 30}) as theme, \
+                 contextlib.redirect_stdout(io.StringIO()):
+             run.setup_online(env, self.config, self.data)
+         key.assert_called_once_with(self.data)
+         claim.assert_called_once_with('127.0.0.1', '8090', 'PlayerOne', env['BB_ONLINE_KEYHASH'])
+         theme.assert_called_once_with('127.0.0.1', '8090')
+         self.assertEqual(env['BB_ONLINE_NAME'], 'PlayerOne')
+-        self.assertEqual(env['BB_THEME'], 'winter')
++        self.assertEqual(env['BB_THEME'], 'halloween')
++        self.assertEqual(env['BB_END_RACE_TIMEOUT'], '30')
+         self.assertNotIn('BB_ONLINE_TUNNEL', env)
+ 
+     def test_shell_export_clears_identity_without_serializing_backend_capability(self):

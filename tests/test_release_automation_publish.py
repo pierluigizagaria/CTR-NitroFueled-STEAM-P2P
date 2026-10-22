@@ -21,19 +21,27 @@ def archive(path, files):
     path.with_suffix('.zip.sha256').write_text(sha256(path.read_bytes()) + '  ' + path.name + '\n')
 
 
+def fixture_recipe(repository):
+    return {'schema_version': 1, 'upstream_repository': repository,
+            'commits': [{'patch': 'adapter.patch', 'sha256': sha256(b'fixture adapter patch')}]}
+
+
 def fixture_plan():
     pins, channels = {}, {}
     for index, channel in enumerate(publisher.CHANNELS):
-        pins[channel] = {'repository': 'https://github.com/example/hosts.git', 'branch': 'p2p/' + channel,
+        display_name = ('GetLostIn/CTR-NitroFueled-PC', 'Ryu7w7/OCTR-NitroFueled-PC')[index]
+        pins[channel] = {'repository': 'https://github.com/' + display_name + '.git', 'display_name': display_name,
+                         'source_tree': '8' * 40, 'recipe': {'path': 'integrations/' + display_name + '/recipe.json',
+                             'sha256': sha256(json_bytes(fixture_recipe('https://github.com/' + display_name + '.git')))},
                          'revision': str(index + 3) * 40, 'psn_tree': '7' * 40, 'host_mode': 'psn',
                          'launcher': 'launcher.exe', 'portable_root': 'portable',
-                         'upstream': {'repository': 'https://github.com/example/upstream.git',
+                         'upstream': {'repository': 'https://github.com/' + display_name + '.git',
                                       'tag': 'v2.0', 'revision': '9' * 40}}
         channels[channel] = {'expected_old_revision': str(index + 1) * 40,
-                             'candidate_revision': pins[channel]['revision'], 'psn_tree': '7' * 40,
+                             'candidate_revision': pins[channel]['revision'], 'source_tree': '8' * 40, 'psn_tree': '7' * 40,
                              'upstream': pins[channel]['upstream'], 'changed': True}
-    return {'schema_version': 1, 'base_revision': 'a' * 40, 'candidate_revision': 'b' * 40,
-            'channels': channels, 'new_lock': {'schema_version': 1, 'channels': pins},
+    return {'schema_version': 2, 'base_revision': 'a' * 40, 'candidate_revision': 'b' * 40,
+            'channels': channels, 'new_lock': {'schema_version': 2, 'channels': pins},
             'version': 'v0.1.0-preview.1', 'changed': True, 'verify': False,
             'fingerprint': 'f' * 64, 'commit_timestamp': '2026-10-21T00:00:00Z'}
 
@@ -73,8 +81,10 @@ class AssetTests(unittest.TestCase):
             prefix = f"ctrnf-p2p-{channel}-{self.plan['version']}-{self.plan['candidate_revision'][:12]}"
             source_payload = {'host/LICENSE': b'GPL', 'distribution-lock.json': json_bytes(self.plan['new_lock']),
                               'build-recipes/release-lock.json': json_bytes(self.release_lock)}
+            source_payload[pin['recipe']['path']] = json_bytes(fixture_recipe(pin['upstream']['repository']))
+            source_payload[str(Path(pin['recipe']['path']).parent.as_posix()) + '/adapter.patch'] = b'fixture adapter patch'
             source = {'component': 'ctrnf-p2p-host-source', 'channel': channel, 'host': pin,
-                      'revision': pin['revision'], 'psn_tree': pin['psn_tree'], 'redistribution_ready': True,
+                      'revision': pin['revision'], 'source_tree': pin['source_tree'], 'psn_tree': pin['psn_tree'], 'redistribution_ready': True,
                       'dependency_evidence_complete': True,
                       'build_recipe': {'revision': self.plan['candidate_revision'], 'source_dirty': False},
                       'files': {name: sha256(data) for name, data in source_payload.items()}}
@@ -83,7 +93,8 @@ class AssetTests(unittest.TestCase):
             archive(source_path, source_payload)
             native_files = {'launcher.exe': b'launcher', 'bin/sacredfire.exe': b'host',
                             'bin/bb-gpu-capabilities.exe': b'caps', 'psn-bridge-backend.dll': b'backend'}
-            build = {'source_revision': pin['revision'], 'shared_psn_tree': pin['psn_tree'],
+            build = {'source_revision': pin['revision'], 'source_tree': pin['source_tree'],
+                     'integration_recipe': pin['recipe'], 'shared_psn_tree': pin['psn_tree'],
                      'clean_source': True, 'binaries': {name: sha256(data) for name, data in native_files.items()}}
             files = native_files | self.standalone_files | {'p2p-host-build.json': json_bytes(build)}
             mod = copy.deepcopy(self.standalone_manifest)
@@ -113,12 +124,12 @@ class AssetTests(unittest.TestCase):
 
     def test_rejects_self_consistent_package_for_a_different_host_plan(self):
         plan = copy.deepcopy(self.plan)
-        plan['new_lock']['channels']['channel-a']['upstream']['tag'] = 'v3.0'
+        plan['new_lock']['channels']['getlostin-ctr-nitrofueled-pc']['upstream']['tag'] = 'v3.0'
         with self.assertRaisesRegex(ValueError, 'Host identity'):
             publisher.validate_assets(self.root, plan, self.release_lock)
 
     def test_rejects_extra_payload_even_if_other_checksums_are_valid(self):
-        path, files = self.binaries['channel-a']
+        path, files = self.binaries['getlostin-ctr-nitrofueled-pc']
         archive(path, files | {'unexpected.exe': b'not covered'})
         with self.assertRaisesRegex(ValueError, 'manifested payload'):
             publisher.validate_assets(self.root, self.plan, self.release_lock)
@@ -131,7 +142,7 @@ class AssetTests(unittest.TestCase):
             publisher.validate_assets(self.root, self.plan, self.release_lock)
 
     def test_rejects_binary_receipt_not_bound_to_payload(self):
-        path, files = self.binaries['channel-a']
+        path, files = self.binaries['getlostin-ctr-nitrofueled-pc']
         manifest = json.loads(files['p2p-distribution-manifest.json'])
         manifest['host_build']['binaries']['launcher.exe'] = '0' * 64
         files['p2p-distribution-manifest.json'] = json_bytes(manifest)
@@ -152,6 +163,40 @@ class AssetTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'standalone mod archive is required'):
             publisher.validate_assets(self.root, self.plan, self.release_lock)
 
+    def test_rejects_build_receipt_for_another_recipe(self):
+        path, files = self.binaries[publisher.CHANNELS[0]]
+        manifest = json.loads(files['p2p-distribution-manifest.json'])
+        manifest['host_build']['integration_recipe']['sha256'] = '0' * 64
+        files['p2p-distribution-manifest.json'] = json_bytes(manifest)
+        archive(path, files)
+        with self.assertRaisesRegex(ValueError, 'Host build receipt differs'):
+            publisher.validate_assets(self.root, self.plan, self.release_lock)
+
+    def test_self_consistent_archive_cannot_substitute_embedded_recipe_or_patch(self):
+        channel = publisher.CHANNELS[0]
+        pin = self.plan['new_lock']['channels'][channel]
+        source_path, source_files = self.sources[channel]
+        original = dict(source_files)
+        for target, error in ((pin['recipe']['path'], 'Embedded integration recipe differs'),
+                              (str(Path(pin['recipe']['path']).parent.as_posix()) + '/adapter.patch',
+                               'Embedded integration patch differs')):
+            with self.subTest(target=target):
+                source_files.clear()
+                source_files.update(original)
+                source_files[target] += b' '
+                manifest = json.loads(source_files['source-manifest.json'])
+                manifest['files'][target] = sha256(source_files[target])
+                source_files['source-manifest.json'] = json_bytes(manifest)
+                archive(source_path, source_files)
+                _, files = self.binaries[channel]
+                binary_manifest = json.loads(files['p2p-distribution-manifest.json'])
+                binary_manifest['sources'].update(sha256=sha256(source_path.read_bytes()),
+                    manifest_sha256=sha256(source_files['source-manifest.json']))
+                files['p2p-distribution-manifest.json'] = json_bytes(binary_manifest)
+                self.rewrite_binary(channel)
+                with self.assertRaisesRegex(ValueError, error):
+                    publisher.validate_assets(self.root, self.plan, self.release_lock)
+
     def test_standalone_mod_tampering_and_external_checksum_are_rejected(self):
         archive(self.standalone_path, self.standalone_files | {'ctrnf-p2p.exe': b'tampered bridge'})
         with self.assertRaisesRegex(ValueError, 'Manifest checksum mismatch'):
@@ -162,7 +207,7 @@ class AssetTests(unittest.TestCase):
             publisher.validate_assets(self.root, self.plan, self.release_lock)
 
     def test_standalone_mod_must_keep_its_locked_legacy_host_identity(self):
-        self.standalone_manifest['host'] = self.plan['new_lock']['channels']['channel-a']
+        self.standalone_manifest['host'] = self.plan['new_lock']['channels']['getlostin-ctr-nitrofueled-pc']
         self.standalone_files['ctrnf-p2p-manifest.json'] = json_bytes(self.standalone_manifest)
         archive(self.standalone_path, self.standalone_files)
         with self.assertRaisesRegex(ValueError, 'Standalone mod identity'):
@@ -228,19 +273,11 @@ class AssetTests(unittest.TestCase):
 class FakeRefs:
     def __init__(self, plan, events):
         self.plan, self.events = plan, events
-        self.hosts = {channel: plan['channels'][channel]['expected_old_revision'] for channel in publisher.CHANNELS}
         self.bridge = plan['base_revision']
-        self.bridge_race, self.rollback_race, self.lost_response = False, False, False
+        self.bridge_race, self.lost_response = False, False
 
     def heads(self):
-        return dict(self.hosts), self.bridge
-
-    def promote_hosts(self, plan):
-        self.events.append('promote-hosts')
-        self.hosts = {channel: plan['channels'][channel]['candidate_revision'] for channel in publisher.CHANNELS}
-
-    def verify_source_tags(self, plan):
-        self.events.append('verify-tags')
+        return self.bridge
 
     def promote_bridge(self, plan):
         self.events.append('promote-bridge')
@@ -250,12 +287,6 @@ class FakeRefs:
         self.bridge = plan['candidate_revision']
         if self.lost_response:
             raise ValueError('response lost')
-
-    def rollback_hosts(self, plan):
-        self.events.append('rollback-hosts')
-        if self.rollback_race:
-            raise ValueError('another host update')
-        self.hosts = {channel: plan['channels'][channel]['expected_old_revision'] for channel in publisher.CHANNELS}
 
 
 class FakeRelease:
@@ -315,61 +346,40 @@ class TransactionTests(unittest.TestCase):
     def publish(self, **kwargs):
         return publisher.publish(self.plan, self.assets, self.refs, self.release, **kwargs)
 
-    def test_success_orders_pending_sources_refs_completion_and_retains_run(self):
+    def test_success_orders_pending_sources_main_completion_and_retains_run(self):
         result = self.publish()
         self.assertEqual(self.events[:3], ['state:pending', 'upload:a-source.zip', 'upload:b-windows-x64.zip'])
-        self.assertLess(self.events.index('promote-hosts'), self.events.index('promote-bridge'))
         self.assertLess(self.events.index('promote-bridge'), self.events.index('notes'))
         self.assertEqual(self.events[-1], 'state:completed')
         self.assertEqual(result['source_run_id'], '55')
         self.assertEqual(result['completion']['revision'], self.plan['candidate_revision'])
+        self.assertFalse(any('host' in event or 'tag' in event for event in self.events))
 
-    def test_upstream_tag_change_with_identical_host_heads_still_promotes_bridge(self):
-        for channel in publisher.CHANNELS:
-            self.plan['channels'][channel]['candidate_revision'] = self.plan['channels'][channel]['expected_old_revision']
-        result = self.publish()
-        self.assertEqual(result['status'], 'completed')
-        self.assertIn('promote-bridge', self.events)
-
-    def test_explicit_retry_can_publish_current_pins_without_ref_updates(self):
-        self.plan['changed'] = False
-        self.plan['candidate_revision'] = self.plan['base_revision']
-        for channel in publisher.CHANNELS:
-            self.plan['channels'][channel]['candidate_revision'] = self.plan['channels'][channel]['expected_old_revision']
+    def test_publish_pinned_uploads_without_any_main_promotion(self):
+        self.plan.update(changed=False, candidate_revision=self.plan['base_revision'])
         self.assertEqual(self.publish()['status'], 'completed')
-        self.assertNotIn('promote-hosts', self.events)
         self.assertNotIn('promote-bridge', self.events)
+        self.assertIn('notes', self.events)
 
-    def test_resume_after_completion_upload_keeps_receipt_identical_despite_notification(self):
-        with patch.object(self.release, 'notes', side_effect=ValueError('notes failed')):
-            with self.assertRaisesRegex(ValueError, 'notes failed'):
-                self.publish()
-        self.state['notification'] = {'issue': 5}
-        self.state['incident'] = {'run': 99}
-        completed = self.publish(resume=True)
-        self.assertEqual(completed['status'], 'completed')
-        self.assertNotIn('notification', completed)
-
-    def test_resume_materializes_from_saved_base_after_main_was_already_promoted(self):
+    def test_resume_reconstructs_from_p2p_candidate_and_replays_both_recipes(self):
         self.state = {'status': 'pending', 'plan': self.plan}
-        self.refs.promote_hosts(self.plan)
-        self.refs.promote_bridge(self.plan)
+        self.refs.bridge = self.plan['candidate_revision']
         with patch.object(publisher.prepare, 'clean', return_value=self.plan['candidate_revision']), \
                 patch.object(publisher.prepare, 'git') as git, \
                 patch.object(publisher.prepare, 'apply_bridge') as bridge, \
                 patch.object(publisher.prepare, 'prepare_host') as host:
-            publisher.materialize_candidates(self.plan, self.root, self.root, self.refs, resume=True)
+            publisher.materialize_candidates(self.plan, self.root, self.refs, resume=True)
         git.assert_called_once_with(self.root, 'checkout', '--detach', self.plan['base_revision'])
         bridge.assert_called_once_with(self.plan, self.root)
         self.assertEqual(host.call_count, 2)
-        self.assertTrue(all(call.kwargs == {'validate_remote': False} for call in host.call_args_list))
+        self.assertTrue(all(call.args[2] == self.root for call in host.call_args_list))
 
     def test_resume_never_checks_out_over_an_unrelated_main_commit(self):
         self.state = {'status': 'pending', 'plan': self.plan}
         with patch.object(publisher.prepare, 'clean', return_value='f' * 40), \
                 patch.object(publisher.prepare, 'git') as git:
             with self.assertRaisesRegex(ValueError, 'outside the pending plan'):
-                publisher.materialize_candidates(self.plan, self.root, self.root, self.refs, resume=True)
+                publisher.materialize_candidates(self.plan, self.root, self.refs, resume=True)
         git.assert_not_called()
 
     def test_upload_failure_stops_before_any_ref_and_can_resume_exact_original_bytes(self):
@@ -377,7 +387,7 @@ class TransactionTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'interrupted'):
             self.publish()
         self.assertEqual(self.state['status'], 'pending')
-        self.assertNotIn('promote-hosts', self.events)
+        self.assertNotIn('promote-bridge', self.events)
         self.release.failure = None
         with patch.dict(os.environ, {'GITHUB_RUN_ID': '99'}):
             result = self.publish(resume=True)
@@ -393,42 +403,21 @@ class TransactionTests(unittest.TestCase):
             self.publish(resume=True)
         self.assertEqual(self.events, [])
 
-    def test_bridge_race_rolls_back_only_host_refs_and_leaves_pending(self):
+    def test_main_lease_race_preserves_the_other_writer_and_pending_transaction(self):
         self.refs.bridge_race = True
-        with self.assertRaisesRegex(ValueError, 'restored with leases'):
+        with self.assertRaisesRegex(ValueError, 'main promotion failed'):
             self.publish()
         self.assertEqual(self.refs.bridge, 'f' * 40)
-        self.assertEqual(self.refs.hosts['channel-a'], self.plan['channels']['channel-a']['expected_old_revision'])
         self.assertEqual(self.state['status'], 'pending')
         self.assertNotIn('notes', self.events)
 
-    def test_main_race_during_source_tag_verification_restores_hosts_before_bridge_push(self):
-        def verify_with_race(plan):
-            self.refs.bridge = 'f' * 40
-        with patch.object(self.refs, 'verify_source_tags', side_effect=verify_with_race):
-            with self.assertRaisesRegex(ValueError, 'Post-promotion checks failed; host branches were restored'):
-                self.publish()
-        self.assertEqual(self.refs.bridge, 'f' * 40)
-        self.assertEqual(self.refs.hosts['channel-a'], self.plan['channels']['channel-a']['expected_old_revision'])
-        self.assertEqual(self.state['status'], 'pending')
-        self.assertNotIn('promote-bridge', self.events)
-        self.assertNotIn('notes', self.events)
-
-    def test_rollback_race_requires_manual_recovery_without_completion(self):
-        self.refs.bridge_race = self.refs.rollback_race = True
-        with self.assertRaisesRegex(ValueError, 'rollback was rejected'):
-            self.publish()
-        self.assertEqual(self.state['status'], 'pending')
-        self.assertNotIn('notes', self.events)
-
-    def test_lost_bridge_push_response_is_verified_from_remote_refs(self):
+    def test_lost_main_push_response_is_verified_from_remote_main(self):
         self.refs.lost_response = True
         self.assertEqual(self.publish()['status'], 'completed')
-        self.assertNotIn('rollback-hosts', self.events)
 
-    def test_mixed_remote_refs_stop_before_state_or_asset_writes(self):
-        self.refs.hosts['channel-a'] = self.plan['channels']['channel-a']['candidate_revision']
-        with self.assertRaisesRegex(ValueError, 'mixed or changed'):
+    def test_unrelated_main_stops_before_state_or_asset_writes(self):
+        self.refs.bridge = 'f' * 40
+        with self.assertRaisesRegex(ValueError, 'changed outside this plan'):
             self.publish()
         self.assertEqual(self.events, [])
 
@@ -437,6 +426,16 @@ class TransactionTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'Existing release asset differs'):
             self.publish()
         self.assertEqual(self.events, [])
+
+    def test_post_promotion_failure_resumes_without_repromoting_main(self):
+        with patch.object(self.release, 'notes', side_effect=ValueError('notes failed')):
+            with self.assertRaisesRegex(ValueError, 'notes failed'):
+                self.publish()
+        self.assertEqual(self.state['status'], 'pending')
+        self.assertEqual(self.refs.bridge, self.plan['candidate_revision'])
+        count = self.events.count('promote-bridge')
+        self.assertEqual(self.publish(resume=True)['status'], 'completed')
+        self.assertEqual(self.events.count('promote-bridge'), count)
 
 
 class RemoteAssetTests(unittest.TestCase):
@@ -466,25 +465,19 @@ class RemoteAssetTests(unittest.TestCase):
 
 
 class WriteAccessTests(unittest.TestCase):
-    def test_probes_only_current_heads_with_dry_run_and_explicit_leases(self):
+    def test_only_p2p_main_is_probed_with_dry_run_and_explicit_lease(self):
         plan = fixture_plan()
-        refs = publisher.GitRefs('bridge', 'hosts', 'example/bridge', 'example/hosts')
+        refs = publisher.GitRefs('bridge', 'example/bridge')
         with patch.object(refs, 'git') as git:
             refs.verify_write_access(plan)
-        self.assertEqual(git.call_count, 2)
-        host_args, bridge_args = [call.args for call in git.call_args_list]
-        self.assertEqual(host_args[:4], (refs.host_source, 'push', '--dry-run', '--atomic'))
-        for channel in publisher.CHANNELS:
-            sha, branch = plan['channels'][channel]['expected_old_revision'], 'refs/heads/p2p/' + channel
-            self.assertIn('--force-with-lease=' + branch + ':' + sha, host_args)
-            self.assertIn(sha + ':' + branch, host_args)
-        self.assertEqual(bridge_args, (refs.repository, 'push', '--dry-run',
-                                      '--force-with-lease=refs/heads/main:' + plan['base_revision'],
-                                      refs.bridge_url, plan['base_revision'] + ':refs/heads/main'))
-        self.assertFalse(any('refs/tags/' in str(arg) for arg in host_args + bridge_args))
+        git.assert_called_once_with(refs.repository, 'push', '--dry-run',
+            '--force-with-lease=refs/heads/main:' + plan['base_revision'],
+            refs.bridge_url, plan['base_revision'] + ':refs/heads/main')
+        self.assertFalse(hasattr(refs, 'promote_hosts'))
+        self.assertFalse(hasattr(refs, 'host_url'))
 
-    def test_denied_host_write_authorization_fails_verification(self):
-        refs = publisher.GitRefs('bridge', 'hosts', 'example/bridge', 'example/hosts')
+    def test_denied_write_authorization_fails_verification(self):
+        refs = publisher.GitRefs('bridge', 'example/bridge')
         with patch.object(refs, 'git', side_effect=ValueError('receive-pack denied')) as git:
             with self.assertRaisesRegex(ValueError, 'receive-pack denied'):
                 refs.verify_write_access(fixture_plan())
@@ -500,60 +493,43 @@ class GitLeaseTests(unittest.TestCase):
         self.local.mkdir()
         self.git('init', '-q')
         publisher.command('git', 'init', '-q', '--bare', self.remote)
-        commits = []
+        self.commits = []
         for number in range(3):
             (self.local / 'fixture.txt').write_text(str(number))
             self.git('add', 'fixture.txt')
             self.git('-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid',
                      'commit', '-qm', 'fixture ' + str(number))
-            commits.append(self.git('rev-parse', 'HEAD'))
+            self.commits.append(self.git('rev-parse', 'HEAD'))
         self.plan = fixture_plan()
-        for channel, candidate in zip(publisher.CHANNELS, commits[1:]):
-            self.plan['channels'][channel]['expected_old_revision'] = commits[0]
-            self.plan['channels'][channel]['candidate_revision'] = candidate
-            self.git('push', self.remote, commits[0] + ':refs/heads/p2p/' + channel)
-        self.refs = publisher.GitRefs(self.local, self.local, 'example/bridge', 'example/host')
-        self.refs.host_url = str(self.remote)
-        self.commits = commits
+        self.plan.update(base_revision=self.commits[0], candidate_revision=self.commits[1])
+        self.git('push', self.remote, self.commits[0] + ':refs/heads/main')
+        # Historical branches and tags must survive the migration untouched.
+        self.git('push', self.remote, self.commits[0] + ':refs/heads/p2p/channel-a',
+                 self.commits[0] + ':refs/tags/v0.1.0-preview.1')
+        self.refs = publisher.GitRefs(self.local, 'example/bridge')
+        self.refs.bridge_url = str(self.remote)
 
     def git(self, *args):
         return publisher.command('git', '-C', self.local, *args)
 
-    def remote_heads(self):
-        values = self.refs.refs(self.local, self.remote, 'refs/heads/p2p/*')
-        return {channel: values['refs/heads/p2p/' + channel] for channel in publisher.CHANNELS}
+    def test_real_promotion_changes_only_main_and_preserves_history(self):
+        before = self.refs.refs(self.local, self.remote)
+        self.refs.promote_bridge(self.plan)
+        after = self.refs.refs(self.local, self.remote)
+        self.assertEqual(after, before | {'refs/heads/main': self.commits[1]})
+        self.assertEqual(self.refs.heads(), self.commits[1])
 
-    def test_real_atomic_push_preserves_source_tags_and_rolls_back_with_leases(self):
-        self.refs.promote_hosts(self.plan)
-        self.refs.verify_source_tags(self.plan)
-        self.assertEqual(self.remote_heads(), {channel: self.plan['channels'][channel]['candidate_revision']
-                                             for channel in publisher.CHANNELS})
-        self.refs.rollback_hosts(self.plan)
-        self.assertEqual(set(self.remote_heads().values()), {self.commits[0]})
-        self.refs.verify_source_tags(self.plan)
-
-    def test_real_write_access_probe_leaves_all_remote_refs_unchanged(self):
-        self.refs.bridge_url = str(self.remote)
-        self.plan['base_revision'] = self.commits[0]
-        self.git('push', self.remote, self.commits[0] + ':refs/heads/main')
+    def test_real_write_access_probe_leaves_all_refs_unchanged(self):
         before = self.refs.refs(self.local, self.remote)
         self.refs.verify_write_access(self.plan)
         self.assertEqual(self.refs.refs(self.local, self.remote), before)
-        self.assertEqual(set(before), {'refs/heads/main', 'refs/heads/p2p/channel-a', 'refs/heads/p2p/channel-b'})
 
-    def test_real_concurrent_change_rejects_entire_atomic_promotion(self):
-        self.git('push', self.remote, self.commits[1] + ':refs/heads/p2p/channel-b')
+    def test_real_concurrent_change_rejects_promotion_without_overwrite(self):
+        self.git('push', self.remote, self.commits[2] + ':refs/heads/main')
+        before = self.refs.refs(self.local, self.remote)
         with self.assertRaises(ValueError):
-            self.refs.promote_hosts(self.plan)
-        self.assertEqual(self.remote_heads(), {'channel-a': self.commits[0], 'channel-b': self.commits[1]})
-        self.assertEqual(self.refs.refs(self.local, self.remote, 'refs/tags/p2p/*'), {})
-
-    def test_real_concurrent_change_rejects_entire_rollback(self):
-        self.refs.promote_hosts(self.plan)
-        self.git('push', self.remote, self.commits[2] + ':refs/heads/p2p/channel-a')
-        with self.assertRaises(ValueError):
-            self.refs.rollback_hosts(self.plan)
-        self.assertEqual(self.remote_heads(), {'channel-a': self.commits[2], 'channel-b': self.commits[2]})
+            self.refs.promote_bridge(self.plan)
+        self.assertEqual(self.refs.refs(self.local, self.remote), before)
 
 
 if __name__ == '__main__':

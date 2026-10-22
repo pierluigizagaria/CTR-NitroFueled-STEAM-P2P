@@ -1,0 +1,1481 @@
+diff --git a/build.sh b/build.sh
+index 1fc722850decaa536c5b7ae6fa0550fa73bd9c66..7a3e600d47f08e8d2afa5dcd9f202d18437701fe 100644
+--- a/build.sh
++++ b/build.sh
+@@ -8,6 +8,18 @@ psn_contract_tests() {
+     cmake --build out/psn-tests
+     ctest --test-dir out/psn-tests --output-on-failure
+ }
++net_policy_tests() {
++    local compiler=$1
++    local libraries=()
++    case $(uname -s) in MINGW*|MSYS*) libraries=(-lws2_32);; esac
++    "$compiler" -std=c11 -O2 -g -Wall -Wextra -Werror -Isrc tests/test_net_policy.c \
++        src/runtime_net_overrides.c src/runtime_net_tunnel.c "${libraries[@]}" -o out/net-policy-test
++    for backend in unset empty selected; do
++        for preserve in unset 0 1; do
++            for tunnel in 0 1; do out/net-policy-test "$backend" "$preserve" "$tunnel"; done
++        done
++    done
++}
+ # Windows: MSYS2 CLANG64 (packages in packaging/windows/README.md). The GPU library is static
+ # there and CMake links sacredfire.exe as well; no PGO (GCC-only flags), LTO off by default.
+ case $(uname -s) in
+@@ -38,7 +50,10 @@ MINGW*|MSYS*)
+     version=${BB_VERSION:-$(git describe --tags --match 'v*' --always 2>/dev/null || echo unknown)}
+     printf '%s-windows\n' "$version" > out/VERSION
+     echo "Built $PWD/out/sacredfire.exe ($(cat out/VERSION))"
+-    if [[ ${1:-} == --test ]]; then psn_contract_tests clang; fi
++    if [[ ${1:-} == --test ]]; then
++        psn_contract_tests clang
++        net_policy_tests clang
++    fi
+     exit 0
+     ;;
+ esac
+@@ -129,6 +144,7 @@ echo "Version: $version (out/VERSION)"
+ "$CC" -std=c11 -O2 -Wall -Wextra -Werror "${includes[@]}" tools/gpu_capabilities.c "${libraries[@]}" -o out/bb-gpu-capabilities
+ if [[ ${1:-} == --test ]]; then
+     psn_contract_tests "$CC"
++    net_policy_tests "$CC"
+     "$CC" -std=c11 -O2 -g -Wall -Wextra -Werror -pthread "${includes[@]}" -I. -Isrc tests/test_pad.c "${libraries[@]}" -o out/pad-test
+     out/pad-test
+     "$CC" -std=c11 -O2 -g -Wall -Wextra -Werror -pthread -I. -Isrc tests/test_runtime.c "${runtime[@]}" out/libatrac9.a -lm "${gpu[@]}" "${libraries[@]}" -o out/runtime-test
+diff --git a/docs/sacredfire/STATUS.md b/docs/sacredfire/STATUS.md
+index b3179a1676852f07c390b9e1f8276ce14c17b280..c8155db7c92a95d53091e668ae74d408d7943b99 100644
+--- a/docs/sacredfire/STATUS.md
++++ b/docs/sacredfire/STATUS.md
+@@ -2,11 +2,12 @@
+ 
+ Updated 2026-10-09.
+ 
+-2026-10-20: the opt-in [PSN host module](psn-host-backend.md) now includes an
+-optional authenticated local bridge backend for provider notifications and
+-accepted invitations. The existing RyuNET path remains the default. Windows
+-build and offline HTTP/guest-contract tests are covered; live provider and
+-in-game validation remain separate and have not been performed for this integration.
++2026-10-20: the opt-in [PSN compatibility module](psn-host-backend.md) provides a
++reusable backend binding for identity, authentication, WebAPI and notifications.
++The host supplies local user IDs and independently selects its network policy.
++RyuNET remains the default; an authenticated loopback adapter is an optional
++example. Windows build and offline contract tests are covered; live provider
++and in-game validation have not been performed for this integration.
+ 
+ ## Milestones
+ 
+diff --git a/docs/sacredfire/psn-host-backend.md b/docs/sacredfire/psn-host-backend.md
+index 22f79d5076bdb650007d1505dad9e686a7139e90..1a04b8d945ed789ae85c973006eb5a28495890cf 100644
+--- a/docs/sacredfire/psn-host-backend.md
++++ b/docs/sacredfire/psn-host-backend.md
+@@ -1,4 +1,4 @@
+-# Optional PSN backend and local notification relay
++# PSN compatibility through optional backends
+ 
+ The existing OCTR implementation mixes platform identity and PSN service replies
+ with RyuNET-specific configuration. A different platform cannot safely replace
+@@ -12,6 +12,20 @@ dump. The same module can be integrated by other bbport descendants. OCTR's shim
+ only resolves NIDs to symbols and connects startup and SystemService. Launcher
+ and socket policy remain host-specific.
+ 
++The direction is a common compatibility boundary for bbport descendants, not a
++required multiplayer service. Host adapters implement the game's existing PS4
++imports; independently selected backends supply platform services. The native
++`PsnBackendV1` binding defines ownership and capabilities without passing guest
++pointers, host sockets or game-specific packets. It is not an official Sony
++interface or a replacement game protocol.
++
++This allows hosts to share ABI conversion and lifecycle fixes while keeping their
++existing online implementation. orbiSteamworks and ctrnf-p2p provide one optional
++integration; other providers can implement the same binding. Publisher services
++and peer transport are separate decisions. A future shadPS4 adapter may consume
++the same provider services, but this change neither modifies shadPS4 nor claims
++cross-host gameplay compatibility.
++
+ ## Compatibility decision
+ 
+ Selection is explicit and fixed before guest startup. Without `BB_PSN_BACKEND`,
+@@ -21,6 +35,13 @@ social profile; loading or initialization failure does not select RyuNET instead
+ Unsupported external operations fail explicitly instead of borrowing synthetic
+ responses from another identity namespace. Local trophy services stay with OCTR.
+ 
++The host supplies its local user IDs explicitly; OCTR retains IDs 1 through 4.
++Selecting a PSN backend does not select a transport, enable online mode or turn
++off the RyuNET tunnel. `BB_ONLINE` and `BB_ONLINE_TUNNEL` retain their separate
++roles. The independent opt-in `BB_NET_PRESERVE_ENDPOINTS=1` keeps guest bind
++addresses and ports intact, disabling port overrides, retries and UPnP-body
++rewriting for integrations which require stable endpoints. It is off by default.
++
+ An invitation accepted in the platform UI enters the SystemService queue. The
+ game then performs its original session WebAPI requests. A WebAPI invitation
+ notification alone does not imply acceptance. Likewise, opening a provider's
+@@ -46,8 +67,9 @@ The relay's independent event worker avoids blocking friends/invitations behind
+ a slow session request. A replay cursor acknowledges copied events and prevents
+ a repeated HTTP response from duplicating an accepted invitation. Queue loss,
+ account replacement or malformed messages fail the selected session. Identity
+-is mapped only to local user 1, and unsupported authorization-code and invitation
+-UI operations remain explicit failures. See the [backend contract and build
++is mapped to an explicitly configured local user (1 by default); unsupported
++authorization-code and invitation UI operations remain explicit failures.
++See the [backend contract and build
+ instructions](../../platform/psn/backends/README.md).
+ 
+ ## Evidence and ownership
+@@ -79,26 +101,15 @@ unregistration, and invitation-dialog outcomes. Launcher tests verify that an
+ explicit external selection bypasses RyuNET admission and rejects Discord join
+ mutations while the default path retains its existing behavior.
+ 
+-Windows validation used the existing MSYS2 CLANG64 toolchain, including the full
+-`bash build.sh --test` build of the runtime and native launcher. The module's 25
+-CTest cases and the 12 focused Python launcher tests passed.
+-
+-The full Python discovery run executed 151 tests: 109 passed, 38 skipped and four
+-failed in this Windows environment. Two require symlink creation privilege; one
+-requires Linux Bash through WSL; one assumes Linux Vulkan driver paths. The
+-affected existing tests and their implementation files were not changed. They
+-are not recorded as passing. A Linux build/test run remains required before
+-merging upstream; no Linux/macOS runtime or in-game acceptance is claimed here.
+-
+-No game or platform client was launched for these checks, and no installed
+-binaries, profiles, saves or databases were replaced.
+-
+-The 2026-10-20 pass repeated the full Windows build and its 25 existing module
+-tests, the 12 focused launcher tests, and Python discovery with the same four
+-environment-dependent failures. The optional backend adds an HTTP fixture using
+-the real module and real guest callback adapter: nine scenarios cover transport,
+-request ownership/cancellation, a six-second response, filter fanout, callback
+-unregistration, exact sender identity, accepted-invitation replay, malformed
+-messages, stream overflow and account change. The combined standalone CTest run
+-passes 26 tests. The fixture runs only on local loopback and uses synthetic data;
+-it does not run the game or any platform client.
++The network-policy harness exercises real loopback binds with backend selection
++unset, empty and enabled, independently varying endpoint preservation and tunnel
++selection. Identity, WebAPI and event tests also use nonsequential and zero-valued
++host user IDs. The optional adapter's HTTP fixture exercises actual module loading,
++request cancellation, slow replies, subscription fanout, guest callbacks, invitation
++layout/replay and malformed, overflow and account-change failures.
++
++Use `bash build.sh --test` for the build and native tests, and
++`python3 -m unittest discover -s tests` for launcher/tool tests. The optional
++backend has its own documented CMake build. These checks use synthetic data and
++establish software contracts, not live friends refresh, invitation delivery or
++successful joining. Linux/macOS and in-game acceptance must be assessed separately.
+diff --git a/platform/psn/CMakeLists.txt b/platform/psn/CMakeLists.txt
+index 0c47925fb285b52219c1c84e485212d144dad59b..8d1a1242ba93277c0de8500cb702c536a47bbc52 100644
+--- a/platform/psn/CMakeLists.txt
++++ b/platform/psn/CMakeLists.txt
+@@ -31,7 +31,10 @@ if(PSN_HOST_TESTS)
+         target_link_libraries(psn-${part}-test PRIVATE Threads::Threads)
+         set_target_properties(psn-${part}-test PROPERTIES C_STANDARD 11 C_STANDARD_REQUIRED ON)
+         add_test(NAME psn-${part} COMMAND psn-${part}-test)
+-        set_tests_properties(psn-${part} PROPERTIES TIMEOUT 20)
++        add_test(NAME psn-${part}-arbitrary-user COMMAND psn-${part}-test 70001)
++        add_test(NAME psn-${part}-zero-user COMMAND psn-${part}-test 0)
++        set_tests_properties(psn-${part} psn-${part}-arbitrary-user psn-${part}-zero-user
++            PROPERTIES TIMEOUT 20)
+     endforeach()
+     add_library(psn-backend-fixture MODULE tests/psn_backend_fixture.c)
+     set_target_properties(psn-backend-fixture PROPERTIES C_STANDARD 11 C_STANDARD_REQUIRED ON)
+@@ -42,8 +45,8 @@ if(PSN_HOST_TESTS)
+     target_compile_options(psn-backend-test PRIVATE -UNDEBUG -Wall -Wextra -Werror)
+     target_link_libraries(psn-backend-test PRIVATE Threads::Threads ${CMAKE_DL_LIBS})
+     set_target_properties(psn-backend-test PROPERTIES C_STANDARD 11 C_STANDARD_REQUIRED ON)
+-    foreach(case default empty relative missing bad-abi bad-size bad-capabilities missing-function
+-            query-null open-error open-null open-partial good overflow invalid-event invalid-invite
++    foreach(case default empty unconfigured-users relative missing bad-abi bad-size bad-capabilities missing-function
++            query-null open-error open-null open-partial good good-arbitrary-user overflow invalid-event invalid-invite
+             invalid-user invalid-state invalid-push oversized-push event-error state-error push-error)
+         add_test(NAME psn-backend-${case} COMMAND psn-backend-test $<TARGET_FILE:psn-backend-fixture> ${case})
+         set_tests_properties(psn-backend-${case} PROPERTIES TIMEOUT 10)
+diff --git a/platform/psn/README.md b/platform/psn/README.md
+index d3482225eb3e23cd6d3c0ec2f2301da1b88de391..12c9b820627b0cbd22a9820cd330aa8613ceb125 100644
+--- a/platform/psn/README.md
++++ b/platform/psn/README.md
+@@ -1,8 +1,8 @@
+ # PSN host module
+ 
+-A PS4 platform-service adapter that builds independently of OCTR, its renderer,
+-any game dump and any platform SDK. OCTR connects startup, import resolution,
+-SystemService and its launcher/network policy. The native backend ABI keeps
++A PS4 platform-service adapter that builds independently of its host, renderer,
++any game dump and any platform SDK. The host connects startup, import resolution,
++SystemService and its own launcher/network policy. The native backend ABI keeps
+ platform implementations separate from those host responsibilities.
+ 
+ The game's existing PS4 imports remain the interface. `include/psn_backend.h` is
+@@ -13,7 +13,7 @@ invitation-dialog state. The publisher server and peer transport stay separate.
+ 
+ ## Default behavior and selection
+ 
+-With `BB_PSN_BACKEND` unset or empty, OCTR uses its existing RyuNET/Discord path.
++With `BB_PSN_BACKEND` unset or empty, the host uses its existing service path.
+ The module does not initialize a platform SDK or change that path's responses.
+ An external backend is opt-in:
+ 
+@@ -27,7 +27,7 @@ configuration string is opaque to the host. Export `psn_backend_query` with the
+ native C calling convention and return a `PsnBackendV1` table for version 1.
+ All capability bits in `PSN_PROFILE_SOCIAL_V1` and all table functions are required.
+ Invalid paths, ABI versions, missing functions or initialization failures stop
+-activation; they never fall back to RyuNET. Selection is fixed for the process.
++activation; they never fall back to the host's built-in backend. Selection is fixed for the process.
+ Only load libraries you trust: this is an in-process extension, not a sandbox.
+ 
+ The optional [bridge backend](backends/README.md) is a concrete implementation
+@@ -35,13 +35,13 @@ for an independently supervised provider. It uses authenticated loopback HTTP
+ and does not load Steam or link provider code. The dynamically loaded test
+ module remains a fixture, separate from this implementation.
+ 
+-OCTR keeps publisher routing separately configurable. In external mode it skips
+-RyuNET nickname claims, synthetic identity/friend lists, Discord join secrets and
+-invite-file writes. Discord display presence remains available. The runtime uses
+-direct sockets without RyuNET tunnel, port retries/remapping or UPnP-body rewriting.
+-An explicitly configured publisher route is retained; no RyuNET default route is
+-created if none was selected. Local users, trophies, saves and rendering remain
+-owned by the host.
++Backend selection owns identity and social services only. It must not implicitly
++choose publisher routing, enable online mode, select a tunnel or change socket
++address/port policy. Each host configures those separately and prevents its
++legacy identity or invitation path from mixing with the selected backend.
++Local users, trophies, saves and rendering remain owned by the host. See the
++[host integration note](../../docs/sacredfire/psn-host-backend.md) for its defaults
++and transport options.
+ 
+ ## Implemented contracts
+ 
+@@ -62,7 +62,7 @@ This does not claim compatibility with every historical SDK variant.
+ Unsupported NP operations return an explicit error in external mode. In particular,
+ the older extended-push callback signature, notification callback variants, NP
+ NotifyPlusFeature, manager SetTimeout,
+-dedicated multipart builders and pool statistics are not implemented. OCTR's
++dedicated multipart builders and pool statistics are not implemented. The host's
+ existing local WebAPI NpId parsing utility remains available. Score, TUS/TSS,
+ Matching2 and signaling are outside this profile.
+ The built-in implementation retains its existing behavior. The bridge backend
+@@ -89,11 +89,20 @@ complete PSN implementation or verified end-to-end online replacement.
+ - Queue overflow or malformed events produce an error instead of silent loss.
+   There is no artificial session/menu-idle deadline. Request timeouts remain bounded.
+ 
++Before `psn_host_start()`, call `psn_host_set_local_users(ids, count)` with the
++host's possible local user IDs (one to four). The module copies this snapshot;
++IDs are opaque nonnegative values, including zero, rather than a presumed
++`1..4` range. Changing the snapshot after startup is rejected. Identity lookup,
++legacy online-ID/account-ID lookup, callback seeding and accepted invitations
++use this set. The backend reports sign-in state; the snapshot does not log users
++in or replace the host's UserService. `src/runtime_psn.c` supplies its host's
++existing controller-slot IDs; another host supplies its own IDs.
++
+ Call `psn_host_start()` before resolving guest imports. Pass resolved symbol names
+ to `psn_host_resolve()` before the host's normal services table; zero means leave
+ the import to the host. Connect SystemService count/receive to the module only in
+ selected mode. Stop guest threads before explicit `psn_host_stop()`; process exit
+-also runs cleanup. `src/runtime_psn.c` shows OCTR's small integration shim.
++also runs cleanup. `src/runtime_psn.c` shows the small integration shim.
+ 
+ ## Build and test without a game
+ 
+diff --git a/platform/psn/backends/README.md b/platform/psn/backends/README.md
+index 76f92edb9a7afe51d0c038c219c573e356189015..e021526d6b00b7d07bd5fa8759469c4a128aff51 100644
+--- a/platform/psn/backends/README.md
++++ b/platform/psn/backends/README.md
+@@ -1,14 +1,15 @@
+ # Local bridge backend
+ 
+ `psn-bridge-backend` connects the optional PSN host module to a separately
+-supervised platform provider. The provider translates Steam events into PSN
++supervised platform provider. The provider maps its platform events into PSN
+ notification types and payloads. This adapter transports requests and copied
+ notifications, while the host owns guest memory, filters, callbacks and
+ SystemService events. No Steam library, game packet parser or provider source is
+-linked into OCTR.
++linked into the host.
+ 
+-The backend is opt-in. The normal OCTR build and RyuNET/Discord path remain the
+-default. A supervisor such as ctrnf-p2p starts the selected host with:
++The backend is opt-in. The normal host build and built-in service path remain the
++default. A supervisor such as [ctrnf-p2p](https://github.com/pierluigizagaria/ctrnf-p2p)
++starts the selected host with:
+ 
+ ```text
+ BB_PSN_BACKEND=<absolute path to psn-bridge-backend.dll or .so>
+@@ -64,8 +65,13 @@ case-insensitive header names are unsupported because the relay's header object
+ cannot preserve them. HTTP error status and transport failure remain distinct.
+ 
+ The handshake requires identity, ID-token, WebAPI, push and accepted-invitation
+-capabilities, version 1 and a signed-in identity. One local PS4 user (1) maps to
+-that account. The session cannot switch accounts. The fixed local adult policy
++capabilities, version 1 and a signed-in identity. One local PS4 user maps to that
++account. The optional `local_user_id` configuration field selects its opaque
++nonnegative ID (default `1`). The integrating host must
++include that ID in its local-user snapshot; this selection does not change the
++platform account or relay protocol. Identity, requests, subscriptions and accepted
++invitation events preserve the selected local ID. The session cannot switch accounts.
++The fixed local adult policy
+ (age 99, Plus-authorized, unrestricted) preserves the port's local policy; it is
+ not a claim about a PSN subscription or Steam parental enforcement. Title and
+ content-policy inputs are validated locally. Sony application secrets are never
+@@ -102,5 +108,6 @@ The HTTP fixture exercises the real module, exact account IDs, binary requests,
+ six-second replies, active cancellation, subscription fanout, guest callback
+ dispatch and self-unregister, accepted-invitation layout and cursor replay,
+ malformed/account-change/overflow failures, credentials, redirects and endpoint
+-validation. These are offline contract checks. They do not establish Steam
++validation, and explicit local-user mapping with IDs `70001` and `0`. These are
++offline contract checks. They do not establish Steam
+ delivery, successful in-game joining or friend-page refresh in a live game.
+diff --git a/platform/psn/backends/bridge_backend.cpp b/platform/psn/backends/bridge_backend.cpp
+index 2a0fab7cb1e9b40f4b231851ee020cea6bc50cd3..217d9222d482ee5fa73ab72ae59480a928d4d172 100644
+--- a/platform/psn/backends/bridge_backend.cpp
++++ b/platform/psn/backends/bridge_backend.cpp
+@@ -148,6 +148,7 @@ struct Event {
+ };
+ struct Instance {
+     std::string url, token;
++    int32_t local_user_id = 1;
+     std::atomic<bool> stopping{false};
+     std::mutex mutex;
+     std::condition_variable wake;
+@@ -258,10 +259,10 @@ void peer(const Json &j, uint64_t &account, char (&name)[17], bool unknown = fal
+     copy(name, text(j.at("onlineId"), 16, unknown));
+     require(account || !name[0]);
+ }
+-std::shared_ptr<Event> event(const Json &j, const PsnIdentity &identity) {
++std::shared_ptr<Event> event(const Json &j, const PsnIdentity &identity, int32_t local_user_id) {
+     require(j.is_object() && integer(j.at("version")) == 1);
+     auto e = std::make_shared<Event>();
+-    e->value.user_id = 1;
++    e->value.user_id = local_user_id;
+     auto kind = text(j.at("kind"), 32, false);
+     if (kind == "identity") {
+         e->value.kind = 1;
+@@ -284,7 +285,7 @@ std::shared_ptr<Event> event(const Json &j, const PsnIdentity &identity) {
+         copy(v.session_id, text(j.at("sessionId"), 45, false));
+         copy(v.invitation_id, text(j.at("invitationId"), 60, false));
+         v.flag = 1;
+-        v.accepting_user_id = 1;
++        v.accepting_user_id = local_user_id;
+         v.referring_account_id = from;
+         copy(v.accepting_online_id, to_name);
+         copy(v.referring_online_id, from_name);
+@@ -338,7 +339,7 @@ void poll_events(Instance &i) {
+         if (sequence <= cursor)
+             continue; // A retried response never replays a delivered invitation.
+         require(sequence == cursor + 1);
+-        auto e = event(entry.at("event"), i.identity);
++        auto e = event(entry.at("event"), i.identity, i.local_user_id);
+         if (e->value.kind == 1) {
+             auto id = e->value.data.identity;
+             require(id.state == 2 && id.account_id == i.identity.account_id);
+@@ -468,8 +469,12 @@ int32_t open(const char *configuration, void **out) {
+     *out = nullptr;
+     return guarded([&]() -> int32_t {
+         auto j = Json::parse(input(configuration, 4096, false));
+-        require(j.is_object() && j.size() == 2);
++        require(j.is_object() && (j.size() == 2 || (j.size() == 3 && j.contains("local_user_id"))));
+         auto i = std::make_unique<Instance>();
++        if (j.contains("local_user_id")) {
++            i->local_user_id = integer(j.at("local_user_id"));
++            require(i->local_user_id >= 0);
++        }
+         i->url = text(j.at("url"), 64, false);
+         i->token = text(j.at("token"), 64, false);
+         require(i->token.size() == 64 &&
+@@ -539,7 +544,7 @@ void close(void *opaque) {
+     delete i;
+ }
+ int32_t identity(void *opaque, int32_t user, PsnIdentity *out) {
+-    if (!opaque || !out || user != 1)
++    if (!opaque || !out || user != static_cast<Instance *>(opaque)->local_user_id)
+         return PSN_INVALID_ARGUMENT;
+     auto &i = *static_cast<Instance *>(opaque);
+     std::lock_guard lock(i.mutex);
+@@ -593,7 +598,7 @@ int32_t submit(Instance &i, std::shared_ptr<Job> job, uint64_t *out) {
+     return 0;
+ }
+ int32_t auth_start(void *opaque, const PsnAuthRequest *r, uint64_t *out) {
+-    if (!opaque || !r || !out || r->user_id != 1)
++    if (!opaque || !r || !out || r->user_id != static_cast<Instance *>(opaque)->local_user_id)
+         return PSN_INVALID_ARGUMENT;
+     if (r->kind != 1)
+         return PSN_BACKEND_UNSUPPORTED;
+@@ -624,8 +629,8 @@ int32_t auth_poll(void *opaque, uint64_t id, PsnAuthResult *out) {
+     return 0;
+ }
+ int32_t web_start(void *opaque, const PsnWebRequest *r, uint64_t *out) {
+-    if (!opaque || !r || !out || r->user_id != 1 || r->method > 4 ||
+-        r->header_count > PSN_MAX_HEADERS || (r->header_count && !r->headers))
++    if (!opaque || !r || !out || r->user_id != static_cast<Instance *>(opaque)->local_user_id ||
++        r->method > 4 || r->header_count > PSN_MAX_HEADERS || (r->header_count && !r->headers))
+         return PSN_INVALID_ARGUMENT;
+     if (r->body.size > body_limit)
+         return PSN_BACKEND_UNSUPPORTED;
+@@ -712,8 +717,9 @@ void release(void *opaque, uint64_t id) {
+     std::erase(i.pending, id);
+ }
+ int32_t subscribe(void *opaque, uint64_t cookie, const PsnPushFilter *f) {
+-    if (!opaque || !f || !cookie || f->user_id != 1 || f->kind < 1 || f->kind > 3 ||
+-        f->ext_key_count > PSN_MAX_EXT_DATA || (f->ext_key_count && !f->ext_keys))
++    if (!opaque || !f || !cookie || f->user_id != static_cast<Instance *>(opaque)->local_user_id ||
++        f->kind < 1 || f->kind > 3 || f->ext_key_count > PSN_MAX_EXT_DATA ||
++        (f->ext_key_count && !f->ext_keys))
+         return PSN_INVALID_ARGUMENT;
+     return guarded([&]() -> int32_t {
+         Subscription s{f->kind, f->service_label, f->service != nullptr,
+diff --git a/platform/psn/psn_host.c b/platform/psn/psn_host.c
+index 332c6e608ece93fb647864a5afe4a7c90dcabf03..8d91b96a2f0ccaad859d4bf6c59bfa37fd69c2b2 100644
+--- a/platform/psn/psn_host.c
++++ b/platform/psn/psn_host.c
+@@ -27,6 +27,50 @@ static int32_t failure;
+ #define INVITE_CAPACITY 32
+ static PsnSessionInvitation invitations[INVITE_CAPACITY];
+ static unsigned invitation_head, invitation_count;
++static int32_t local_users[PSN_MAX_LOCAL_USERS];
++static uint32_t local_user_count;
++
++int32_t psn_host_set_local_users(const int32_t *users, uint32_t count) {
++    if (!users || !count || count > PSN_MAX_LOCAL_USERS)
++        return PSN_INVALID_ARGUMENT;
++    int32_t copied[PSN_MAX_LOCAL_USERS];
++    memcpy(copied, users, count * sizeof(*users));
++    for (uint32_t i = 0; i < count; ++i) {
++        if (copied[i] < 0)
++            return PSN_INVALID_ARGUMENT;
++        for (uint32_t j = 0; j < i; ++j)
++            if (copied[i] == copied[j])
++                return PSN_INVALID_ARGUMENT;
++    }
++    pthread_mutex_lock(&backend_mutex);
++    int32_t result = 0;
++    if (initialized && (count != local_user_count ||
++                        memcmp(local_users, copied, count * sizeof(*users))))
++        result = PSN_BACKEND_BUSY;
++    if (!result) {
++        memcpy(local_users, copied, count * sizeof(*users));
++        local_user_count = count;
++    }
++    pthread_mutex_unlock(&backend_mutex);
++    return result;
++}
++uint32_t psn_host_local_users(int32_t users[PSN_MAX_LOCAL_USERS]) {
++    if (!users)
++        return 0;
++    pthread_mutex_lock(&backend_mutex);
++    uint32_t count = local_user_count;
++    memcpy(users, local_users, count * sizeof(*users));
++    pthread_mutex_unlock(&backend_mutex);
++    return count;
++}
++int psn_host_has_local_user(int32_t user) {
++    int32_t users[PSN_MAX_LOCAL_USERS];
++    uint32_t count = psn_host_local_users(users);
++    for (uint32_t i = 0; i < count; ++i)
++        if (users[i] == user)
++            return 1;
++    return 0;
++}
+ 
+ int psn_host_selected(void) {
+     /* Selection is immutable from the first runtime entry, before NP initialization. */
+@@ -69,6 +113,12 @@ int psn_host_start(void) {
+         return result;
+     }
+     initialized = 1;
++    if (!local_user_count) {
++        failure = PSN_INVALID_ARGUMENT;
++        fputs("PSN backend: the host has not configured its local user IDs.\n", stderr);
++        pthread_mutex_unlock(&backend_mutex);
++        return failure;
++    }
+     const char *path = getenv("BB_PSN_BACKEND");
+     PsnBackendEntry query = NULL;
+ #ifdef _WIN32
+@@ -204,7 +254,7 @@ static int32_t queue_invitation(const PsnSessionInvitation *invite) {
+         !memchr(invite->invitation_id, 0, sizeof(invite->invitation_id)) ||
+         !memchr(invite->accepting_online_id, 0, sizeof(invite->accepting_online_id)) ||
+         !memchr(invite->referring_online_id, 0, sizeof(invite->referring_online_id)) ||
+-        invite->accepting_user_id < 1 || invite->accepting_user_id > 4)
++        !psn_host_has_local_user(invite->accepting_user_id))
+         return PSN_INVALID_ARGUMENT;
+     pthread_mutex_lock(&system_mutex);
+     int32_t result = PSN_BACKEND_BUSY;
+diff --git a/platform/psn/psn_host.h b/platform/psn/psn_host.h
+index cdc963175dee0eb51b14c6d6803ed15fc4e385a2..7d542a608f0138c3f31336ccc48de655801d23cf 100644
+--- a/platform/psn/psn_host.h
++++ b/platform/psn/psn_host.h
+@@ -28,6 +28,13 @@ static inline uintptr_t psn_host_lookup(const PsnHostExport *table, size_t count
+ /* Internal host adapter. Backend lock serializes native calls, never guest callbacks.
+  * Module registry locks may nest the backend lock; the core releases its lock before
+  * delivering events to either module. Resolver functions are only used in external mode. */
++/* Local user IDs belong to the integrating host, not the platform provider. Copy a
++ * process-lifetime set before start(); IDs are opaque nonnegative values, not slot
++ * numbers. Local login state is still reported by identity(), never inferred here. */
++#define PSN_MAX_LOCAL_USERS 4u
++int32_t psn_host_set_local_users(const int32_t *users, uint32_t count);
++uint32_t psn_host_local_users(int32_t users[PSN_MAX_LOCAL_USERS]);
++int psn_host_has_local_user(int32_t user);
+ int psn_host_selected(void);
+ int psn_host_start(void);
+ void psn_host_stop(void);
+diff --git a/platform/psn/psn_identity.c b/platform/psn/psn_identity.c
+index fd58fd4c6febdb3e5ae78094e981558a77063b4a..2a920ea2301990c9dbbccfb55f0d21ec37f7f15b 100644
+--- a/platform/psn/psn_identity.c
++++ b/platform/psn/psn_identity.c
+@@ -88,7 +88,7 @@ static void online_to_guest(GuestOnlineId *out, const char *name) {
+     memcpy(out->data, name, bounded_length(name, 16));
+ }
+ static int32_t get_identity(int32_t user, PsnIdentity *identity) {
+-    if (user < 1 || user > 4)
++    if (!psn_host_has_local_user(user))
+         return NP_USER_NOT_FOUND;
+     void *instance;
+     const PsnBackendV1 *backend = psn_host_lock(&instance);
+@@ -110,7 +110,10 @@ static int32_t user_from_online(const GuestOnlineId *online) {
+     memcpy(&copied, online, sizeof(copied));
+     if (copied.term)
+         return PSN_INVALID_ARGUMENT;
+-    for (int32_t user = 1; user <= 4; ++user) {
++    int32_t users[PSN_MAX_LOCAL_USERS];
++    uint32_t count = psn_host_local_users(users);
++    for (uint32_t i = 0; i < count; ++i) {
++        int32_t user = users[i];
+         PsnIdentity id = {0};
+         if (!signed_identity(user, &id)) {
+             GuestOnlineId candidate;
+@@ -162,7 +165,10 @@ static PSN_GUEST_ABI int32_t np_account(int32_t user, uint64_t *out) {
+ static PSN_GUEST_ABI int32_t np_user(uint64_t account, int32_t *out) {
+     if (!out || !account)
+         return PSN_INVALID_ARGUMENT;
+-    for (int32_t user = 1; user <= 4; ++user) {
++    int32_t users[PSN_MAX_LOCAL_USERS];
++    uint32_t count = psn_host_local_users(users);
++    for (uint32_t i = 0; i < count; ++i) {
++        int32_t user = users[i];
+         PsnIdentity identity = {0};
+         if (!signed_identity(user, &identity) && identity.account_id == account) {
+             *out = user;
+@@ -369,7 +375,7 @@ static int32_t auth_start(int32_t id, const GuestAuth *param, void *output, int3
+     int32_t user = variant ? copied.identity.user : user_from_online(copied.identity.online);
+     if (user < 0)
+         return user;
+-    if (user < 1 || user > 4)
++    if (!psn_host_has_local_user(user))
+         return AUTH_INVALID_ARGUMENT;
+     char client[129] = {0}, secret[257] = {0}, scope[4097] = {0};
+     if (!copy_string(client, sizeof(client), copied.client) ||
+@@ -520,7 +526,7 @@ static PSN_GUEST_ABI int32_t set_restriction(const GuestContentRestriction *para
+ 
+ static int32_t policy_request(int32_t id, int32_t user, int kind, uint64_t features, void *out,
+                               int8_t *age) {
+-    if (user < 1 || user > 4)
++    if (!psn_host_has_local_user(user))
+         return PSN_INVALID_ARGUMENT;
+     pthread_mutex_lock(&identity_mutex);
+     Request *request = request_find(id, 0);
+@@ -660,7 +666,7 @@ static int32_t queue_event_locked(const PsnEvent *value, int only_slot) {
+     return 0;
+ }
+ int32_t psn_host_identity_event(const PsnEvent *event) {
+-    if (!event || event->user_id < 1 || event->user_id > 4)
++    if (!event || !psn_host_has_local_user(event->user_id))
+         return PSN_INVALID_ARGUMENT;
+     switch (event->kind) {
+     case 1:
+@@ -707,7 +713,10 @@ static int32_t register_state(void *function, void *argument, int kind) {
+         cb->kind = kind;
+         cb->generation = ++callback_generation;
+         rc = 0;
+-        for (int32_t user = 1; kind <= CALLBACK_STATE_A && user <= 4; ++user) {
++        int32_t users[PSN_MAX_LOCAL_USERS];
++        uint32_t count = psn_host_local_users(users);
++        for (uint32_t i = 0; kind <= CALLBACK_STATE_A && i < count; ++i) {
++            int32_t user = users[i];
+             PsnIdentity identity = {0};
+             if (!get_identity(user, &identity)) {
+                 PsnEvent event = {.kind = 1, .user_id = user};
+@@ -955,8 +964,8 @@ static int32_t dialog_open(const GuestDialogParam *param, int account_ids) {
+     if (!param)
+         return DIALOG_ERROR(13);
+     GuestDialogParam copied = *param;
+-    if (copied.size != sizeof(copied) || copied.base_size != 48 || copied.user < 1 ||
+-        copied.user > 4 || (copied.mode != 1 && copied.mode != 2))
++    if (copied.size != sizeof(copied) || copied.base_size != 48 ||
++        !psn_host_has_local_user(copied.user) || (copied.mode != 1 && copied.mode != 2))
+         return DIALOG_ERROR(10);
+     char message[513] = {0}, session[46] = {0};
+     PsnInvitationUser users[16] = {{0}};
+diff --git a/platform/psn/psn_webapi.c b/platform/psn/psn_webapi.c
+index ea0c64a87f6a41597e5168d4e2ee904ec0f6b1da..28cc000af0778bf04907b4cf4450e164ca6023cf 100644
+--- a/platform/psn/psn_webapi.c
++++ b/platform/psn/psn_webapi.c
+@@ -332,7 +332,7 @@ static PSN_GUEST_ABI int32_t web_initialize(int32_t http, uint64_t pool_size) {
+     return id;
+ }
+ static PSN_GUEST_ABI int32_t web_create_context_a(int32_t library, int32_t user) {
+-    if (user < 1 || user > 4)
++    if (!psn_host_has_local_user(user))
+         return WEB_INVALID;
+     pthread_mutex_lock(&web_lock);
+     if (!find_library(library)) {
+@@ -368,20 +368,21 @@ static PSN_GUEST_ABI int32_t web_create_context_a(int32_t library, int32_t user)
+ static PSN_GUEST_ABI int32_t web_create_context(int32_t library, const GuestOnlineId *online) {
+     if (!online || strnlen(online->name, 17) > 16)
+         return WEB_INVALID;
+-    int32_t user = 0;
++    int32_t user = -1, users[PSN_MAX_LOCAL_USERS];
++    uint32_t count = psn_host_local_users(users);
+     void *instance;
+     const PsnBackendV1 *backend = psn_host_lock(&instance);
+     if (backend)
+-        for (int32_t i = 1; i <= 4; i++) {
++        for (uint32_t i = 0; i < count; i++) {
+             PsnIdentity identity = {0};
+-            if (!backend->identity(instance, i, &identity) && identity.state == 2 &&
++            if (!backend->identity(instance, users[i], &identity) && identity.state == 2 &&
+                 !strncmp(identity.online_id, online->name, 17)) {
+-                user = i;
++                user = users[i];
+                 break;
+             }
+         }
+     psn_host_unlock();
+-    return user ? web_create_context_a(library, user) : WEB_ERROR(16);
++    return user >= 0 ? web_create_context_a(library, user) : WEB_ERROR(16);
+ }
+ static PSN_GUEST_ABI int32_t web_delete_context(int32_t id) {
+     pthread_mutex_lock(&web_lock);
+diff --git a/platform/psn/tests/bridge_http_fixture.py b/platform/psn/tests/bridge_http_fixture.py
+index ac15245b37d9dbd1cefb0cb7d3a38667f2282c06..c104a2acd222e391949bb4b207522bf8c7e1dcad 100644
+--- a/platform/psn/tests/bridge_http_fixture.py
++++ b/platform/psn/tests/bridge_http_fixture.py
+@@ -104,7 +104,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
+ 
+ 
+ def main():
+-    for mode in ('good', 'overflow', 'account-change', 'lost-cursor', 'malformed', 'bad-info', 'bad-token', 'redirect', 'nonloopback'):
++    for mode in ('good', 'arbitrary-user', 'zero-user', 'overflow', 'account-change', 'lost-cursor', 'malformed', 'bad-info', 'bad-token', 'redirect', 'nonloopback'):
+         server = Server(('127.0.0.1', 0), Handler)
+         server.mode, server.events, server.replayed, server.failure = mode, [], False, ''
+         server.lock = threading.Lock()
+diff --git a/platform/psn/tests/psn_backend_fixture.c b/platform/psn/tests/psn_backend_fixture.c
+index 21d6bf6f76b3d57c7ea8298e93f7460cff23b7f7..28a37a73de798ba4804007d31d92a3ff82cdccd7 100644
+--- a/platform/psn/tests/psn_backend_fixture.c
++++ b/platform/psn/tests/psn_backend_fixture.c
+@@ -144,7 +144,7 @@ static void make_invitation(PsnEvent *event, unsigned index) {
+     invite->session_id[0] = (char)('A' + index % 26);
+     memset(invite->invitation_id, 'I', 60);
+     invite->flag = 0xa1b2c3d4u;
+-    invite->accepting_user_id = 3;
++    invite->accepting_user_id = is_case("good-arbitrary-user") ? 70001 : 3;
+     memset(invite->accepting_online_id, 'A', 16);
+     memset(invite->referring_online_id, 'R', 16);
+     invite->referring_account_id = UINT64_C(0xfedcba9876543210);
+diff --git a/platform/psn/tests/test_psn_backend.c b/platform/psn/tests/test_psn_backend.c
+index 5dc5ab1143afd2223c3cfe40dd128383b40ff496..38ad5448f8607ffdb1cd1f2d24c78da16ee86dda 100644
+--- a/platform/psn/tests/test_psn_backend.c
++++ b/platform/psn/tests/test_psn_backend.c
+@@ -120,7 +120,8 @@ static void release_fixture(void *library) {
+ 
+ static void check_invitation_queue(void) {
+     unsigned char actual[184], expected[180] = {0};
+-    const int32_t kind = 0x10000002, user = 3;
++    const int32_t kind = 0x10000002;
++    const int32_t user = strcmp(test_case, "good-arbitrary-user") == 0 ? 70001 : 3;
+     const uint32_t flag = 0xa1b2c3d4u;
+     const uint64_t account = UINT64_C(0xfedcba9876543210);
+     CHECK(psn_host_system_count() == 1);
+@@ -187,6 +188,13 @@ int main(int argc, char **argv) {
+         psn_host_stop();
+         return failures ? 1 : 0;
+     }
++    if (strcmp(test_case, "unconfigured-users") == 0) {
++        set_environment("BB_PSN_BACKEND", path);
++        CHECK(psn_host_start() == PSN_INVALID_ARGUMENT);
++        CHECK(psn_host_pump() == PSN_INVALID_ARGUMENT);
++        psn_host_stop();
++        return failures ? 1 : 0;
++    }
+     if (strcmp(test_case, "relative") == 0)
+         path = "psn_backend_fixture.dll";
+     char missing[32768];
+@@ -194,6 +202,19 @@ int main(int argc, char **argv) {
+         snprintf(missing, sizeof(missing), "%s.missing", path);
+         path = missing;
+     }
++    int32_t users[] = {1, 3, 0, 70001};
++    CHECK(psn_host_set_local_users(NULL, 1) == PSN_INVALID_ARGUMENT);
++    CHECK(psn_host_set_local_users(users, 0) == PSN_INVALID_ARGUMENT);
++    CHECK(psn_host_set_local_users(users, 5) == PSN_INVALID_ARGUMENT);
++    int32_t duplicate[] = {1, 1}, invalid[] = {-1};
++    CHECK(psn_host_set_local_users(duplicate, 2) == PSN_INVALID_ARGUMENT);
++    CHECK(psn_host_set_local_users(invalid, 1) == PSN_INVALID_ARGUMENT);
++    CHECK(psn_host_set_local_users(users, 4) == 0);
++    users[3] = 7; /* The host owns a copy, not this caller's array. */
++    int32_t copied[PSN_MAX_LOCAL_USERS];
++    CHECK(psn_host_local_users(copied) == 4 && copied[3] == 70001);
++    CHECK(psn_host_has_local_user(0) && psn_host_has_local_user(70001));
++    CHECK(!psn_host_has_local_user(2) && !psn_host_has_local_user(-1));
+     set_environment("BB_PSN_BACKEND", path);
+     CHECK(psn_host_selected() == 1);
+     const int init_failure =
+@@ -201,6 +222,8 @@ int main(int argc, char **argv) {
+         strncmp(test_case, "bad-", 4) == 0 || strcmp(test_case, "missing-function") == 0 ||
+         strcmp(test_case, "query-null") == 0 || strncmp(test_case, "open-", 5) == 0;
+     int32_t result = psn_host_start();
++    CHECK(psn_host_set_local_users(users, 4) == PSN_BACKEND_BUSY);
++    CHECK(psn_host_set_local_users(copied, 4) == 0);
+     if (init_failure) {
+         int32_t expected = strcmp(test_case, "open-error") == 0     ? PSN_BACKEND_BUSY
+                            : strcmp(test_case, "open-partial") == 0 ? PSN_BACKEND_ABORTED
+@@ -229,7 +252,7 @@ int main(int argc, char **argv) {
+     CHECK(fixture_stats()->opens == 1 && fixture_stats()->configuration_matches == 1);
+     CHECK(psn_host_start() == 0 && fixture_stats()->opens == 1);
+     check_resolver();
+-    if (strcmp(test_case, "good") == 0) {
++    if (strcmp(test_case, "good") == 0 || strcmp(test_case, "good-arbitrary-user") == 0) {
+         check_invitation_queue();
+         CHECK(fixture_stats()->identity_calls == 2);
+     } else {
+diff --git a/platform/psn/tests/test_psn_bridge.cpp b/platform/psn/tests/test_psn_bridge.cpp
+index f731fadf88e5c06e100621d0a6d971386c4002fa..0dc31daf49764222e5f2fa124784d9c5781dc958 100644
+--- a/platform/psn/tests/test_psn_bridge.cpp
++++ b/platform/psn/tests/test_psn_bridge.cpp
+@@ -14,6 +14,12 @@ using namespace std::chrono_literals;
+ using Json = nlohmann::json;
+ constexpr uint64_t owner = UINT64_C(76561198000000001), sender = UINT64_C(76561198000000002);
+ static unsigned callbacks;
++static int32_t local_user = 1;
++static unsigned state_callbacks;
++static void PSN_GUEST_ABI state_callback(int32_t user, int32_t state, void *) {
++    assert(user == local_user && state == 2);
++    ++state_callbacks;
++}
+ static std::thread::id main_thread;
+ struct DataType {
+     char value[65];
+@@ -85,7 +91,7 @@ static void trigger(const char *path, bool allow_session_failure = false) {
+     void *instance;
+     auto b = psn_host_lock(&instance);
+     PsnWebRequest r{};
+-    r.user_id = 1;
++    r.user_id = local_user;
+     r.method = 1;
+     r.api_group = "test";
+     r.path = path;
+@@ -122,7 +128,13 @@ int main(int argc, char **argv) {
+     main_thread = std::this_thread::get_id();
+     std::string mode = argv[4];
+     environment("BB_PSN_BACKEND", argv[1]);
+-    environment("BB_PSN_BACKEND_CONFIG", Json{{"url", argv[2]}, {"token", argv[3]}}.dump());
++    const bool success_mode = mode == "good" || mode == "arbitrary-user" || mode == "zero-user";
++    local_user = mode == "arbitrary-user" ? 70001 : mode == "zero-user" ? 0 : 1;
++    Json config{{"url", argv[2]}, {"token", argv[3]}};
++    if (mode == "arbitrary-user" || mode == "zero-user")
++        config["local_user_id"] = local_user;
++    environment("BB_PSN_BACKEND_CONFIG", config.dump());
++    assert(!psn_host_set_local_users(&local_user, 1));
+     auto started = psn_host_start();
+     if (started)
+         std::fprintf(stderr, "backend startup status: 0x%08x\n", static_cast<unsigned>(started));
+@@ -131,14 +143,19 @@ int main(int argc, char **argv) {
+         return 0;
+     }
+     assert(!started);
++    using StateRegister = int32_t(PSN_GUEST_ABI *)(void *, void *);
++    auto state_handle = fn<StateRegister>("sceNpRegisterStateCallbackA")(
++        reinterpret_cast<void *>(state_callback), nullptr);
++    assert(state_handle > 0 && !fn<Pump>("sceNpCheckCallback")() && state_callbacks == 1);
++    assert(!fn<One>("sceNpUnregisterStateCallbackA")(state_handle));
+     void *instance;
+     auto b = psn_host_lock(&instance);
+     PsnIdentity identity{};
+-    assert(!b->identity(instance, 1, &identity) && identity.account_id == owner &&
++    assert(!b->identity(instance, local_user, &identity) && identity.account_id == owner &&
+            identity.state == 2);
+     assert(b->identity(instance, 2, &identity) == PSN_INVALID_ARGUMENT);
+     PsnAuthRequest auth{};
+-    auth.user_id = 1;
++    auth.user_id = local_user;
+     auth.kind = 2;
+     auth.client_id = "client";
+     auth.scope = "scope";
+@@ -174,7 +191,7 @@ int main(int argc, char **argv) {
+     b = psn_host_lock(&instance);
+     PsnHeader duplicate[] = {{"X-Test", "one"}, {"x-test", "two"}};
+     PsnWebRequest invalid{};
+-    invalid.user_id = 1;
++    invalid.user_id = local_user;
+     invalid.api_group = "test";
+     invalid.path = "/binary";
+     invalid.headers = duplicate;
+@@ -186,7 +203,7 @@ int main(int argc, char **argv) {
+     PsnInvitationRequest invite{};
+     assert(b->invitation_start(instance, &invite, &request) == PSN_BACKEND_UNSUPPORTED);
+     PsnWebRequest slow{};
+-    slow.user_id = 1;
++    slow.user_id = local_user;
+     slow.api_group = "test";
+     slow.path = "/slow";
+     assert(!b->web_start(instance, &slow, &request));
+@@ -202,7 +219,7 @@ int main(int argc, char **argv) {
+     assert(std::chrono::steady_clock::now() - cancel_start < 2500ms);
+     auto lib = fn<Initialize>("sceNpWebApiInitialize")(0, 1024 * 1024);
+     assert(lib > 0);
+-    auto context = fn<Two>("sceNpWebApiCreateContextA")(lib, 1);
++    auto context = fn<Two>("sceNpWebApiCreateContextA")(lib, local_user);
+     assert(context > 0);
+     auto handle = fn<One>("sceNpWebApiCreateHandle")(lib);
+     assert(handle > 0);
+@@ -218,15 +235,15 @@ int main(int argc, char **argv) {
+     if (mode == "overflow") {
+         b = psn_host_lock(&instance);
+         PsnPushFilter many{};
+-        many.user_id = 1;
++        many.user_id = local_user;
+         many.kind = 1;
+         many.data_type = "np:service:presence:onlineStatus";
+         for (uint64_t n = 10000; n < 10256; ++n)
+             assert(!b->subscribe(instance, n, &many));
+         psn_host_unlock();
+     }
+-    trigger(mode == "good" ? "/trigger" : ("/" + mode).c_str(), mode != "good");
+-    if (mode != "good") {
++    trigger(success_mode ? "/trigger" : ("/" + mode).c_str(), !success_mode);
++    if (!success_mode) {
+         bool failed = false;
+         for (unsigned n = 0; n < 1000; ++n) {
+             if (fn<Pump>("sceNpCheckCallback")() < 0) {
+@@ -257,6 +274,9 @@ int main(int argc, char **argv) {
+     uint64_t account = 0;
+     memcpy(&kind, e, 4);
+     memcpy(&account, e + 4 + 168, 8);
++    int32_t accepting_user = -1;
++    memcpy(&accepting_user, e + 4 + 140, sizeof(accepting_user));
++    assert(accepting_user == local_user);
+     assert(kind == 0x10000002 && account == sender &&
+            !strcmp(reinterpret_cast<char *>(e + 4), "76561198099999999"));
+     assert(!strcmp(reinterpret_cast<char *>(e + 4 + 48), "76561198099999999-76561198000000002-1"));
+diff --git a/platform/psn/tests/test_psn_identity.c b/platform/psn/tests/test_psn_identity.c
+index b3a1247063b5a462489deb858a0733b0afbece32..c12dd3ebedd9d80ec2283befa34dcccd9746db82 100644
+--- a/platform/psn/tests/test_psn_identity.c
++++ b/platform/psn/tests/test_psn_identity.c
+@@ -6,6 +6,13 @@
+ #include <stdio.h>
+ #include <stdlib.h>
+ 
++static int32_t test_user = 1;
++uint32_t psn_host_local_users(int32_t users[PSN_MAX_LOCAL_USERS]) {
++    users[0] = test_user;
++    return 1;
++}
++int psn_host_has_local_user(int32_t user) { return user == test_user; }
++
+ static pthread_mutex_t backend_mutex = PTHREAD_MUTEX_INITIALIZER;
+ static int backend_locked, auth_pending, auth_canceled, auth_released, dialog_pending;
+ static int dialog_canceled, dialog_released, web_dispatches, auth_failure;
+@@ -22,7 +29,7 @@ static char seen_title[13];
+ static int32_t identity(void *ctx, int32_t user, PsnIdentity *out) {
+     (void)ctx;
+     assert(backend_locked);
+-    if (user != 1)
++    if (user != test_user)
+         return (int32_t)0x80550007;
+     *out = (PsnIdentity){0};
+     out->account_id = 0x123456789;
+@@ -33,7 +40,7 @@ static int32_t identity(void *ctx, int32_t user, PsnIdentity *out) {
+ static int32_t policy(void *ctx, int32_t user, uint64_t features, PsnPolicy *out) {
+     (void)ctx;
+     assert(backend_locked);
+-    assert(user == 1);
++    assert(user == test_user);
+     checked_features = features;
+     if (policy_failure)
+         return policy_failure;
+@@ -61,7 +68,7 @@ static int32_t restriction(void *ctx, const PsnContentRestriction *r) {
+ static int32_t auth_start(void *ctx, const PsnAuthRequest *input, uint64_t *handle) {
+     (void)ctx;
+     assert(backend_locked);
+-    assert(input->user_id == 1);
++    assert(input->user_id == test_user);
+     assert(input->client_id != guest_client);
+     assert(!strcmp(input->client_id, "client"));
+     assert(!strcmp(input->scope, "openid"));
+@@ -102,7 +109,7 @@ static void auth_release(void *ctx, uint64_t handle) {
+ static int32_t invite_start(void *ctx, const PsnInvitationRequest *input, uint64_t *handle) {
+     (void)ctx;
+     assert(backend_locked);
+-    assert(input->user_id == 1);
++    assert(input->user_id == test_user);
+     if (input->mode == 1) {
+         assert(!strcmp(input->session_id, "opaque-session"));
+         assert(!strcmp(input->message, "Join"));
+@@ -196,7 +203,7 @@ typedef struct {
+ } Auth;
+ static void test_auth(void) {
+     Async async = {sizeof(async), 0, 0, 0};
+-    Auth param = {sizeof(param), 1, 0, "client", "secret", "openid"};
++    Auth param = {sizeof(param), test_user, 0, "client", "secret", "openid"};
+     guest_client = param.client;
+     int32_t request = CALLPTR("sceNpAuthCreateAsyncRequest", &async);
+     assert(request > 0);
+@@ -240,7 +247,7 @@ static void test_auth(void) {
+         int32_t user;
+         uint32_t padding;
+         const char *client, *scope;
+-    } code_param = {32, 1, 0, "client", "openid"};
++    } code_param = {32, test_user, 0, "client", "openid"};
+     char code[136];
+     int32_t issuer = 0;
+     auth_pending = 1;
+@@ -258,7 +265,7 @@ static void test_auth(void) {
+ }
+ static void test_repeated_auth_get(void) {
+     Async async = {sizeof(async), 0, 0, 0};
+-    Auth param = {sizeof(param), 1, 0, "client", "secret", "openid"};
++    Auth param = {sizeof(param), test_user, 0, "client", "secret", "openid"};
+     guest_client = param.client;
+     unsigned char first[4104], second[4104];
+     memset(first, 0xa5, sizeof(first));
+@@ -318,7 +325,7 @@ static int state_calls, modern_calls;
+ static int legacy_transitions;
+ static PSN_GUEST_ABI void legacy_transition_callback(int32_t user, int32_t state, const void *npid,
+                                                      void *argument) {
+-    assert(user == 1 && argument == &legacy_transitions);
++    assert(user == test_user && argument == &legacy_transitions);
+     if (state == 2)
+         assert(npid && !memcmp(npid, "abcdefghijklmnop", 16));
+     else
+@@ -327,14 +334,14 @@ static PSN_GUEST_ABI void legacy_transition_callback(int32_t user, int32_t state
+ }
+ static PSN_GUEST_ABI void state_callback(int32_t user, int32_t state, const void *npid,
+                                          void *argument) {
+-    assert(!backend_locked && user == 1 && state == 2 && argument == &state_calls);
++    assert(!backend_locked && user == test_user && state == 2 && argument == &state_calls);
+     assert(!memcmp(npid, "abcdefghijklmnop", 16));
+     ++state_calls;
+     assert(CALL0("sceNpUnregisterStateCallback") == 0);
+     assert(CALL0("sceNpCheckCallback") == 0); /* reentrant pump never redelivers this callback */
+ }
+ static PSN_GUEST_ABI void modern_callback(int32_t user, int32_t state, void *argument) {
+-    assert(!backend_locked && user == 1 && (state == 1 || state == 2));
++    assert(!backend_locked && user == test_user && (state == 1 || state == 2));
+     assert(argument == &modern_calls);
+     ++modern_calls;
+ }
+@@ -347,7 +354,7 @@ static void test_callbacks(void) {
+     assert(state_calls == 1 && modern_calls == 1 && web_dispatches == 2);
+     PsnEvent event = {0};
+     event.kind = 1;
+-    event.user_id = 1;
++    event.user_id = test_user;
+     event.data.identity.state = 1;
+     psn_host_identity_event(&event);
+     assert(modern_calls == 1);
+@@ -432,19 +439,23 @@ static void test_concurrent_unregister(void) {
+ static void test_policy_and_identity(void) {
+     unsigned char online[22];
+     memset(online, 0xaa, sizeof(online));
+-    assert(((UserOutFn)resolve("sceNpGetOnlineId"))(1, online + 1) == 0);
++    assert(((UserOutFn)resolve("sceNpGetOnlineId"))(test_user, online + 1) == 0);
+     assert(online[0] == 0xaa && online[21] == 0xaa && online[17] == 0);
+     assert(!memcmp(online + 1, "abcdefghijklmnop", 16));
+     uint64_t account = 0;
+-    assert(((UserOutFn)resolve("sceNpGetAccountIdA"))(1, &account) == 0 && account == 0x123456789);
++    assert(((UserOutFn)resolve("sceNpGetAccountIdA"))(test_user, &account) == 0 && account == 0x123456789);
+     assert(((UserOutFn)resolve("sceNpGetAccountIdA"))(2, &account) == (int32_t)0x80550007);
++    typedef int32_t(PSN_GUEST_ABI *AccountUserFn)(uint64_t, int32_t *);
++    int32_t local_user = -1;
++    assert(((AccountUserFn)resolve("sceNpGetUserIdByAccountId"))(account, &local_user) == 0);
++    assert(local_user == test_user);
+     int32_t state = 99;
+     identity_state = 0;
+-    assert(((UserOutFn)resolve("sceNpGetState"))(1, &state) == PSN_BACKEND_UNAVAILABLE &&
++    assert(((UserOutFn)resolve("sceNpGetState"))(test_user, &state) == PSN_BACKEND_UNAVAILABLE &&
+            state == 99);
+     PsnEvent event = {0};
+     event.kind = 1;
+-    event.user_id = 1;
++    event.user_id = test_user;
+     assert(psn_host_identity_event(&event) == PSN_INVALID_ARGUMENT);
+     identity_state = 2;
+     Async async = {sizeof(async), 0, 0, 0};
+@@ -455,7 +466,7 @@ static void test_policy_and_identity(void) {
+         uint32_t pad;
+         uint64_t features;
+         uint8_t reserved[32];
+-    } plus = {56, 1, 0, 3, {0}};
++    } plus = {56, test_user, 0, 3, {0}};
+     uint8_t result[35];
+     memset(result, 0xaa, sizeof(result));
+     typedef int32_t(PSN_GUEST_ABI * PlusFn)(int32_t, const void *, void *);
+@@ -468,7 +479,7 @@ static void test_policy_and_identity(void) {
+     typedef int32_t(PSN_GUEST_ABI * ParentalFn)(int32_t, int32_t, int8_t *, void *);
+     int8_t age = 0;
+     uint8_t restrictions[5] = {7, 7, 7, 7, 7};
+-    assert(((ParentalFn)resolve("sceNpGetParentalControlInfoA"))(request, 1, &age,
++    assert(((ParentalFn)resolve("sceNpGetParentalControlInfoA"))(request, test_user, &age,
+                                                                  restrictions + 1) == 0);
+     assert(age == 13 && restrictions[0] == 7 && restrictions[4] == 7);
+     assert(restrictions[1] == 0 && restrictions[2] == 1 && restrictions[3] == 0);
+@@ -522,12 +533,12 @@ static PSN_GUEST_ABI void presence_keep_callback(const Online *online, void *arg
+     ++presence_keep_calls;
+ }
+ static PSN_GUEST_ABI void plus_callback(int32_t user, int32_t event, void *argument) {
+-    assert(!backend_locked && user == 1 && event == 7 && argument == &plus_calls);
++    assert(!backend_locked && user == test_user && event == 7 && argument == &plus_calls);
+     ++plus_calls;
+     assert(CALL0("sceNpUnregisterPlusEventCallback") == 0);
+ }
+ static PSN_GUEST_ABI void reachability_callback(int32_t user, int32_t state, void *argument) {
+-    assert(!backend_locked && user == 1 && argument == &reachability_calls);
++    assert(!backend_locked && user == test_user && argument == &reachability_calls);
+     assert(reachability_calls < 3);
+     reachability_values[reachability_calls++] = state;
+ }
+@@ -547,24 +558,24 @@ static void test_presence_plus_reachability(void) {
+     assert(CALL0("sceNpCheckCallback") == 0);
+     assert(!presence_legacy_calls && !presence_a_calls && !presence_keep_calls && !plus_calls &&
+            !reachability_calls);
+-    PsnEvent event = {.kind = 4, .user_id = 1};
++    PsnEvent event = {.kind = 4, .user_id = test_user};
+     strcpy(event.data.online_id, "Friend");
+     assert(psn_host_identity_event(&event) == 0);
+     assert(psn_host_identity_event(&event) == 0);
+     memset(event.data.online_id, 'x', sizeof(event.data.online_id));
+     assert(psn_host_identity_event(&event) == PSN_INVALID_ARGUMENT);
+-    event = (PsnEvent){.kind = 5, .user_id = 1};
++    event = (PsnEvent){.kind = 5, .user_id = test_user};
+     event.data.plus_event = 7;
+     assert(psn_host_identity_event(&event) == 0);
+     assert(psn_host_identity_event(&event) == 0);
+-    event = (PsnEvent){.kind = 6, .user_id = 1};
++    event = (PsnEvent){.kind = 6, .user_id = test_user};
+     for (int32_t state = 0; state <= 2; ++state) {
+         event.data.reachability = state;
+         assert(psn_host_identity_event(&event) == 0);
+     }
+     event.data.reachability = 3;
+     assert(psn_host_identity_event(&event) == PSN_INVALID_ARGUMENT);
+-    event = (PsnEvent){.kind = 1, .user_id = 1};
++    event = (PsnEvent){.kind = 1, .user_id = test_user};
+     event.data.identity.state = 2;
+     assert(psn_host_identity_event(&event) ==
+            0); /* State events cannot call another callback family. */
+@@ -579,7 +590,7 @@ static void test_presence_plus_reachability(void) {
+     assert(CALL0("sceNpUnregisterNpReachabilityStateCallback") == 0);
+ 
+     /* Legacy replacement must invalidate the queued delivery to the old generation. */
+-    event = (PsnEvent){.kind = 4, .user_id = 1};
++    event = (PsnEvent){.kind = 4, .user_id = test_user};
+     strcpy(event.data.online_id, "Friend");
+     register_presence_legacy(presence_legacy_callback, &presence_legacy_calls);
+     assert(psn_host_identity_event(&event) == 0);
+@@ -668,7 +679,7 @@ static void test_dialog(void) {
+     param.base_size = 48;
+     param.size = sizeof(param);
+     param.mode = 1;
+-    param.user = 1;
++    param.user = test_user;
+     param.arg = &param;
+     param.data = &data;
+     assert(CALLPTR("sceInvitationDialogOpenA", &param) == 0);
+@@ -704,7 +715,9 @@ static void test_dialog(void) {
+     assert(CALL0("sceInvitationDialogGetStatus") == 0);
+ }
+ 
+-int main(void) {
++int main(int argc, char **argv) {
++    if (argc > 1)
++        test_user = (int32_t)strtol(argv[1], NULL, 10);
+     test_auth();
+     test_repeated_auth_get();
+     test_callbacks();
+diff --git a/platform/psn/tests/test_psn_webapi.c b/platform/psn/tests/test_psn_webapi.c
+index 27e7a0776462533cbdd5a28d4e4531a2393e8712..0a45f1f5a8838a382e6b799a845edb93f272004f 100644
+--- a/platform/psn/tests/test_psn_webapi.c
++++ b/platform/psn/tests/test_psn_webapi.c
+@@ -71,6 +71,13 @@ typedef int32_t(PSN_GUEST_ABI *CreateExtended)(int32_t, int32_t, const char *, u
+                                                const ExtFilter *, uint64_t);
+ typedef int32_t(PSN_GUEST_ABI *Register)(int32_t, int32_t, void *, void *);
+ 
++static int32_t test_user = 1;
++uint32_t psn_host_local_users(int32_t users[PSN_MAX_LOCAL_USERS]) {
++    users[0] = test_user;
++    return 1;
++}
++int psn_host_has_local_user(int32_t user) { return user == test_user; }
++
+ static pthread_mutex_t backend_lock = PTHREAD_MUTEX_INITIALIZER;
+ static atomic_int started, pending, canceled, released, subscriptions, unsubscriptions;
+ static unsigned char reply[] = {1, 0, 3, 4};
+@@ -100,12 +107,12 @@ void psn_host_unlock(void) { pthread_mutex_unlock(&backend_lock); }
+ static int32_t backend_identity(void *instance, int32_t user, PsnIdentity *identity) {
+     assert(instance == &backend);
+     memset(identity, 0, sizeof(*identity));
+-    identity->state = user == 1 ? 2 : 1;
++    identity->state = user == test_user ? 2 : 1;
+     strcpy(identity->online_id, "Tester");
+     return 0;
+ }
+ static int32_t backend_start(void *instance, const PsnWebRequest *request, uint64_t *id) {
+-    assert(instance == &backend && request->user_id == 1);
++    assert(instance == &backend && request->user_id == test_user);
+     assert(request->body.data != guest_body); /* A native module never receives guest memory. */
+     assert(request->body.size <= sizeof(saved_body));
+     strcpy(saved_path, request->path);
+@@ -148,7 +155,7 @@ static void backend_release(void *instance, uint64_t id) {
+     memset(reply, 0xee, sizeof(reply));
+ }
+ static int32_t backend_subscribe(void *instance, uint64_t cookie, const PsnPushFilter *filter) {
+-    assert(instance == &backend && cookie && filter->user_id == 1);
++    assert(instance == &backend && cookie && filter->user_id == test_user);
+     unsigned index = (unsigned)atomic_fetch_add(&subscriptions, 1);
+     assert(index < 64);
+     Subscription *sub = &subs[index];
+@@ -189,7 +196,7 @@ static int32_t new_library(void) {
+     return id;
+ }
+ static int32_t new_context(int32_t library) {
+-    int32_t id = FN("sceNpWebApiCreateContextA", Two)(library, 1);
++    int32_t id = FN("sceNpWebApiCreateContextA", Two)(library, test_user);
+     assert(id > 0);
+     return id;
+ }
+@@ -564,7 +571,9 @@ static void test_concurrent_unregister(void) {
+     assert(atomic_load(&unregister_done));
+     assert(!FN("sceNpWebApiTerminate", One)(lib));
+ }
+-int main(void) {
++int main(int argc, char **argv) {
++    if (argc > 1)
++        test_user = (int32_t)strtol(argv[1], NULL, 10);
+     backend = (PsnBackendV1){.size = sizeof(backend),
+                              .abi_version = PSN_BACKEND_ABI_V1,
+                              .identity = backend_identity,
+@@ -574,6 +583,15 @@ int main(void) {
+                              .web_release = backend_release,
+                              .subscribe = backend_subscribe,
+                              .unsubscribe = backend_unsubscribe};
++    /* Legacy online-ID lookup must retain arbitrary local IDs, including zero. */
++    int32_t lib = new_library();
++    OnlineId online = {0};
++    strcpy(online.name, "Tester");
++    typedef int32_t(PSN_GUEST_ABI *LegacyContext)(int32_t, const OnlineId *);
++    int32_t context = FN("sceNpWebApiCreateContext", LegacyContext)(lib, &online);
++    assert(context > 0);
++    assert(!FN("sceNpWebApiDeleteContext", One)(context));
++    assert(!FN("sceNpWebApiTerminate", One)(lib));
+     test_requests();
+     test_abort_and_delete();
+     test_extended_push();
+diff --git a/run.py b/run.py
+index f890e753c2ee0de6c4d0fbf1b4c692c3f1a554a4..eaf06998856dfb13891f943f5a4cb429d0220177 100644
+--- a/run.py
++++ b/run.py
+@@ -339,7 +339,6 @@ def setup_online(env, config, data):
+         for key in ('BB_ONLINE_NAME', 'BB_ONLINE_ACCOUNT_ID', 'BB_ONLINE_FRIENDS',
+                     'BB_ONLINE_KEY', 'BB_ONLINE_KEYHASH'):
+             env[key] = ''
+-        env['BB_ONLINE_TUNNEL'] = '0'
+     name = env.get('BB_ONLINE_NAME', ini_values.get('online_name', ini_values.get('user_name', ''))).strip()
+     online = env.get('BB_ONLINE', ini_values.get('online', '0'))
+     if online == '1' and not external and not nick_ok(name):
+diff --git a/scripts/online_config.py b/scripts/online_config.py
+index c48812edabef72531a7db07f732c08b5302d5e51..f1fe0c937e20d0da40c62bd0be90340bd4f4f377 100644
+--- a/scripts/online_config.py
++++ b/scripts/online_config.py
+@@ -14,7 +14,7 @@ from run import external_psn_backend, setup_online, update_notice
+ EXPORT_KEYS = (
+     "BB_USER_NAME", "BB_ONLINE", "BB_NET_TRACE", "BB_ONLINE_SERVER", "BB_ONLINE_HTTP_PORT", "BB_ONLINE_NAME",
+     "BB_ONLINE_ACCOUNT_ID", "BB_ONLINE_PORT", "BB_ONLINE_FRIENDS", "BB_ONLINE_KEY", "BB_ONLINE_KEYHASH", "BB_ONLINE_INVENTORY",
+-    "BB_THEME", "BB_END_RACE_TIMEOUT", "BB_UPDATE_AVAILABLE", "BB_ONLINE_TUNNEL",
++    "BB_THEME", "BB_END_RACE_TIMEOUT", "BB_UPDATE_AVAILABLE",
+ )
+ # Backend selection/configuration are already inherited by the shell and child.
+ # In particular, an ephemeral relay capability must never enter the env-file.
+diff --git a/src/runtime_net.c b/src/runtime_net.c
+index f4f8b247f532e54b71c2081eb166ee25570b5d00..a1ab9b251822d5cd529b1fe9b65bdb7090b903a3 100644
+--- a/src/runtime_net.c
++++ b/src/runtime_net.c
+@@ -3,7 +3,6 @@
+ #include "runtime_net_tunnel.h"
+ #include "runtime_friends.h"
+ #include "runtime.h"
+-#include "runtime_psn.h"
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <string.h>
+@@ -24,11 +23,17 @@ static int g_net_initialized = 0;
+ static int32_t g_net_errno = 0;
+ 
+ int runtime_net_is_online(void) {
+-    if (runtime_psn_selected()) return 1;
+     const char *val = getenv("BB_ONLINE");
+     return (val && strcmp(val, "1") == 0);
+ }
+ 
++/* An independent transport option: preserve the endpoints supplied by the guest.
++ * Selecting an identity/social backend alone never changes socket policy. */
++static int preserve_endpoints(void) {
++    const char *value = getenv("BB_NET_PRESERVE_ENDPOINTS");
++    return value && strcmp(value, "1") == 0;
++}
++
+ void runtime_net_trace(const char *fmt, ...) {
+     static int trace_checked = 0;
+     static int trace_enabled = 0;
+@@ -306,7 +311,6 @@ static uint64_t now_ms(void) {
+ /* The server's NAT port (UDP 3074, BB_ONLINE_NAT_PORT); 0 when the tunnel is off
+  * (BB_ONLINE_TUNNEL=0, offline, or the server's address does not resolve). */
+ static int tunnel_server(struct sockaddr_in *out) {
+-    if (runtime_psn_selected()) return 0;
+     static int state = -1;
+     static struct sockaddr_in server;
+     if (state < 0) {
+@@ -420,12 +424,12 @@ int32_t runtime_net_bind(int s, const OrbisNetSockaddr *addr, uint32_t addrlen)
+     sin.sin_family = in->sin_family;
+     sin.sin_port = in->sin_port;
+     const int game_port = ntohs(in->sin_port) == 3074;
+-    const int external_psn = runtime_psn_selected();
+-    if (external_psn) sin.sin_addr = in->sin_addr;
+-    const char *p_env = external_psn ? NULL : getenv("BB_ONLINE_PORT");
++    const int preserve = preserve_endpoints();
++    if (preserve) sin.sin_addr = in->sin_addr;
++    const char *p_env = preserve ? NULL : getenv("BB_ONLINE_PORT");
+     if (p_env && atoi(p_env) > 0) {
+         sin.sin_port = htons((uint16_t)atoi(p_env));
+-    } else if (!external_psn && ntohs(sin.sin_port) == 3074 && server_is_this_machine()) {
++    } else if (!preserve && ntohs(sin.sin_port) == 3074 && server_is_this_machine()) {
+         sin.sin_port = htons(3075);
+     }
+ 
+@@ -438,7 +442,7 @@ int32_t runtime_net_bind(int s, const OrbisNetSockaddr *addr, uint32_t addrlen)
+ 
+     runtime_net_trace("sceNetBind(fd=%d, port=%u)", s, ntohs(sin.sin_port));
+     int ret = bind(vs->s, (struct sockaddr *)&sin, sizeof(sin));
+-    if (!external_psn && ret != 0 && (WSAGetLastError() == WSAEADDRINUSE || WSAGetLastError() == 10048)) {
++    if (!preserve && ret != 0 && (WSAGetLastError() == WSAEADDRINUSE || WSAGetLastError() == 10048)) {
+         for (int p_retry = 1; p_retry <= 10; p_retry++) {
+             sin.sin_port = htons(ntohs(sin.sin_port) + 1);
+             runtime_net_trace("sceNetBind: port busy, retrying port %u", ntohs(sin.sin_port));
+@@ -508,7 +512,7 @@ int32_t runtime_net_accept(int s, OrbisNetSockaddr *addr, uint32_t *addrlen) {
+  * server sees that port and gives it to the peers. Same length as "3074": the request's
+  * Content-Length stays right. BB_UPNP_PORT=3074 keeps the game's own. */
+ static int upnp_external_port(void) {
+-    if (runtime_psn_selected()) return 3074;
++    if (preserve_endpoints()) return 3074;
+     static int port;
+     if (port) return port;
+     const char *env = getenv("BB_UPNP_PORT");
+diff --git a/src/runtime_psn.c b/src/runtime_psn.c
+index e97d0b30cd44b49651033b6a238dcb96c267c4c0..6ea1eb4358a7c54a7757002298b05e04a44d9d8a 100644
+--- a/src/runtime_psn.c
++++ b/src/runtime_psn.c
+@@ -5,7 +5,15 @@
+ #include "runtime.h"
+ 
+ int runtime_psn_selected(void) { return psn_host_selected(); }
+-int runtime_psn_start(void) { return psn_host_start(); }
++int runtime_psn_start(void) {
++    if (!psn_host_selected())
++        return 0;
++    /* OCTR UserService owns these controller-slot IDs. The reusable PSN module
++     * does not assume that another host uses the same local user namespace. */
++    const int32_t users[] = {1, 2, 3, 4};
++    int32_t result = psn_host_set_local_users(users, 4);
++    return result ? result : psn_host_start();
++}
+ int32_t runtime_psn_system_count(void) { return psn_host_system_count(); }
+ int32_t runtime_psn_system_receive(void *event) { return psn_host_system_receive(event); }
+ uintptr_t runtime_psn_resolve(const char *name) {
+diff --git a/tests/test_net_policy.c b/tests/test_net_policy.c
+new file mode 100644
+index 0000000000000000000000000000000000000000..fdef1f3fbc5b02ab51ed7b156d1f4c4e8616f0c9
+--- /dev/null
++++ b/tests/test_net_policy.c
+@@ -0,0 +1,139 @@
++/* SPDX-License-Identifier: GPL-2.0-or-later */
++/* Exercise the real socket policy without a game, PSN backend or remote service.
++ * Include the implementation to inspect the tunnel/UPnP decisions as well as the
++ * public socket behavior. Each invocation is a fresh process for cached settings. */
++#include "../src/runtime_net.c"
++#include <assert.h>
++
++static void environment(const char *key, const char *value) {
++#ifdef _WIN32
++    assert(_putenv_s(key, value ? value : "") == 0);
++#else
++    assert((value ? setenv(key, value, 1) : unsetenv(key)) == 0);
++#endif
++}
++
++static OrbisNetSockaddrIn guest_address(const char *ip, uint16_t port) {
++    OrbisNetSockaddrIn address = {0};
++    address.sin_len = sizeof(address);
++    address.sin_family = AF_INET;
++    address.sin_addr.s_addr = inet_addr(ip);
++    address.sin_port = htons(port);
++    return address;
++}
++
++static OrbisNetSockaddrIn bound_address(int fd) {
++    OrbisNetSockaddrIn address = {0};
++    uint32_t length = sizeof(address);
++    assert(runtime_net_getsockname(fd, (OrbisNetSockaddr *)&address, &length) == 0);
++    assert(length == sizeof(address));
++    return address;
++}
++
++static int guest_socket(void) {
++    int fd = runtime_net_socket("policy-test", AF_INET, SOCK_DGRAM, IPPROTO_UDP);
++    assert(fd > 0);
++    return fd;
++}
++
++int main(int argc, char **argv) {
++    assert(argc == 4);
++    const int preserve = strcmp(argv[2], "1") == 0;
++    const int tunnel = strcmp(argv[3], "1") == 0;
++    environment("BB_PSN_BACKEND", strcmp(argv[1], "unset") == 0 ? NULL :
++                strcmp(argv[1], "empty") == 0 ? "" : "/unused/social-backend.so");
++    environment("BB_NET_PRESERVE_ENDPOINTS", strcmp(argv[2], "unset") == 0 ? NULL : argv[2]);
++    environment("BB_ONLINE_TUNNEL", argv[3]);
++    environment("BB_ONLINE_SERVER", "127.0.0.1");
++    environment("BB_ONLINE_NAT_PORT", "43210");
++    environment("BB_ONLINE_PORT", NULL);
++    environment("BB_UPNP_PORT", "4321");
++    environment("BB_NET_TRACE", "0");
++
++    /* Identity selection cannot override the independent offline/online switch. */
++    environment("BB_ONLINE", "0");
++    assert(runtime_net_is_online() == 0);
++    int32_t state = -1;
++    assert(runtime_netctl_state(&state) == 0 && state == 0);
++    assert(runtime_net_socket("offline", AF_INET, SOCK_DGRAM, IPPROTO_UDP) < 0);
++    environment("BB_ONLINE", "1");
++    assert(runtime_net_is_online() == 1);
++    assert(runtime_netctl_state(&state) == 0 && state == 3);
++
++    int first = guest_socket();
++    OrbisNetSockaddrIn requested = guest_address("127.0.0.2", 0);
++    assert(runtime_net_bind(first, (OrbisNetSockaddr *)&requested, sizeof(requested)) == 0);
++    OrbisNetSockaddrIn actual = bound_address(first);
++    assert(actual.sin_addr.s_addr == (preserve ? inet_addr("127.0.0.2") : INADDR_ANY));
++    assert(actual.sin_port != 0);
++    assert(runtime_net_socket_close(first) == 0);
++
++    /* Reserve an OS-assigned loopback port, avoiding a fixed test/service port. */
++    SOCKET blocker = INVALID_SOCKET;
++    struct sockaddr_in reserved = {0};
++    for (int attempt = 0; attempt < 20; ++attempt) {
++        blocker = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
++        assert(blocker != INVALID_SOCKET);
++#ifdef _WIN32
++        const int exclusive = 1;
++        assert(setsockopt(blocker, SOL_SOCKET, SO_EXCLUSIVEADDRUSE,
++                          (const char *)&exclusive, sizeof(exclusive)) == 0);
++#endif
++        reserved.sin_family = AF_INET;
++        reserved.sin_addr.s_addr = INADDR_ANY;
++        reserved.sin_port = 0;
++        assert(bind(blocker, (struct sockaddr *)&reserved, sizeof(reserved)) == 0);
++        socklen_t length = sizeof(reserved);
++        assert(getsockname(blocker, (struct sockaddr *)&reserved, &length) == 0);
++        if (ntohs(reserved.sin_port) < 65525) break;
++        closesocket(blocker);
++        blocker = INVALID_SOCKET;
++    }
++    assert(blocker != INVALID_SOCKET && ntohs(reserved.sin_port) < 65525);
++    char port[8];
++    snprintf(port, sizeof(port), "%u", ntohs(reserved.sin_port));
++    environment("BB_ONLINE_PORT", port);
++    int overridden = guest_socket();
++    requested = guest_address("127.0.0.1", 0);
++    assert(runtime_net_bind(overridden, (OrbisNetSockaddr *)&requested, sizeof(requested)) == 0);
++    actual = bound_address(overridden);
++    if (preserve) {
++        assert(actual.sin_port != reserved.sin_port);
++        assert(actual.sin_addr.s_addr == inet_addr("127.0.0.1"));
++    } else {
++        assert(ntohs(actual.sin_port) > ntohs(reserved.sin_port));
++        assert(ntohs(actual.sin_port) <= ntohs(reserved.sin_port) + 10);
++    }
++    assert(runtime_net_socket_close(overridden) == 0);
++
++    environment("BB_ONLINE_PORT", NULL);
++    int occupied = guest_socket();
++    requested = guest_address("127.0.0.1", ntohs(reserved.sin_port));
++    int32_t result = runtime_net_bind(occupied, (OrbisNetSockaddr *)&requested, sizeof(requested));
++    if (preserve) {
++        assert(result != 0); /* Never silently move the requested endpoint. */
++    } else {
++        assert(result == 0); /* Existing automatic retry remains the default. */
++        assert(bound_address(occupied).sin_port != reserved.sin_port);
++    }
++    assert(runtime_net_socket_close(occupied) == 0);
++    closesocket(blocker);
++
++    /* Endpoint preservation is separate from both the tunnel and PSN selection. */
++    struct sockaddr_in server;
++    assert(tunnel_server(&server) == tunnel);
++    if (tunnel) {
++        assert(server.sin_addr.s_addr == inet_addr("127.0.0.1"));
++        assert(ntohs(server.sin_port) == 43210);
++    }
++    assert(upnp_external_port() == (preserve ? 3074 : 4321));
++    const char soap[] = "<NewExternalPort>3074</NewExternalPort>";
++    char *rewritten = upnp_rewrite(soap, sizeof(soap));
++    assert(rewritten != NULL);
++    assert(strcmp(rewritten, preserve ? soap :
++                  "<NewExternalPort>4321</NewExternalPort>") == 0);
++    free(rewritten);
++    assert(runtime_net_term() == 0);
++    printf("Network policy: backend=%s preserve=%s tunnel=%s passed\n", argv[1], argv[2], argv[3]);
++    return 0;
++}
+diff --git a/tests/test_psn_backend_launcher.py b/tests/test_psn_backend_launcher.py
+index 5b4451df977236e589f4c22ef9c0781eb9eeb8bb..36a7762e07a96c84ae7c147a8ca390bcc5e7d3be 100644
+--- a/tests/test_psn_backend_launcher.py
++++ b/tests/test_psn_backend_launcher.py
+@@ -48,7 +48,7 @@ class SetupTests(unittest.TestCase):
+         self.assertEqual(self.config.read_bytes(), before)
+         self.assertEqual(self.env['BB_PSN_BACKEND_CONFIG'], 'opaque=one two')
+         self.assertEqual(self.env['BB_ONLINE_SERVER'], '127.0.0.1')
+-        self.assertEqual(self.env['BB_ONLINE_TUNNEL'], '0')
++        self.assertEqual(self.env['BB_ONLINE_TUNNEL'], '1')
+         for name in ('NAME', 'ACCOUNT_ID', 'FRIENDS', 'KEY', 'KEYHASH'):
+             self.assertEqual(self.env['BB_ONLINE_' + name], '')
+         routing = json.loads((self.data / 'host_overrides.json').read_text())
+@@ -66,6 +66,21 @@ class SetupTests(unittest.TestCase):
+         self.setup_external()
+         self.assertEqual(existing.read_bytes(), before)
+ 
++    def test_external_backend_does_not_select_transport_or_enable_online(self):
++        self.env.update(BB_ONLINE='0', BB_ONLINE_TUNNEL='1',
++                        BB_ONLINE_PORT='42000', BB_NET_PRESERVE_ENDPOINTS='0')
++        self.setup_external()
++        self.assertEqual(self.env['BB_ONLINE'], '0')
++        self.assertEqual(self.env['BB_ONLINE_TUNNEL'], '1')
++        self.assertEqual(self.env['BB_ONLINE_PORT'], '42000')
++        self.assertEqual(self.env['BB_NET_PRESERVE_ENDPOINTS'], '0')
++        self.assertFalse((self.data / 'host_overrides.json').exists())
++        self.env.pop('BB_ONLINE_TUNNEL')
++        self.env.pop('BB_NET_PRESERVE_ENDPOINTS')
++        self.setup_external()
++        self.assertNotIn('BB_ONLINE_TUNNEL', self.env)
++        self.assertNotIn('BB_NET_PRESERVE_ENDPOINTS', self.env)
++
+     def test_invalid_explicit_backend_fails_without_legacy_fallback(self):
+         for value in ('backend.dll', str(self.data / 'missing.dll'), str(self.data)):
+             with self.subTest(value=value), contextlib.redirect_stderr(io.StringIO()):
+@@ -103,12 +118,13 @@ class SetupTests(unittest.TestCase):
+         entries = dict(record.decode('utf-8').split('=', 1) for record in output.read_bytes().split(b'\0') if record)
+         self.assertEqual(entries['BB_ONLINE_KEYHASH'], '')
+         self.assertEqual(entries['BB_ONLINE_ACCOUNT_ID'], '')
+-        self.assertEqual(entries['BB_ONLINE_TUNNEL'], '0')
++        self.assertNotIn('BB_ONLINE_TUNNEL', entries)
+         for key in ('BB_PSN_BACKEND', 'BB_PSN_BACKEND_CONFIG'):
+             self.assertNotIn(key, entries)
+         self.assertNotIn(b'opaque=one two', output.read_bytes())
+         # run.sh exports these updates over its existing inherited environment.
+         child_env = {**os.environ, **self.env, **entries}
++        self.assertEqual(child_env['BB_ONLINE_TUNNEL'], '1')
+         result = subprocess.run([sys.executable, '-c',
+                                  'import os; assert os.environ["BB_PSN_BACKEND_CONFIG"] == "opaque=one two"'],
+                                 env=child_env, capture_output=True, text=True)

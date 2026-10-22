@@ -28,6 +28,14 @@ class AutomationControlTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             control.choose_action('resume', {'status': 'blocked'})
 
+    def test_publish_pinned_is_explicit_recovery_for_blocked_builds_but_not_pending_uploads(self):
+        for status in (None, 'blocked', 'completed'):
+            state = {'status': status} if status else None
+            self.assertEqual(control.choose_action('publish-pinned', state, False), 'build')
+        self.assertEqual(control.choose_action('auto', {'status': 'blocked'}, False), 'skip')
+        with self.assertRaisesRegex(ValueError, 'pending publication'):
+            control.choose_action('publish-pinned', {'status': 'pending'}, False)
+
     def test_publication_failure_preserves_exact_recovery_inputs(self):
         plan = {'fingerprint': 'original'}
         pending = {'schema_version': 1, 'status': 'pending', 'plan': plan,

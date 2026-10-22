@@ -13,6 +13,7 @@ PRIVATE_DIRS = {'user', 'orig', 'dlc', 'backups', 'saves', 'savedata', 'profiles
                 'logs', 'data', '.git', '.npauth', '.cache'}
 PRIVATE_FILES = {'bbport.ini', 'launcher.ini', 'patches.json', 'mods.json',
                  'eboot.bin', 'param.sfo', 'steam_appid.txt', 'steam_settings.ini'}
+CHANNELS = ('getlostin-ctr-nitrofueled-pc', 'ryu7w7-octr-nitrofueled-pc')
 
 
 def omitted_asset(name, *, source=False):
@@ -97,17 +98,27 @@ def checksums(files):
 
 def locked_channel(path, channel):
     lock = json.loads(Path(path).read_text(encoding='utf-8'))
-    if lock.get('schema_version') != 1 or channel not in ('channel-a', 'channel-b'):
+    if lock.get('schema_version') != 2 or channel not in CHANNELS:
         raise ValueError('Unsupported distribution lock/channel')
     pin = lock['channels'][channel]
     revision(pin['revision'])
     revision(pin['upstream']['revision'])
     revision(pin['psn_tree'])
-    if pin['branch'] != f'p2p/{channel}' or pin['host_mode'] not in ('psn', 'octr'):
-        raise ValueError('Invalid host branch/mode')
+    revision(pin['source_tree'])
+    if ('branch' in pin or pin['host_mode'] not in ('psn', 'octr')
+            or pin['repository'] != pin['upstream']['repository']):
+        raise ValueError('Invalid upstream source/mode')
     for url in (pin['repository'], pin['upstream']['repository']):
         if not url.startswith('https://') or '@' in url.split('/')[2]:
             raise ValueError('Source repositories must use credential-free HTTPS URLs')
+    if not re.fullmatch(r'[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+', pin['display_name']):
+        raise ValueError('Distribution name must identify the upstream author/repository')
+    if pin['repository'] != 'https://github.com/' + pin['display_name'] + '.git':
+        raise ValueError('Distribution name differs from the upstream repository')
+    windows_name(pin['recipe']['path'])
+    if (not pin['recipe']['path'].startswith('integrations/' + pin['display_name'] + '/')
+            or not re.fullmatch(r'[0-9a-f]{64}', pin['recipe']['sha256'])):
+        raise ValueError('Invalid integration recipe path/checksum')
     windows_name(pin['launcher'])
     windows_name(pin['portable_root'])
     if '/' in pin['portable_root']:

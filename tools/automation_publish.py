@@ -1,8 +1,8 @@
-"""Publish a tested two-channel plan with leases and an explicit recovery receipt.
+"""Publish tested distributions with a P2P main lease and explicit recovery receipt.
 
 Only this trusted job receives write credentials. Downloaded packages are data:
 they are fully checked, but no binary or script from them is ever executed here.
-GitHub cannot atomically update two repositories and release assets together;
+GitHub cannot atomically update Git refs and release assets together;
 the pending state and final receipt make that boundary explicit and resumable.
 """
 import argparse
@@ -10,7 +10,7 @@ from copy import deepcopy
 import hashlib
 import json
 import os
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import re
 import subprocess
 import urllib.parse
@@ -18,11 +18,11 @@ import urllib.request
 
 import automation_prepare as prepare
 import automation_state
-from distribution_support import json_bytes, read_zip, sha256, verify_manifest
+from distribution_support import json_bytes, read_zip, sha256, verify_manifest, windows_name
 from draft_distributions import validate as validate_distributions
 
 
-CHANNELS = ('channel-a', 'channel-b')
+CHANNELS = prepare.CHANNELS
 BLOCK_START = '<!-- ctrnf-p2p-automatic-distributions:start -->'
 BLOCK_END = '<!-- ctrnf-p2p-automatic-distributions:end -->'
 
@@ -93,6 +93,24 @@ def validate_standalone_mod(directory, plan, release_lock):
     return files, manifest, digest, [path, checksum]
 
 
+def validate_source_recipe(files, pin):
+    """Bind embedded GPL recipe and patches to the trusted lock, in memory only."""
+    name = windows_name(pin['recipe']['path'])
+    raw = files.get(name)
+    if raw is None or sha256(raw) != pin['recipe']['sha256']:
+        raise ValueError('Embedded integration recipe differs from the tested plan')
+    recipe = json.loads(raw)
+    if (recipe.get('schema_version') != 1
+            or recipe.get('upstream_repository') != pin['upstream']['repository']
+            or not recipe.get('commits')):
+        raise ValueError('Embedded integration recipe has invalid provenance')
+    for entry in recipe['commits']:
+        relative = windows_name(entry['patch'])
+        path = str(PurePosixPath(name).parent / relative)
+        if path not in files or sha256(files[path]) != entry['sha256']:
+            raise ValueError('Embedded integration patch differs from the tested recipe')
+
+
 def validate_assets(directory, plan, release_lock):
     """Bind every payload, source companion and pinned component to the trusted plan."""
     standalone_files, standalone, mod_digest, mod_assets = validate_standalone_mod(directory, plan, release_lock)
@@ -111,6 +129,8 @@ def validate_assets(directory, plan, release_lock):
             raise ValueError('Host identity or manifested payload differs from the tested plan')
         build = manifest['host_build']
         if (build.get('source_revision') != pin['revision']
+                or build.get('source_tree') != pin['source_tree']
+                or build.get('integration_recipe') != pin['recipe']
                 or build.get('shared_psn_tree') != pin['psn_tree']
                 or build.get('clean_source') is not True
                 or build.get('channel', channel) != channel
@@ -144,8 +164,10 @@ def validate_assets(directory, plan, release_lock):
         if source_name != prefix + '-source.zip':
             raise ValueError('Source filename differs from the tested plan')
         source_files = read_zip(Path(directory) / source_name)
+        validate_source_recipe(source_files, pin)
         source = verify_manifest(source_files, 'source-manifest.json')
         if (source.get('host') != pin or source.get('channel') != channel
+                or source.get('source_tree') != pin['source_tree']
                 or source.get('psn_tree') != pin['psn_tree']
                 or source.get('redistribution_ready') is not True
                 or source.get('dependency_evidence_complete') is not True
@@ -160,23 +182,18 @@ def validate_assets(directory, plan, release_lock):
     return sorted(assets, key=lambda path: (0 if '-source.zip' in path.name else 1, path.name))
 
 
-def classify_refs(plan, host_heads, bridge_head):
-    old = {channel: plan['channels'][channel]['expected_old_revision'] for channel in CHANNELS}
-    new = {channel: plan['channels'][channel]['candidate_revision'] for channel in CHANNELS}
-    if host_heads == old and bridge_head == plan['base_revision']:
+def classify_refs(plan, bridge_head):
+    if bridge_head == plan['base_revision']:
         return 'all-old'
-    if host_heads == new and bridge_head == plan['base_revision']:
-        return 'hosts-new'
-    if host_heads == new and bridge_head == plan['candidate_revision']:
+    if bridge_head == plan['candidate_revision']:
         return 'all-new'
-    raise ValueError('Remote refs are mixed or changed outside this plan; manual recovery is required')
+    raise ValueError('Remote main changed outside this plan; manual recovery is required')
 
 
 class GitRefs:
-    def __init__(self, repository, host_source, bridge_slug, host_slug):
-        self.repository, self.host_source = Path(repository), Path(host_source)
+    def __init__(self, repository, bridge_slug):
+        self.repository = Path(repository)
         self.bridge_url = 'https://github.com/' + bridge_slug + '.git'
-        self.host_url = 'git@github.com:' + host_slug + '.git'
 
     def git(self, root, *args):
         return command('git', '-C', root, '-c', 'credential.helper=',
@@ -187,60 +204,18 @@ class GitRefs:
         return {line.split()[1]: line.split()[0] for line in result.splitlines()}
 
     def heads(self):
-        hosts = self.refs(self.host_source, self.host_url, 'refs/heads/p2p/channel-*')
         bridge = self.refs(self.repository, self.bridge_url, 'refs/heads/main')
-        return ({channel: hosts.get('refs/heads/p2p/' + channel) for channel in CHANNELS},
-                bridge.get('refs/heads/main'))
+        return bridge.get('refs/heads/main')
 
     def verify_write_access(self, plan):
         """Probe receive-pack authorization without changing refs or creating tags."""
-        options, specs = ['--dry-run', '--atomic'], []
-        for channel in CHANNELS:
-            sha = plan['channels'][channel]['expected_old_revision']
-            branch = 'refs/heads/p2p/' + channel
-            options += ['--force-with-lease=' + branch + ':' + sha]
-            specs += [sha + ':' + branch]
-        self.git(self.host_source, 'push', *options, self.host_url, *specs)
         self.git(self.repository, 'push', '--dry-run',
                  '--force-with-lease=refs/heads/main:' + plan['base_revision'],
                  self.bridge_url, plan['base_revision'] + ':refs/heads/main')
 
-    def promote_hosts(self, plan):
-        tags = self.refs(self.host_source, self.host_url, 'refs/tags/p2p/channel-*/*')
-        options, specs = ['--atomic'], []
-        for channel in CHANNELS:
-            entry, branch = plan['channels'][channel], 'refs/heads/p2p/' + channel
-            options += ['--force-with-lease=' + branch + ':' + entry['expected_old_revision']]
-            specs += [entry['candidate_revision'] + ':' + branch]
-            for sha in sorted({entry['expected_old_revision'], entry['candidate_revision']}):
-                tag = 'refs/tags/p2p/' + channel + '/' + sha
-                if tag in tags:
-                    if tags[tag] != sha:
-                        raise ValueError('Immutable source tag has another target: ' + tag)
-                else:
-                    options += ['--force-with-lease=' + tag + ':']
-                    specs += [sha + ':' + tag]
-        self.git(self.host_source, 'push', *options, self.host_url, *specs)
-
     def promote_bridge(self, plan):
         self.git(self.repository, 'push', '--force-with-lease=refs/heads/main:' + plan['base_revision'],
                  self.bridge_url, plan['candidate_revision'] + ':refs/heads/main')
-
-    def verify_source_tags(self, plan):
-        tags = self.refs(self.host_source, self.host_url, 'refs/tags/p2p/channel-*/*')
-        for channel in CHANNELS:
-            entry = plan['channels'][channel]
-            for sha in {entry['expected_old_revision'], entry['candidate_revision']}:
-                if tags.get('refs/tags/p2p/' + channel + '/' + sha) != sha:
-                    raise ValueError('Source preservation tag is missing or changed: ' + channel)
-
-    def rollback_hosts(self, plan):
-        options, specs = ['--atomic'], []
-        for channel in CHANNELS:
-            entry, branch = plan['channels'][channel], 'refs/heads/p2p/' + channel
-            options += ['--force-with-lease=' + branch + ':' + entry['candidate_revision']]
-            specs += [entry['expected_old_revision'] + ':' + branch]
-        self.git(self.host_source, 'push', *options, self.host_url, *specs)
 
 
 class GitHubRelease:
@@ -328,15 +303,15 @@ def release_block(slug, plan, receipt_name):
              'Bridge revision: `' + plan['candidate_revision'] + '`.', '']
     for channel in CHANNELS:
         prefix = f"ctrnf-p2p-{channel}-{plan['version']}-{plan['candidate_revision'][:12]}"
-        lines += [f"- {channel}: [Windows x64]({base}{prefix}-windows-x64.zip), "
+        lines += [f"- {plan['new_lock']['channels'][channel]['display_name']}: [Windows x64]({base}{prefix}-windows-x64.zip), "
                   f"[corresponding sources]({base}{prefix}-source.zip)."]
     mod_name = f"ctrnf-p2p-mod-{plan['version']}-windows-x64-{plan['candidate_revision'][:12]}.zip"
     lines += [f'- [Standalone compiled mod for manual installation]({base}{mod_name}).', '',
               'The standalone mod requires a compatible host and the matching installation guide. '
               'The psn/octr modes require an adapter-enabled host and `psn-bridge-backend.dll`; '
-              'the complete channel packages include both.', '',
+              'the complete distribution packages include both.', '',
               f'[Completion receipt and asset hashes]({base}{receipt_name}).', '',
-              'Both channels passed offline build, adapter and package checks. '
+              'Both distributions passed offline build, adapter and package checks. '
               'Live multiplayer acceptance remains separate. Earlier preview assets remain available.', BLOCK_END]
     return '\n'.join(lines)
 
@@ -366,7 +341,7 @@ def publish(plan, assets, refs, release, *, resume=False):
     """A failed test never calls this function; every network write has a preceding receipt."""
     assets = sorted(assets, key=lambda path: (0 if '-source.zip' in path.name else 1, path.name))
     records = sorted((asset_record(path) for path in assets), key=lambda item: item['name'])
-    phase = classify_refs(plan, *refs.heads())
+    phase = classify_refs(plan, refs.heads())
     if phase != 'all-old' and not resume:
         raise ValueError('Promoted refs require explicit recovery of the original publication')
     remote_release = release.read()
@@ -377,59 +352,19 @@ def publish(plan, assets, refs, release, *, resume=False):
     pending, state_ref = begin_transaction(plan, records, remote_release['id'], resume=resume)
     for path in assets:  # validate_assets orders all source assets before binary assets.
         release.ensure_asset(path, next(item for item in records if item['name'] == path.name))
-    phase = classify_refs(plan, *refs.heads())
+    phase = classify_refs(plan, refs.heads())
     if phase == 'all-old' and plan['changed']:
-        try:
-            refs.promote_hosts(plan)
-        except ValueError:
-            if refs.heads()[0] != {channel: plan['channels'][channel]['candidate_revision'] for channel in CHANNELS}:
-                raise
-        try:
-            refs.verify_source_tags(plan)
-            hosts, bridge = refs.heads()
-            phase = classify_refs(plan, hosts, bridge)
-            if hosts == {channel: plan['channels'][channel]['candidate_revision'] for channel in CHANNELS}:
-                if bridge == plan['base_revision']:
-                    phase = 'hosts-new'  # An upstream tag-only change can retain both host SHAs.
-        except ValueError as error:
-            # A main writer can race between native promotion and our bridge push,
-            # including while source tags are being verified. Restore only the
-            # native refs still at this transaction's exact candidate heads.
-            hosts, bridge = refs.heads()
-            if (hosts == {channel: plan['channels'][channel]['candidate_revision'] for channel in CHANNELS}
-                    and bridge != plan['candidate_revision']):
-                try:
-                    refs.rollback_hosts(plan)
-                except ValueError as rollback_error:
-                    raise ValueError('Post-promotion checks failed and host rollback was rejected; '
-                                     'the pending receipt requires manual recovery') from rollback_error
-                raise ValueError('Post-promotion checks failed; host branches were restored with leases. '
-                                 'The pending receipt and uploaded assets are retained') from error
-            raise ValueError('Refs or source tags changed after native promotion; manual recovery is required') from error
-    if phase == 'hosts-new':
         try:
             refs.promote_bridge(plan)
         except ValueError as error:
-            hosts, bridge = refs.heads()
-            if hosts == {channel: plan['channels'][channel]['candidate_revision'] for channel in CHANNELS}:
-                if bridge == plan['candidate_revision']:
-                    pass  # The push succeeded but its response was lost.
-                else:
-                    # Preserve another writer's bridge commit and never undo a later host update.
-                    try:
-                        refs.rollback_hosts(plan)
-                    except ValueError as rollback_error:
-                        raise ValueError('Bridge promotion failed and host rollback was rejected; '
-                                         'the pending receipt requires manual recovery') from rollback_error
-                    raise ValueError('Bridge promotion failed; host branches were restored with leases. '
-                                     'The pending receipt and uploaded assets are retained') from error
-            else:
-                raise ValueError('Refs changed during bridge promotion; manual recovery is required') from error
-    final_phase = classify_refs(plan, *refs.heads())
+            # A response can be lost after a successful leased push. Never undo
+            # another writer's commit; retain the transaction for manual recovery.
+            if refs.heads() != plan['candidate_revision']:
+                raise ValueError('P2P main promotion failed; the pending receipt and '
+                                 'uploaded assets are retained for recovery') from error
+    final_phase = classify_refs(plan, refs.heads())
     if final_phase != ('all-new' if plan['changed'] else 'all-old'):
-        raise ValueError('Publication did not promote both repositories')
-    if plan['changed']:
-        refs.verify_source_tags(plan)
+        raise ValueError('Publication did not reach the planned P2P main revision')
     # Notification/incident metadata can be added after a failed attempt. It must
     # never change the immutable completion bytes on a later exact-plan resume.
     receipt = {key: pending[key] for key in ('schema_version', 'plan', 'assets', 'release_id',
@@ -448,13 +383,13 @@ def publish(plan, assets, refs, release, *, resume=False):
     return completed
 
 
-def materialize_candidates(plan, repository, host_source, refs, *, resume=False):
+def materialize_candidates(plan, repository, refs, *, resume=False, source_cache=None):
     """A completed main push may leave a resumed checkout at the candidate commit."""
     if resume:
         pending, _ = automation_state.read_state()
         if not pending or pending.get('status') != 'pending' or pending.get('plan') != plan:
             raise ValueError('Resume requires the exact recorded pending plan')
-    phase = classify_refs(plan, *refs.heads())
+    phase = classify_refs(plan, refs.heads())
     if not resume and phase != 'all-old':
         raise ValueError('Promoted refs require explicit recovery of the original publication')
     head = prepare.clean(repository)
@@ -465,12 +400,12 @@ def materialize_candidates(plan, repository, host_source, refs, *, resume=False)
         prepare.git(repository, 'checkout', '--detach', plan['base_revision'])
     prepare.apply_bridge(plan, repository)
     for channel in CHANNELS:
-        prepare.prepare_host(plan, channel, host_source, validate_remote=not resume)
+        prepare.prepare_host(plan, channel, repository, source_cache=source_cache)
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    for name in ('plan', 'dist', 'host-source'):
+    for name in ('plan', 'dist'):
         parser.add_argument('--' + name, required=True)
     parser.add_argument('--repository', default='.')
     parser.add_argument('--verify-only', action='store_true')
@@ -489,13 +424,13 @@ def main():
     origin = prepare.git(repository, 'config', '--get', 'remote.origin.url')
     if origin.removesuffix('.git') != 'https://github.com/' + slug:
         raise ValueError('Bridge origin differs from GH_REPO')
-    refs = GitRefs(repository, args.host_source, slug, plan['host_repository'])
+    refs = GitRefs(repository, slug)
     release_lock = json.loads((repository / 'release-lock.json').read_text(encoding='utf-8'))
     assets = validate_assets(args.dist, plan, release_lock)
-    materialize_candidates(plan, repository, args.host_source, refs, resume=args.resume)
+    materialize_candidates(plan, repository, refs, resume=args.resume)
     release = GitHubRelease(slug, plan['version'])
     if args.verify_only:
-        if classify_refs(plan, *refs.heads()) != 'all-old':
+        if classify_refs(plan, refs.heads()) != 'all-old':
             raise ValueError('Verification requires unchanged locked remote refs')
         refs.verify_write_access(plan)
         release.read()

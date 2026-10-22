@@ -1,9 +1,9 @@
 # CTR-NitroFueled-STEAM-P2P
 
-Complete Windows builds of the native **Crash Team Racing Nitro-Fueled** ports
+Complete Windows builds of **Crash Team Racing Nitro-Fueled** PC ports
 with a Steam/P2P adapter and matching mod. This project rebuilds stable releases
-from [GetLostIn](https://github.com/GetLostIn/CTR-NitroFueled-PC) and
-[OCTR](https://github.com/Ryu7w7/OCTR-NitroFueled-PC), preserving their credits,
+from [GetLostIn/CTR-NitroFueled-PC](https://github.com/GetLostIn/CTR-NitroFueled-PC) and
+[Ryu7w7/OCTR-NitroFueled-PC](https://github.com/Ryu7w7/OCTR-NitroFueled-PC), preserving their credits,
 licenses and corresponding sources.
 
 The mod connects the port to Steam identity, friends and peer transport through
@@ -17,30 +17,36 @@ with the port. The executable, configuration and package filenames retain
 
 | Complete package | Upstream project | Included host mode |
 | --- | --- | --- |
-| `channel-a` | [GetLostIn native port](https://github.com/GetLostIn/CTR-NitroFueled-PC) | `psn` |
-| `channel-b` | [OCTR](https://github.com/Ryu7w7/OCTR-NitroFueled-PC) | `octr` |
+| `getlostin-ctr-nitrofueled-pc` | [GetLostIn/CTR-NitroFueled-PC](https://github.com/GetLostIn/CTR-NitroFueled-PC) | `psn` |
+| `ryu7w7-octr-nitrofueled-pc` | [Ryu7w7/OCTR-NitroFueled-PC](https://github.com/Ryu7w7/OCTR-NitroFueled-PC) | `octr` |
 
-The integrations live on `p2p/channel-a` and `p2p/channel-b`. Exact upstream,
-adapter and dependency revisions are recorded in `distribution-lock.json` and
-each package manifest. Both packages include the shared [PSN backend](docs/OCTR.md)
+Upstream pins, adapter patches and build recipes live in this repository under
+[`integrations/`](integrations/) and [`distribution-lock.json`](distribution-lock.json).
+Builds fetch the original upstream release, verify and apply the recorded patches,
+and produce the complete package and its matching source archive. Historical
+integration branches and published assets remain available; new builds do not
+depend on those branches. Each manifest records exact source and dependency
+revisions. Both packages include the shared [PSN backend](docs/OCTR.md)
 and its runtime dependencies. Steam invitation acceptance and lobby joining have
-a user-confirmed test on channel-a. The selected-friend invitation send and
-channel-b still need in-game validation; this is not broad multiplayer acceptance.
+a user-confirmed test on `GetLostIn/CTR-NitroFueled-PC`. The selected-friend
+invitation send and `Ryu7w7/OCTR-NitroFueled-PC` still need in-game validation;
+this is not broad multiplayer acceptance.
 
-A channel-a run crashed in the host's mutex code while loading a matchmaking
-race. The latest channel-a includes the mutex storage protection already present
-in OCTR; that reported crash still needs a human retest. A subsequent bridge
+A `GetLostIn/CTR-NitroFueled-PC` run crashed in the host's mutex code while loading
+a matchmaking race. Its P2P build includes the mutex storage protection already
+present in `Ryu7w7/OCTR-NitroFueled-PC`; that crash still needs a human retest.
+A subsequent bridge
 message about the missing game UDP endpoint can be a consequence of a host crash.
 
 The [automatic release workflow](https://github.com/pierluigizagaria/CTR-NitroFueled-STEAM-P2P/actions/workflows/check-upstreams.yml)
 checks new stable upstream releases daily, reapplies the adapters and publishes
-complete packages only after both channels pass their build and offline checks.
+complete packages only after both distributions pass their build and offline checks.
 Conflicts or failed checks stop updates and open an issue for the maintainer.
 Installed copies are updated manually from Releases; saves and settings stay local.
 
 The standalone mod ZIP remains available for manual installation. The open
-[GetLostIn #79](https://github.com/GetLostIn/CTR-NitroFueled-PC/pull/79) and
-[OCTR #38](https://github.com/Ryu7w7/OCTR-NitroFueled-PC/pull/38) PRs propose the
+[GetLostIn/CTR-NitroFueled-PC #79](https://github.com/GetLostIn/CTR-NitroFueled-PC/pull/79) and
+[Ryu7w7/OCTR-NitroFueled-PC #38](https://github.com/Ryu7w7/OCTR-NitroFueled-PC/pull/38) PRs propose the
 shared host backend interface. If merged into released versions, they would let
 compatible upstream builds load an independently supplied backend and mod, after
 compatibility validation. Acceptance alone would not establish working Steam
@@ -52,7 +58,7 @@ before installing.
 
 ## Requirements
 
-- Windows x64 and one complete channel package from this project's Releases.
+- Windows x64 and one complete distribution package from this project's Releases.
 - Your own supported PS4 game files: CUSA13795, update 01.21.
 - Steam running and signed in with your account.
 
@@ -63,7 +69,7 @@ runtime is also included; players do not need to download the Steamworks SDK.
 
 ## Install
 
-Download a complete Windows `channel-a` or `channel-b` package from
+Download a complete Windows `getlostin-ctr-nitrofueled-pc` or `ryu7w7-octr-nitrofueled-pc` package from
 [Releases](https://github.com/pierluigizagaria/CTR-NitroFueled-STEAM-P2P/releases).
 
 1. Extract the package into a new folder. It includes the portable port, backend,
@@ -71,8 +77,8 @@ Download a complete Windows `channel-a` or `channel-b` package from
 2. Set up your own supported game files using the included port's launcher.
 3. Start Steam, sign in and run `ctrnf-p2p.exe` to open the online launcher.
 
-Keep the package's supplied host mode: `psn` for channel-a or `octr` for channel-b.
-Do not overlay one channel onto the other or replace its host with a stock
+Keep the package's supplied host mode: `psn` for GetLostIn/CTR-NitroFueled-PC or `octr` for Ryu7w7/OCTR-NitroFueled-PC.
+Do not overlay one distribution onto the other or replace its host with a stock
 upstream release. Existing installations and saves stay where they are. The
 matching source archive accompanies each full binary archive.
 
@@ -105,7 +111,7 @@ accounts also ends the session.
 
 ## Playing together
 
-Each player installs the same package version and channel with their own Steam
+Each player installs the same package version and upstream project with their own Steam
 account and game files. Steam shows you as playing **Spacewar** because
 this experimental preview uses the SDK example's AppID 480. This is not an AppID
 assigned to this mod or confirmation that Valve authorizes a permanent public
@@ -126,7 +132,7 @@ are not shared between players. A room ends when the player who created it leave
 ## Configuration
 
 The supplied `ctrnf-p2p.ini` needs no changes for normal play. Keep its host mode
-for the package you installed; these settings are common to both channels:
+for the package you installed; these settings are common to both distributions:
 
 ```ini
 [platform]
@@ -139,7 +145,7 @@ app_id = 480
 unlock_all = false
 ```
 
-The `[game]` section uses `host = psn` in channel-a, `host = octr` in channel-b,
+The `[game]` section uses `host = psn` in GetLostIn/CTR-NitroFueled-PC, `host = octr` in Ryu7w7/OCTR-NitroFueled-PC,
 and `host = native` only for the standalone ZIP's legacy integration.
 
 Set `unlock_all = true` to make the whole Pit Stop catalog available without
@@ -167,7 +173,7 @@ ctest --test-dir build -C Release --output-on-failure
 [Build instructions](docs/BUILDING.md) cover dependencies, tests and platform
 support. [Architecture](docs/ARCHITECTURE.md) describes identity, the native
 adapter and the local server's admission. Maintainers can follow
-[Releasing](docs/RELEASING.md) to assemble the standalone mod or complete channel
+[Releasing](docs/RELEASING.md) to assemble the standalone mod or complete distribution
 packages with their corresponding sources.
 
 ## Compatibility and limitations
@@ -187,14 +193,16 @@ packages with their corresponding sources.
 
 ## License
 
-The bridge is [MIT licensed](LICENSE). The bundled Expat parser retains its
+The bridge is [MIT licensed](LICENSE). Host patches under `integrations/` retain
+the host GPL licensing and attribution; they are not covered by the bridge MIT
+license. The bundled Expat parser retains its
 [own license](third_party/expat/upstream/COPYING).
 orbiSteamworks is MIT licensed; Demonware Server uses PolyForm Shield 1.0.0.
 Each component remains a separate project with its own source and license.
 The ZIP also includes Valve's proprietary Steam API runtime under the
 [Steamworks SDK Access Agreement](https://partner.steamgames.com/documentation/sdk_access_agreement);
 see the [runtime notice](third_party/steamworks/NOTICE.txt). It is not MIT licensed.
-Full channel packages retain the host's original GPL-2.0-or-later notice;
+Full distribution packages retain the host's original GPL-2.0-or-later notice;
 the host build linked to GPLv3 FFmpeg is distributed under GPLv3 or later,
 with its corresponding source archive and dependency notices.
 The standalone mod ZIP contains no host binary. Neither package includes game

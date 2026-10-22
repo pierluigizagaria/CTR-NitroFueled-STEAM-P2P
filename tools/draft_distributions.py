@@ -31,6 +31,8 @@ def validate(directory, tag, commit):
         source_files = read_zip(source)
         source_manifest = verify_manifest(source_files, 'source-manifest.json')
         if (source_manifest['revision'] != manifest['host']['revision']
+                or source_manifest.get('host') != manifest['host']
+                or source_manifest.get('source_tree') != manifest['host']['source_tree']
                 or source_manifest.get('build_recipe', {}).get('revision') != commit
                 or source_manifest.get('build_recipe', {}).get('source_dirty') is not False):
             raise ValueError('Corresponding source/build recipe differs from the release')
@@ -39,7 +41,7 @@ def validate(directory, tag, commit):
             if checksum.read_text().strip() != sha256(archive.read_bytes()) + '  ' + archive.name:
                 raise ValueError('External archive checksum mismatch')
             assets.extend((archive, checksum))
-    if channels != {'channel-a', 'channel-b'}:
+    if channels != {'getlostin-ctr-nitrofueled-pc', 'ryu7w7-octr-nitrofueled-pc'}:
         raise ValueError('Both distinct channels are required')
     return assets
 
@@ -58,11 +60,12 @@ def main():
     if any(ref['ref'] == 'refs/tags/' + args.version for ref in refs):
         raise ValueError('Tag already exists; this draft helper never retargets existing tags')
     body = Path(args.dist) / 'complete-release-notes.md'
-    body.write_text('Experimental complete Windows x64 P2P distributions for channel-a and channel-b.\n\n'
+    body.write_text('Experimental complete Windows x64 P2P distributions based on '
+                    'GetLostIn/CTR-NitroFueled-PC and Ryu7w7/OCTR-NitroFueled-PC.\n\n'
                     'Each archive includes a rebuilt host and mod. Download the matching source companion '
                     'for the exact host, submodules and dependency sources. Game files are not included.\n\n'
                     'Offline build, adapter and package checks passed. Live Steam/multiple-PC game acceptance '
-                    'is not established. These are separate channel builds; keep peers on the same channel/version.\n',
+                    'is not established. Keep peers on the same upstream distribution and package version.\n',
                     encoding='utf-8')
     run('gh', 'release', 'create', args.version, *assets, '--target', args.revision, '--draft', '--prerelease',
         '--latest=false', '--title', args.version + ' complete P2P previews', '--notes-file', body)

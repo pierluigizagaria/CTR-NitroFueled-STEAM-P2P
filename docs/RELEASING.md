@@ -136,165 +136,160 @@ requirements. The complete distribution workflow below also builds the host.
 
 ## Complete P2P distributions
 
-`distribution-lock.json` pins two independent integration branches,
-`p2p/channel-a` and `p2p/channel-b`, in the contribution repository. Neutral channel
-names do not remove the upstream identity: each lock and package records the
-original repository, release tag, upstream commit, integration commit and shared
-PSN module tree. Both branches must expose the same reviewed PSN contract tree.
+`distribution-lock.json` identifies the supported distributions by upstream:
+`GetLostIn/CTR-NitroFueled-PC` and `Ryu7w7/OCTR-NitroFueled-PC`. It pins each
+original release tag and commit, its P2P-owned integration recipe and SHA-256,
+the resulting source commit/tree and the shared PSN contract tree. Recipes and
+patches live in `integrations/` with their own GPL license and original authors.
+The bridge and distribution tools remain independent MIT components.
+
+Builds fetch the official upstream repository and apply the tracked recipe.
+The historical `p2p/channel-a` and `p2p/channel-b` branches remain as checkpoints;
+no current build, source export or publisher requires them or writes to their
+repository. A recipe records text patches and checked file deletions separately,
+so removed optional artwork and original shader blobs are not embedded in patches.
+Reconstruction verifies every patch hash and the exact generated commit/tree.
 
 Run **Prepare complete P2P distributions** with the existing preview version.
-Each channel is rebuilt from its exact commit and recursively initialized
-submodules. The bridge/provider/server keep their independent builds and public
-interfaces. The host uses its own MSYS2 build and portable packager; the optional
+Both upstream distributions are reconstructed and their exact submodules are
+initialized. The bridge/provider/server keep independent builds and public
+interfaces. Each host uses its own MSYS2 build and portable packager; the optional
 PSN backend is built and tested independently before assembly. Stock updater
 replacement is disabled in the integration build.
 
-The complete workflow installs the compiler/library archives pinned by URL and
-SHA-256 in `tools/msys2-packages.json`. It uses the runner's existing MSYS base and
-records source/build evidence; runner images and system tools remain external
-inputs, so this is not a claim of bit-identical builds. It never follows a floating
-host branch or downloads a `latest` release during a build. The embedded Python
-and iced-x86 archives remain pinned by the host's committed portable recipe.
+The workflow installs the compiler/library archives pinned by URL and SHA-256 in
+`tools/msys2-packages.json`. It uses the runner's existing MSYS base and records
+source/build evidence; runner images and system tools remain external inputs,
+so binary-identical builds are not claimed. A build never follows a floating
+host branch. Embedded Python and iced-x86 archives remain pinned by the host's
+committed portable recipe.
 
-The Windows package contains the host, backend and its DLL closure, mod, default
-configuration and per-component notices. `p2p-distribution-manifest.json` binds
-every payload hash to the selected channel and source companion. A separate
-`host-build-manifest.json` input binds the launcher, runtime, capabilities helper
-and backend hashes to the actual clean build receipt; the assembler rejects stale
-or mismatched binaries. Sources and binaries have channel-specific filenames and
-the bridge source suffix, preserving existing preview assets and versions.
+Each Windows package contains the host, backend and its DLL dependencies, mod,
+default configuration and component notices. `p2p-distribution-manifest.json`
+binds every payload hash to the upstream identity, recipe and source companion.
+The host build receipt binds the launcher, runtime, capabilities helper and
+backend to their generated source revision, tree and recipe. Assembly rejects
+mismatched sources or binaries. New archive names use
+`getlostin-ctr-nitrofueled-pc` and `ryu7w7-octr-nitrofueled-pc` plus the P2P source
+revision. Existing preview assets and their historical names are preserved.
 
-The companion `*-source.zip` contains the exact host Git tree, recursively pinned
-submodule trees, original licenses, tracked patch recipes, the distribution build
-scripts and the pinned JSON header. The host build applies its recorded FSR
-patches to the original submodule source. Neither modified working-tree files nor
-installed profiles are copied. Original Git file modes are recorded in its
-manifest; ZIP stores symbolic-link targets as text for explicit restoration when
-building on Unix. This workflow qualifies only Windows builds.
+The matching `*-source.zip` contains the exact host Git tree, recursively pinned
+submodule trees, original licenses, the P2P-owned host integration recipes,
+distribution build scripts and pinned JSON header. The host build applies its
+recorded FSR patches to the original submodule source. Mutable working-tree
+files and installed profiles are never copied. Original Git modes are recorded
+in the manifest; ZIP stores symbolic-link targets as text for explicit restoration
+on Unix. This workflow qualifies only Windows builds.
 
 `tools/msys2-source-lock.json` pins corresponding-source archives for bundled
-copyleft DLLs and directly compiled host dependencies, including their MSYS2
-recipes and patches. It also pins complete license texts, extracted from the
-installed packages or source archives. Those texts accompany both binary and
-source packages. Missing source evidence, an unknown runtime DLL, changed hashes
-or a dirty build recipe make a package ineligible for release. The host's original
-GPL-2.0-or-later notice remains; the build linked to GPLv3 FFmpeg is distributed
-under GPLv3 or later. Independent MIT, PolyForm Shield and Valve components retain
-their own licenses.
+copyleft DLLs and directly compiled dependencies, including their MSYS2 recipes
+and patches. Complete dependency license texts accompany both binary and source
+packages. Missing source evidence, unknown runtime DLLs, changed hashes or dirty
+build recipes make a package ineligible for release. The host's original
+GPL-2.0-or-later notice remains; this build linked to GPLv3 FFmpeg is distributed
+under GPLv3 or later. MIT, PolyForm Shield and Valve components retain their own
+licenses.
 
-Known optional upstream game artwork and original cached HUD shader blobs are
-omitted, with hashes and reasons recorded. Licensed fonts/backgrounds and AMD FSR
-shaders remain. The integration obtains original HUD shaders from the player's
-own game cache when needed. No game dumps, saves, databases or installed settings
-are accepted as packaging input. When a portable archive supplies `bbport.ini`,
-its bytes must match the committed portable defaults exactly; current channels
-ship `bbport.default.ini` instead. Players preserve their existing settings when
-updating.
+Known optional upstream game artwork and cached HUD shader blobs are omitted,
+with hashes and reasons recorded. Licensed fonts/backgrounds and AMD FSR shaders
+remain. The integration obtains original HUD shaders from the player's own game
+cache when needed. No game dumps, saves, databases or installed settings are
+accepted as packaging inputs. If a portable archive supplies `bbport.ini`, its
+bytes must match committed portable defaults. Players preserve their settings
+when updating.
 
-Use explicit local build inputs without rebuilding the host:
+Reconstruct and build one distribution locally:
 
 ```text
-python tools/ci_distribution.py --channel channel-a --version v0.1.0-preview.1 --host-source /path/to/pinned-host --msys-root /path/to/msys64 --host-package /path/to/host-portable.zip --host-build-manifest /path/to/host-build-manifest.json --backend-dir /path/to/backend-dlls --mod-package /path/to/verified-mod.zip --require-redistribution-ready
+python tools/ci_distribution.py --channel getlostin-ctr-nitrofueled-pc --materialize --host-source out/hosts/getlostin --version v0.1.0-preview.1 --msys-root /path/to/msys64 --mod-package /path/to/verified-mod.zip --require-redistribution-ready
 ```
 
-Commit the reviewed recipes and locks before producing releasable source archives.
-For a local source/assembly inspection before that commit, omit the final flag;
-the manifest reports incomplete release readiness rather than claiming a clean
-recipe. Outputs are never overwritten. `--ninja` and `--revision-asset` on
-`tools/ci_build.py` support an initialized local MSVC environment and additive
-mod assets without changing the preview version.
+For explicit prebuilt inputs omit `--materialize` and add `--host-package`,
+`--host-build-manifest` and `--backend-dir`. The source checkout must match the
+locked reconstruction, and the receipt must bind its source tree and recipe.
+Commit reviewed recipes and locks before producing releasable source archives.
+For local assembly inspection before committing, omit the final readiness flag;
+the manifest reports incomplete readiness. Existing output ZIPs are never
+overwritten. `--ninja` and `--revision-asset` on `tools/ci_build.py` support an
+initialized local MSVC environment and additive mod assets.
 
-With `create_draft` selected, both channels and their matching source companions
-must pass validation before the workflow creates a draft prerelease. Existing
-tags/releases are never replaced by that helper. Manual runs of this workflow
-produce CI artifacts or a new draft. The separate automatic release workflow
-below publishes additive assets to the existing first preview after all checks.
-Offline tests are separate from live Steam and multi-PC game acceptance.
+With `create_draft` selected, both distributions and their source companions must
+pass before a draft prerelease is created. That helper never replaces existing
+tags/releases. The automatic workflow below supports additive publication to the
+existing preview. Offline checks do not establish live Steam or multi-PC acceptance.
 
-To refresh the toolchain or dependency evidence, use `tools/lock_msys2.py capture`
+To refresh toolchain or dependency evidence, use `tools/lock_msys2.py capture`
 and `tools/msys2_source_evidence.py capture` against a reviewed local toolchain
-and the clean host/backend DLL directories. Review the resulting JSON changes,
-including new source URLs, package versions and hashes, before committing them.
-`materialize` and ordinary CI consume only those checked-in pins.
+and clean host/backend DLL directories. Review URLs, versions and hashes before
+committing. Ordinary CI consumes only checked-in dependency pins.
 
 ## Following upstream releases
 
 **Automatic P2P releases** runs daily at 06:17 UTC and on manual dispatch from
-`main`. It checks each official repository's latest stable release, resolves the
-tag to an exact commit, and replays that channel's adapter commits in an isolated
-candidate. Already-adopted changes are dropped. The existing channel and release
-stay in place while the candidates are built and tested. A changed PSN contract,
-rewritten upstream history, conflict, unknown dependency, missing source/license
-evidence or failed check stops the run.
+`main`. It checks the official repositories' latest stable releases, resolves
+tags to exact commits, and applies each tracked adapter recipe in an isolated
+candidate under the P2P checkout. A changed PSN contract, rewritten upstream
+history, patch conflict, unknown dependency, missing license/source evidence or
+failed check stops the run. Existing public assets remain available.
 
-Both channels are rebuilt even when only one upstream changed. Each job recreates
-the planned commits with fixed commit metadata and verifies the resulting SHAs.
-The prospective bridge commit changes only `distribution-lock.json`, giving the
-new packages a unique source suffix without changing the preview version.
-The mod, host adapters, package hashes and corresponding sources must all pass.
-These offline checks do not launch the game or establish multi-PC acceptance.
+Both distributions are rebuilt when either upstream changes. Each job reconstructs
+the plan with fixed commit metadata and verifies the generated SHAs and trees.
+The prospective P2P commit changes only `distribution-lock.json`, giving packages
+a unique source suffix without changing the preview version. Recipe modifications
+remain reviewed source changes; unattended updates cannot change patches or the
+shared PSN contract. The mod, adapters, package hashes and corresponding sources
+must all pass before publication.
 
-The final job validates both archives against the external plan, uploads sources
-before binaries, atomically advances the two host branches with explicit leases,
-and advances bridge `main` with a lease. Old and new host revisions receive
-immutable source tags. Existing release tags and assets are never replaced.
-A completion receipt lists the exact inputs, revisions and ten asset hashes;
-the release notes link the latest completed build. Independent provider/server
-pins and compiler/dependency pins remain reviewed inputs, not floating updates.
+The trusted publisher validates archives against the external plan, uploads
+sources before binaries and promotes only this repository's `main`, with an
+explicit lease. Generated host commits are reproducible source identifiers,
+not refs that need publishing in a separate host fork. Full corresponding source
+archives and recipes are published alongside the binaries. Existing release tags
+and assets are never replaced. A completion receipt lists the inputs, revisions
+and ten asset hashes; release notes link the latest completed build.
 
-Each automatic publication also keeps the compiled standalone mod ZIP and its
-checksum. It is the exact input used by both complete channel packages, validated
-against their assembly receipts and component pins. Its default configuration
-targets the supported legacy native host; manual PSN/OCTR installation requires
-a compatible host with the PSN adapter and backend dependencies described in
-`OCTR.md`. An unmodified current upstream binary does not gain that interface
-by copying the mod files alone.
+Every automatic publication also provides the compiled standalone mod ZIP and
+checksum: the exact input used by both complete distributions. Manual installation
+requires a compatible host with the adapter and backend dependencies documented
+in `OCTR.md`; copying mod files alone cannot add this interface to current stock
+upstream binaries. Independent provider/server and compiler/dependency pins
+remain reviewed inputs.
 
-Only the publisher has `contents: write` and the Actions secret
-`P2P_HOST_DEPLOY_KEY`. That dedicated write deploy key belongs only to the host
-integration repository. Build jobs have read access and no persisted checkout
-credentials. GitHub's SSH host key is pinned in `tools/github_known_hosts`.
-Actions are disabled in the controlled host fork: imported upstream workflows
-cannot run there when integration branches or source tags are promoted.
-The notification job has issue access to assign failures to the configured owner.
-GitHub inbox/email delivery follows that account's notification settings.
+Only the publisher receives repository write access. There is no host deploy key
+or cross-repository write credential. Build jobs have read access and no persisted
+checkout credentials. The notification job can assign failures to the configured
+owner; GitHub inbox/email delivery follows that account's notification settings.
+`automation.json` configures the existing preview tag, commit identity and owner.
+The separate `automation/state` branch keeps a public, non-secret stop/recovery
+record. Failed runs open or update one incident; scheduled runs stay stopped
+without repeated build attempts.
 
-`automation.json` configures the existing preview tag, controlled host repository,
-commit identity and notification assignee. The separate `automation/state`
-branch stores a public, non-secret stop/recovery record. Failed runs open or
-update one issue; scheduled runs then stay stopped without repeated build attempts.
-Use **Run workflow** with these modes:
+Manual modes:
 
-- `auto`: check for new stable releases; do nothing when unchanged or stopped.
-- `retry`: after fixing a conflict/check, prepare and test a fresh candidate.
-  If upstream pins are already current, verify them and clear the stop without
-  rebuilding assets under existing release filenames.
-- `resume`: finish a pending publication using its original plan and artifacts.
-- `verify`: build/test current pins and check publisher access, without releasing.
+- `auto`: check stable releases; do nothing when unchanged or stopped.
+- `retry`: prepare and test a fresh candidate after fixing a failure. If pins
+  are current, verify them and clear the stop without republishing existing names.
+- `resume`: complete a pending publication with its original plan and artifacts.
+- `verify`: build/test current pins and check publisher access without publishing.
+- `publish-pinned`: explicitly build and publish the current reviewed pins, for
+  changes such as this migration that do not depend on a new upstream release.
 
-GitHub cannot update two repositories and release assets in one transaction.
-A failed publication can leave tested assets visible before its completion receipt
-exists. Its pending record keeps the exact hashes, prior/new refs and original
-Actions run. Resume never rebuilds or overwrites an asset. Recovery accepts only
-the recorded before/after states; unrelated changes require manual resolution.
-If bridge promotion loses a race, host rollback also uses explicit leases.
-Artifacts are retained for 90 days; deleted or expired original artifacts cannot
-be silently substituted with a rebuild. Preserve the original files for recovery.
+GitHub ref updates and release asset uploads are separate operations. A failed
+publication can leave tested assets visible before the completion receipt exists.
+The pending record keeps exact hashes, before/after refs and the original Actions
+run. Resume never rebuilds or overwrites assets; unrelated remote changes require
+manual resolution. Original artifacts are retained for 90 days and cannot be
+silently replaced by a rebuild if they expire. Preserve them for recovery.
 
-For local diagnosis, prepare one isolated candidate without publishing:
+For local diagnosis, prepare one candidate without publishing:
 
 ```text
-python tools/prepare_upstream_update.py --lock distribution-lock.json --channel channel-a --host-source /path/to/host-checkout --upstream-tag <new-tag> --upstream-revision <full-commit>
+python tools/prepare_upstream_update.py --repository . --lock distribution-lock.json --channel getlostin-ctr-nitrofueled-pc --upstream-tag <new-tag> --upstream-revision <full-commit>
 ```
 
-The helper verifies the official tag, creates a new candidate branch/worktree,
-then replays the integration commits. Commits already adopted upstream are
-dropped. A conflict stops the replay and preserves the candidate for resolution;
-the existing channel and lock remain intact. The result includes the commands
-needed to continue or abort and the checks required before promoting the candidate.
-
-For a stopped update, fix the adapter or refresh reviewed dependency evidence
-when needed, keep the lock aligned with its published integration branch, and
-run `retry`. Never bypass the common PSN contract or package checks to clear a stop.
-The low-level helper itself makes no remote writes; the automatic publisher owns
-promotion and its recovery record.
+The helper verifies the official tag and applies the tracked recipe to an isolated
+checkout. Conflicts stop and retain the candidate for inspection. The lock and
+historical branches stay intact. Fix the P2P-owned recipe or reviewed dependency
+evidence as necessary, review the resulting lock, and run `retry`. Never bypass
+contract or package checks to clear a stop. This helper makes no remote writes;
+publication and recovery remain the trusted publisher's responsibility.

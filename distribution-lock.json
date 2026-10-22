@@ -1,33 +1,43 @@
 {
-  "schema_version": 1,
   "channels": {
-    "channel-a": {
-      "repository": "https://github.com/pierluigizagaria/CTR-NitroFueled-PC.git",
-      "branch": "p2p/channel-a",
-      "revision": "db20c2c7e4dc1395a3026d05d536586af4770725",
-      "upstream": {
-        "repository": "https://github.com/GetLostIn/CTR-NitroFueled-PC.git",
-        "tag": "v0.4",
-        "revision": "0cf8def7f676192de4f37a26e08a92ea0cd4674a"
-      },
+    "getlostin-ctr-nitrofueled-pc": {
+      "display_name": "GetLostIn/CTR-NitroFueled-PC",
       "host_mode": "psn",
       "launcher": "CTR-NitroFueled-PC.exe",
       "portable_root": "CTR-NitroFueled-PC-portable",
-      "psn_tree": "2b18863a4a7189e356dc294328c0827027ecb2c9"
-    },
-    "channel-b": {
-      "repository": "https://github.com/pierluigizagaria/CTR-NitroFueled-PC.git",
-      "branch": "p2p/channel-b",
-      "revision": "db7664c2e0aff7ece059cbe21e13133c2c025b7a",
-      "upstream": {
-        "repository": "https://github.com/Ryu7w7/OCTR-NitroFueled-PC.git",
-        "tag": "v0.6",
-        "revision": "26b35630f62c6ea233acb87aae3fe1f70b89034c"
+      "psn_tree": "2b18863a4a7189e356dc294328c0827027ecb2c9",
+      "recipe": {
+        "path": "integrations/GetLostIn/CTR-NitroFueled-PC/recipe.json",
+        "sha256": "80ac127279d65c22bd093af7c810fbd8a7be83631ec9817926d6206c97ab3ef0"
       },
+      "repository": "https://github.com/GetLostIn/CTR-NitroFueled-PC.git",
+      "revision": "db20c2c7e4dc1395a3026d05d536586af4770725",
+      "source_tree": "5daa486d6cb4a58e5f8d0c64b4d050ff4d01fb88",
+      "upstream": {
+        "repository": "https://github.com/GetLostIn/CTR-NitroFueled-PC.git",
+        "revision": "0cf8def7f676192de4f37a26e08a92ea0cd4674a",
+        "tag": "v0.4"
+      }
+    },
+    "ryu7w7-octr-nitrofueled-pc": {
+      "display_name": "Ryu7w7/OCTR-NitroFueled-PC",
       "host_mode": "octr",
       "launcher": "CTR-NitroFueled-PC.exe",
       "portable_root": "CTR-NitroFueled-PC-portable",
-      "psn_tree": "2b18863a4a7189e356dc294328c0827027ecb2c9"
+      "psn_tree": "2b18863a4a7189e356dc294328c0827027ecb2c9",
+      "recipe": {
+        "path": "integrations/Ryu7w7/OCTR-NitroFueled-PC/recipe.json",
+        "sha256": "fbc9dc59b17778f31d7f95e809c72d9a8a9d6531048919bcd0c264f63ff401a9"
+      },
+      "repository": "https://github.com/Ryu7w7/OCTR-NitroFueled-PC.git",
+      "revision": "db7664c2e0aff7ece059cbe21e13133c2c025b7a",
+      "source_tree": "62503985ff455e4ec38616965c02c0ed5d17584c",
+      "upstream": {
+        "repository": "https://github.com/Ryu7w7/OCTR-NitroFueled-PC.git",
+        "revision": "26b35630f62c6ea233acb87aae3fe1f70b89034c",
+        "tag": "v0.6"
+      }
     }
-  }
+  },
+  "schema_version": 2
 }

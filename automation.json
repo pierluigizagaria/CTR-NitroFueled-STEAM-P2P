@@ -1,7 +1,6 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "release_tag": "v0.1.0-preview.1",
-  "host_repository": "pierluigizagaria/CTR-NitroFueled-PC",
   "notification_assignee": "pierluigizagaria",
   "commit_identity": {
     "name": "Pierluigi Zagaria",

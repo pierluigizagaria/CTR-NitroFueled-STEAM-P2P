@@ -125,6 +125,10 @@ def dependency_files(inventory_path, files, cache):
 
 def export(args):
     lock, pin = locked_channel(args.lock, args.channel)
+    from host_integration import load_recipe
+    load_recipe(ROOT, pin)
+    if git(args.host_source, 'rev-parse', pin['revision'] + '^{tree}') != pin['source_tree']:
+        raise ValueError('The committed host differs from the locked source tree')
     if git(args.host_source, 'rev-parse', pin['revision'] + ':platform/psn') != pin['psn_tree']:
         raise ValueError('The committed PSN module differs from the locked tree')
     files, modes, submodules = {}, {}, []
@@ -141,6 +145,14 @@ def export(args):
     if 'host/LICENSE' not in files or 'host/build.sh' not in files:
         raise ValueError('Host license/build recipe missing from source export')
     files['distribution-lock.json'] = json_bytes(lock)
+    # Host integration patches retain their GPL license separately from the MIT tools.
+    # Include the tracked recipe inputs, not generated worktrees or private caches.
+    for name in git(ROOT, 'ls-files', '--', 'integrations/').splitlines():
+        windows_name(name)
+        files[name] = (ROOT / name).read_bytes()
+    recipe_path = pin['recipe']['path']
+    if recipe_path not in files or sha256(files[recipe_path]) != pin['recipe']['sha256']:
+        raise ValueError('The tracked integration recipe differs from the distribution lock')
     # The exact builder recipe is a distinct MIT component, never relicensed as host code.
     for pattern in ('tools/*.py', 'tools/msys2-*.json', 'tools/github_known_hosts',
                     'automation.json', '.github/workflows/*distribution*.yml',
@@ -157,6 +169,8 @@ def export(args):
     files['SOURCE-README.txt'] = (
         'Complete tracked host source, recursively pinned submodules, original licenses and patch recipes.\n'
         'host/ is GPL-2.0-or-later; individual bundled components retain their own licenses.\n'
+        'integrations/ contains the separately licensed host patches and their original attribution.\n'
+        'build-recipes/ contains the MIT P2P build tools; it does not relicense host patches.\n'
         'No game files, installed profiles or mutable working-tree files were copied.\n'
         'Standalone Windows rebuild (this archive has no Git history):\n'
         '1. Install MSYS2, then from the archive root run Python:\n'
@@ -178,7 +192,8 @@ def export(args):
               'revision': git(ROOT, 'rev-parse', 'HEAD'),
               'source_dirty': bool(git(ROOT, 'status', '--porcelain'))}
     manifest = {'schema_version': 1, 'component': 'ctrnf-p2p-host-source', 'channel': args.channel,
-                'revision': pin['revision'], 'psn_tree': pin['psn_tree'], 'host': pin,
+                'revision': pin['revision'], 'source_tree': pin['source_tree'],
+                'psn_tree': pin['psn_tree'], 'host': pin,
                 'submodules': submodules, 'git_file_modes': modes, 'runtime_dependencies': runtime,
                 'excluded_non_source_assets': omissions,
                 'build_recipe': recipe, 'dependency_evidence_complete': ready,

@@ -1,0 +1,89 @@
+{
+  "commits": [
+    {
+      "author": "Pierluigi Zagaria <pierluigizagaria@gmail.com> 1792491884 +0200",
+      "committer": "Pierluigi Zagaria <pierluigizagaria@gmail.com> 1792491884 +0200",
+      "deletions": [],
+      "message": "Add the shared PSN compatibility backend interface on main\n\nKeep the current runtime, local trophies, networking and launchers as the default. Integrate the same standalone backend module proposed for OCTR and online, with main-specific fixture support and checks for the native trophy binding.\n",
+      "original_revision": "e6e66a5f99cfb6ce2c8b25083b0e316bccdfac8a",
+      "original_tree": "7d28e38c692d1e5f529f1ea73606b1675e7cfc46",
+      "patch": "0001-e6e66a5f99cf.patch",
+      "sha256": "6b48ea4780bb6e640105fcd453879f59414a00ccf08b96ea94c304b6caa92d63"
+    },
+    {
+      "author": "Pierluigi Zagaria <pierluigizagaria@gmail.com> 1792583219 +0200",
+      "committer": "Pierluigi Zagaria <pierluigizagaria@gmail.com> 1792583219 +0200",
+      "deletions": [],
+      "message": "Document the channel A P2P integration and build contract\n",
+      "original_revision": "87ed9d26b7c5dd2d2a6dfee5704b50ef4ce42c02",
+      "original_tree": "25c1523d4ac38f017d13a1bde74e52e758b449f6",
+      "patch": "0002-87ed9d26b7c5.patch",
+      "sha256": "207609b575479f6768866a67055ddf8759785a350c2b744fe7adadeba444df9d"
+    },
+    {
+      "author": "Pierluigi Zagaria <pierluigizagaria@gmail.com> 1792583551 +0200",
+      "committer": "Pierluigi Zagaria <pierluigizagaria@gmail.com> 1792583551 +0200",
+      "deletions": [
+        {
+          "blob": "14c062d7db05f3f8a6a2c5b939e034629af114df",
+          "mode": "100644",
+          "path": "docs/images/logo.png"
+        },
+        {
+          "blob": "66d6a92354cab8f4b0cd30b3138ca3717a286cfb",
+          "mode": "100644",
+          "path": "packaging/windows/icons/ctr.ico"
+        },
+        {
+          "blob": "45ab6144087a72c1024bace96afe92ad13222012",
+          "mode": "100644",
+          "path": "scripts/ultrawide_21x9_data/shaders/0x0000000008948e32_0.spv"
+        },
+        {
+          "blob": "9bcdd510c199c40116d85a28ee09c6e27a71aef8",
+          "mode": "100644",
+          "path": "scripts/ultrawide_21x9_data/shaders/0x00000000d4aaf527_0.spv"
+        },
+        {
+          "blob": "45ab6144087a72c1024bace96afe92ad13222012",
+          "mode": "100644",
+          "path": "scripts/ultrawide_32x9_data/shaders/0x0000000008948e32_0.spv"
+        },
+        {
+          "blob": "9bcdd510c199c40116d85a28ee09c6e27a71aef8",
+          "mode": "100644",
+          "path": "scripts/ultrawide_32x9_data/shaders/0x00000000d4aaf527_0.spv"
+        }
+      ],
+      "message": "Use local ultrawide shader originals and omit branded artwork\n",
+      "original_revision": "34563e6273ed7dc383ee59329b512d9aa5d7e1da",
+      "original_tree": "2fc2303a7fea907850c2cc71b466f0ba525f1dbd",
+      "patch": "0003-34563e6273ed.patch",
+      "sha256": "bdc409d6884d234431eb9da84cf921024cfdb15937ff618b19481930ec0cc22b"
+    },
+    {
+      "author": "Pierluigi Zagaria <pierluigizagaria@gmail.com> 1792617720 +0200",
+      "committer": "Pierluigi Zagaria <pierluigizagaria@gmail.com> 1792617720 +0200",
+      "deletions": [],
+      "message": "Relay selected-friend invitations and expose opt-in timing\n",
+      "original_revision": "a76e52addc80aca4421af76afacacf0b883365bc",
+      "original_tree": "66ce8111122e80460777d9f2d8ac3b693ab1a0d1",
+      "patch": "0004-a76e52addc80.patch",
+      "sha256": "c5ea06cc9ec14a7d2c431bef639f99732bc4d0e9e09efbc8f216572ac2b3c211"
+    },
+    {
+      "author": "Pierluigi Zagaria <pierluigizagaria@gmail.com> 1792619560 +0200",
+      "committer": "Pierluigi Zagaria <pierluigizagaria@gmail.com> 1792619560 +0200",
+      "deletions": [],
+      "message": "Reserve guest mutex storage before native state\n\nAdapt the layout protection from Ryu7w7 OCTR commit e2921a9de5e83a3db7a3c8df5446865bffd37148 while preserving this host lifecycle semantics. Exercise the guest libc flag write and SCE/POSIX operations in the existing native test suite.\n",
+      "original_revision": "db20c2c7e4dc1395a3026d05d536586af4770725",
+      "original_tree": "5daa486d6cb4a58e5f8d0c64b4d050ff4d01fb88",
+      "patch": "0005-db20c2c7e4dc.patch",
+      "sha256": "7d034cc97414f3933497542cd70c66e23347bd242b6a92b27e0d6bf009396f3b"
+    }
+  ],
+  "original_integration_revision": "db20c2c7e4dc1395a3026d05d536586af4770725",
+  "original_upstream_revision": "0cf8def7f676192de4f37a26e08a92ea0cd4674a",
+  "schema_version": 1,
+  "upstream_repository": "https://github.com/GetLostIn/CTR-NitroFueled-PC.git"
+}

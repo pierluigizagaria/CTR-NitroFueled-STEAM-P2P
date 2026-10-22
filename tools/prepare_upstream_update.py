@@ -1,8 +1,7 @@
-"""Replay one locked integration on an upstream release in a retained candidate worktree.
+"""Check official releases and replay tracked recipes entirely inside the P2P repository.
 
-The channel branch, current checkout and lock are never updated. Fetches only the
-explicit upstream tag into a unique private ref. A conflict remains available for
-manual resolution; build, review and promotion are separate operations.
+The lock and existing checkouts are preserved. A conflict retains its candidate
+for review; build, tests and publication are separate operations.
 """
 import argparse
 import json
@@ -13,7 +12,7 @@ import urllib.parse
 import urllib.request
 import uuid
 
-from distribution_support import locked_channel
+from distribution_support import CHANNELS, locked_channel
 from release_support import revision
 
 
@@ -88,98 +87,45 @@ def build_commands(worktree):
 
 
 def prepare(args):
+    """Apply a tracked P2P recipe to an official upstream release locally."""
+    from host_integration import materialize
     _, pin = locked_channel(args.lock, args.channel)
-    repo = Path(args.host_source).resolve()
-    new_revision = revision(args.upstream_revision)
-    if git(repo, 'check-ref-format', 'refs/tags/' + args.upstream_tag, check=False).returncode:
-        raise ValueError('Invalid upstream tag name')
-    old_revision = commit(repo, pin['upstream']['revision'])
-    integration = commit(repo, pin['revision'])
-    if value(repo, 'rev-parse', integration + ':platform/psn') != pin['psn_tree']:
-        raise ValueError('The locked integration does not contain the locked PSN tree')
-    channel_ref = git(repo, 'show-ref', '--verify', '--hash', 'refs/heads/' + pin['branch'], check=False)
-    if channel_ref.returncode == 0 and channel_ref.stdout.strip() != integration:
-        raise ValueError('The local channel branch differs from the lock; review it before preparing an update')
-    if git(repo, 'merge-base', '--is-ancestor', old_revision, integration, check=False).returncode:
-        raise ValueError('The locked upstream is not an ancestor of the integration')
-    commits = value(repo, 'rev-list', '--reverse', '--topo-order',
-                    old_revision + '..' + integration).splitlines()
-    parent = old_revision
-    for sha in commits:
-        if value(repo, 'rev-list', '--parents', '-n', '1', sha).split()[1:] != [parent]:
-            raise ValueError('Non-linear integration history needs manual review; no commits were replayed')
-        parent = sha
-
-    # The first worktree is the owning checkout even when --host-source is itself a worktree.
-    listing = value(repo, 'worktree', 'list', '--porcelain', '-z').split('\0')
-    if not listing[0].startswith('worktree ') or 'bare' in listing:
-        raise ValueError('An owning non-bare host checkout is required')
-    owner = Path(listing[0][len('worktree '):]).resolve()
-    destination = (owner / 'out' / 'worktrees').resolve()
-    if not destination.is_relative_to(owner):
-        raise ValueError('The candidate worktree directory escapes the owning host checkout')
-    nonce = uuid.uuid4().hex[:10]
-    label = args.channel + '-' + new_revision[:12] + '-' + nonce
-    fetched_ref = 'refs/p2p-candidates/' + label + '/upstream'
-    git(repo, 'fetch', '--no-tags', '--no-write-fetch-head', '--no-recurse-submodules',
-        '--no-auto-maintenance', pin['upstream']['repository'],
-        'refs/tags/' + args.upstream_tag + ':' + fetched_ref)
-    if commit(repo, fetched_ref) != new_revision:
-        raise ValueError('The fetched official upstream tag differs from --upstream-revision')
-    if git(repo, 'merge-base', '--is-ancestor', old_revision, new_revision, check=False).returncode:
-        raise ValueError('The requested release rewrites or predates the locked upstream; review it manually')
-    if new_revision == old_revision:
-        return {'schema_version': 1, 'status': 'unchanged', 'channel': args.channel,
-                'upstream_tag': args.upstream_tag, 'upstream_revision': new_revision,
-                'candidate_revision': integration, 'psn_tree': pin['psn_tree'],
-                'fetched_ref': fetched_ref, 'lock_modified': False}
-
-    candidate = destination / ('p2p-' + label)
-    branch = 'p2p/candidate/' + label
-    result = {'schema_version': 1, 'channel': args.channel, 'candidate_branch': branch,
-              'candidate_worktree': str(candidate), 'upstream_repository': pin['upstream']['repository'],
-              'upstream_tag': args.upstream_tag, 'upstream_revision': new_revision,
-              'previous_integration_revision': integration, 'previous_upstream_revision': old_revision,
-              'integration_commits': commits, 'fetched_ref': fetched_ref, 'lock_modified': False,
-              'promotion_required': True, 'next_commands': build_commands(candidate),
-              'build_note': 'Use the locked MSYS2 toolchain and nlohmann-json dependency; '
-                            'pass PSN_JSON_INCLUDE_DIR if CMake cannot find its package.'}
+    repository = Path(args.repository).resolve()
+    target = dict(pin['upstream'], tag=args.upstream_tag,
+                  revision=revision(args.upstream_revision))
+    destination = getattr(args, 'destination', None)
+    if not destination:
+        destination = repository / 'out/integrations' / (args.channel + '-' + uuid.uuid4().hex[:10])
+    common = {'schema_version': 1, 'channel': args.channel, 'upstream': target,
+              'upstream_tag': target['tag'], 'upstream_revision': target['revision'],
+              'upstream_repository': target['repository'], 'lock_modified': False,
+              'previous_integration_revision': pin['revision'],
+              'previous_upstream_revision': pin['upstream']['revision']}
     try:
-        destination.mkdir(parents=True, exist_ok=True)
-        git(repo, 'worktree', 'add', '-b', branch, candidate, new_revision)
-        if commits:
-            # Git >= 2.45 drops adopted changes and retains the sequencer on conflict.
-            picked = git(candidate, 'cherry-pick', '--empty=drop', *commits, check=False)
-            if picked.returncode:
-                conflicts = value(candidate, 'diff', '--name-only', '--diff-filter=U').splitlines()
-                result.update(status='conflict' if conflicts else 'failed', conflicts=conflicts,
-                              candidate_revision=commit(candidate, 'HEAD'),
-                              diagnostic=(picked.stderr or picked.stdout).strip(),
-                              resume_command=['git', '-C', str(candidate), 'cherry-pick', '--continue'],
-                              abort_command=['git', '-C', str(candidate), 'cherry-pick', '--abort'])
-                result['next_commands'] = []
-                return result
-        candidate_revision = commit(candidate, 'HEAD')
-        tree = value(candidate, 'rev-parse', candidate_revision + ':platform/psn')
-        result.update(status='prepared', candidate_revision=candidate_revision, psn_tree=revision(tree),
-                      psn_tree_changed=tree != pin['psn_tree'])
+        result = materialize(repository, pin, destination,
+                             source_cache=getattr(args, 'source_cache', None), upstream=target,
+                             verify_pin=target == pin['upstream'])
+        result.update(common, next_commands=build_commands(Path(result['host_source'])))
+        return result
     except (ValueError, OSError, subprocess.SubprocessError) as error:
-        # Retain and identify even a partially created worktree; never clean it destructively.
-        result.update(status='failed', diagnostic=str(error), next_commands=[])
-    return result
+        result = getattr(error, 'candidate', {'status': 'failed'})
+        result.update(common, diagnostic=str(error), next_commands=[])
+        return result
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--lock', required=True)
-    parser.add_argument('--channel', required=True, choices=('channel-a', 'channel-b'))
-    parser.add_argument('--host-source')
+    parser.add_argument('--channel', required=True, choices=CHANNELS)
+    parser.add_argument('--repository', default='.')
+    parser.add_argument('--destination')
+    parser.add_argument('--source-cache')
     parser.add_argument('--upstream-tag')
     parser.add_argument('--upstream-revision')
     parser.add_argument('--check-latest', action='store_true', help='Read official release metadata only')
     args = parser.parse_args()
-    if not args.check_latest and not all((args.host_source, args.upstream_tag, args.upstream_revision)):
-        parser.error('Preparing an update requires --host-source, --upstream-tag and --upstream-revision')
+    if not args.check_latest and not all((args.upstream_tag, args.upstream_revision)):
+        parser.error('Preparing an update requires --upstream-tag and --upstream-revision')
     try:
         result = latest(args.lock, args.channel) if args.check_latest else prepare(args)
     except (ValueError, OSError, KeyError, subprocess.SubprocessError) as error:

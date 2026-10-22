@@ -10,7 +10,7 @@ import automation_state as state_store
 from prepare_upstream_update import commit, latest
 
 MARKER = '<!-- ctrnf-p2p-automatic-release-failure -->'
-MODES = ('auto', 'retry', 'resume', 'verify')
+MODES = ('auto', 'retry', 'resume', 'verify', 'publish-pinned')
 
 
 def is_incident(issue):
@@ -27,6 +27,12 @@ def save(path, document):
 def choose_action(mode, state, changed=False):
     status = state.get('status') if state else None
     if mode == 'verify':
+        return 'build'
+    if mode == 'publish-pinned':
+        if status == 'pending':
+            raise ValueError('Resolve the pending publication with resume first')
+        # This is an explicit manual dispatch that rebuilds reviewed pins. It
+        # may recover a failed pinned build without selecting newer upstreams.
         return 'build'
     if mode == 'resume':
         if status != 'pending':
@@ -71,7 +77,7 @@ def inspect(directory, mode):
         inspection.update(version=plan['version'], source_run_id=state['source_run_id'])
     elif not (state and state['status'] in {'blocked', 'pending'} and mode == 'auto'):
         for channel, pin in sorted(lock['channels'].items()):
-            if mode == 'verify':
+            if mode in {'verify', 'publish-pinned'}:
                 reports[channel] = {'schema_version': 1, 'status': 'unchanged', 'channel': channel,
                                     'upstream_repository': pin['upstream']['repository'],
                                     'upstream_tag': pin['upstream']['tag'],
@@ -88,8 +94,8 @@ def inspect(directory, mode):
     inspection['fingerprint'] = hashlib.sha256(json.dumps(
         {'base': inspection['base_revision'], 'reports': reports}, sort_keys=True).encode()).hexdigest()
     save(directory / 'inspection.json', inspection)
-    matrix = {'include': [{'channel': channel, 'repository': config['host_repository'],
-                           'revision': pin['revision']} for channel, pin in sorted(lock['channels'].items())]}
+    matrix = {'include': [{'channel': channel, 'display_name': pin['display_name']}
+                          for channel, pin in sorted(lock['channels'].items())]}
     outputs({'action': action, 'version': inspection['version'], 'matrix': json.dumps(matrix),
              'artifact_run_id': inspection.get('source_run_id', inspection['run_id']),
              'verify': str(inspection['verify']).lower()})
@@ -97,13 +103,13 @@ def inspect(directory, mode):
               if action == 'skip' and state and state['status'] != 'completed'
               else 'No new stable upstream release.' if action == 'skip'
               else 'Reusing the original tested artifacts.' if action == 'resume'
-              else 'Build and test both channels before any publication.')
+              else 'Build and test both distributions before any publication.')
     print(reason)
     if os.environ.get('GITHUB_STEP_SUMMARY'):
         with open(os.environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8') as summary:
             summary.write(f'Automation: **{action}**. {reason}\n\n')
             for channel, report in reports.items():
-                summary.write(f"- {channel}: {report['status']} — {report['upstream_tag']} ({report['upstream_revision']})\n")
+                summary.write(f"- {lock['channels'][channel]['display_name']}: {report['status']} — {report['upstream_tag']} ({report['upstream_revision']})\n")
     return inspection
 
 
@@ -149,7 +155,8 @@ def notify(directory, jobs):
     body = (MARKER + '\n\nAutomatic P2P updates have stopped.\n\n'
             f"Failed stage: **{', '.join(failed)}**. [Open the workflow log]({run_url}).\n\n")
     for channel, item in (plan or {}).get('channels', {}).items():
-        body += f"- {channel}: {item['upstream']['tag']} / `{item['upstream']['revision']}`\n"
+        name = plan['new_lock']['channels'][channel]['display_name']
+        body += f"- {name}: {item['upstream']['tag']} / `{item['upstream']['revision']}`\n"
     if document['status'] == 'pending':
         body += ('\nPublication was interrupted. The saved transaction retains the exact artifacts and revisions. '
                  'Use the workflow **resume** mode; do not rebuild or replace existing asset names.\n')
@@ -194,7 +201,7 @@ def finish(directory):
         if (not previous or previous['status'] != 'completed'
                 or previous.get('plan', {}).get('fingerprint') != plan['fingerprint']):
             raise ValueError('Cannot resolve an incident without its completed publication')
-        message = f'Both channel packages were tested and publication completed. [Run]({run_url}).'
+        message = f'Both distribution packages were tested and publication completed. [Run]({run_url}).'
     issues = state_store.api('repos/' + repo + '/issues?state=open&per_page=100')
     for issue in issues:
         if is_incident(issue):
@@ -211,7 +218,8 @@ def main():
     check.add_argument('--directory', default='out/automation')
     prepare = sub.add_parser('prepare')
     prepare.add_argument('--directory', default='out/automation')
-    prepare.add_argument('--host-source', required=True)
+    prepare.add_argument('--repository', default='.')
+    prepare.add_argument('--source-cache')
     failed = sub.add_parser('notify')
     failed.add_argument('--directory', default='out/automation')
     finished = sub.add_parser('finish')
@@ -225,8 +233,9 @@ def main():
         inspection = json.loads((directory / 'inspection.json').read_text(encoding='utf-8'))
         reports = json.loads((directory / 'reports.json').read_text(encoding='utf-8'))
         try:
-            plan = automation_prepare.plan(Path('.'), Path(args.host_source), reports,
-                                           inspection['timestamp'], verify=inspection['verify'])
+            plan = automation_prepare.plan(Path(args.repository), reports,
+                                           inspection['timestamp'], verify=inspection['verify'],
+                                           source_cache=args.source_cache)
         except (ValueError, OSError, KeyError) as error:
             # Retain conflict paths and Git diagnostics as source evidence.
             save(directory / 'failure.json', {'schema_version': 1, 'error': str(error),
