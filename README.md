@@ -1,5 +1,7 @@
 # CTR-NitroFueled-STEAM-P2P
 
+<a href="https://buymeacoffee.com/pierluigizagaria"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me a Coffee" width="217" height="60"></a>
+
 Complete Windows builds of **Crash Team Racing Nitro-Fueled** PC ports
 with a Steam/P2P adapter and matching mod. This project rebuilds stable releases
 from [GetLostIn/CTR-NitroFueled-PC](https://github.com/GetLostIn/CTR-NitroFueled-PC) and
@@ -190,10 +192,6 @@ packages with their corresponding sources.
   to work.
 - The local server only accepts connections from the same PC and must not be
   exposed as a public server.
-
-## Support
-
-Support pierlui's work on this project: [Buy Me a Coffee](https://buymeacoffee.com/pierluigizagaria).
 
 ## License
 
