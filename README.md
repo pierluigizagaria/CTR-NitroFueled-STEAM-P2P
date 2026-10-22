@@ -191,6 +191,10 @@ packages with their corresponding sources.
 - The local server only accepts connections from the same PC and must not be
   exposed as a public server.
 
+## Support
+
+Support pierlui's work on this project: [Buy Me a Coffee](https://buymeacoffee.com/pierluigizagaria).
+
 ## License
 
 The bridge is [MIT licensed](LICENSE). Host patches under `integrations/` retain
