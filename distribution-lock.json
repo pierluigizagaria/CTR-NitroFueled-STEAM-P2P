@@ -30,12 +30,12 @@
         "sha256": "8ab2ce88e04711b27732a8cff56108b712cfa67d1ead7d490bca9e185b209bc2"
       },
       "repository": "https://github.com/Ryu7w7/OCTR-NitroFueled-PC.git",
-      "revision": "f12628ae4ae23577bf2d19198c036464a1b40eec",
-      "source_tree": "e96f5f2e0d7c9ea8839208532d66caad86e65a1b",
+      "revision": "499eb8c4f924f129e988888b4c47753230b929f5",
+      "source_tree": "bfeddfe8643d2c59c2f36516d0f3f1978e296137",
       "upstream": {
         "repository": "https://github.com/Ryu7w7/OCTR-NitroFueled-PC.git",
-        "revision": "cdd39072ecdb55dbebe1a1aa0299c4c9ff7fff30",
-        "tag": "v0.6.3"
+        "revision": "ac73258dfee67263657b0722faf2262d40bea826",
+        "tag": "v0.6.4"
       }
     }
   },
