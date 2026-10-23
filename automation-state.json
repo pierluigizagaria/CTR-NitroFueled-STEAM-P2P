@@ -51,6 +51,12 @@
       "size": 150
     }
   ],
+  "completion": {
+    "asset": "ctrnf-p2p-complete-v0.1.0-preview.1-37b8bc45a05e.json",
+    "revision": "37b8bc45a05e38c65cb16f7dec613d8d156ccd96",
+    "run_url": "https://github.com/pierluigizagaria/CTR-NitroFueled-STEAM-P2P/actions/runs/39947999177"
+  },
+  "completion_asset": "ctrnf-p2p-complete-v0.1.0-preview.1-37b8bc45a05e.json",
   "created_at": "2026-10-23T11:42:58Z",
   "plan": {
     "base_revision": "740a0f9f8f359e1388430de530b1dc09b8a4a4cf",
@@ -183,5 +189,5 @@
   "schema_version": 1,
   "source_run_id": "39947999177",
   "source_run_url": "https://github.com/pierluigizagaria/CTR-NitroFueled-STEAM-P2P/actions/runs/39947999177",
-  "status": "pending"
+  "status": "completed"
 }
