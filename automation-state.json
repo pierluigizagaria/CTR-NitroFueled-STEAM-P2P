@@ -1,67 +1,61 @@
 {
   "assets": [
     {
-      "name": "ctrnf-p2p-getlostin-ctr-nitrofueled-pc-v0.1.0-preview.1-ca7ecdbcd12d-source.zip",
-      "sha256": "4d96e623f548774a64f0c7e40a1dda18000b8a19a54695e783c128c1fc5b0e07",
-      "size": 341180046
+      "name": "ctrnf-p2p-getlostin-ctr-nitrofueled-pc-v0.1.0-preview.1-37b8bc45a05e-source.zip",
+      "sha256": "7cff07f0f6e2ee06eb7e55e42a9acf305823919fab797fb78ee6287c4e01f3b0",
+      "size": 341180045
     },
     {
-      "name": "ctrnf-p2p-getlostin-ctr-nitrofueled-pc-v0.1.0-preview.1-ca7ecdbcd12d-source.zip.sha256",
-      "sha256": "172854ac672211fdde2ce605dc2ffb96622a76c56eaba727d1612dfcc86c7ab6",
+      "name": "ctrnf-p2p-getlostin-ctr-nitrofueled-pc-v0.1.0-preview.1-37b8bc45a05e-source.zip.sha256",
+      "sha256": "5c35775de2d7092df1071c42be2ef024b16e05d64267cfa7bcd18d32719ca743",
       "size": 147
     },
     {
-      "name": "ctrnf-p2p-getlostin-ctr-nitrofueled-pc-v0.1.0-preview.1-ca7ecdbcd12d-windows-x64.zip",
-      "sha256": "9cf005cddfac9eea820b8dc44f71b46cf17d397c92dc626d89deb7e6742abb8a",
-      "size": 114245151
+      "name": "ctrnf-p2p-getlostin-ctr-nitrofueled-pc-v0.1.0-preview.1-37b8bc45a05e-windows-x64.zip",
+      "sha256": "c67290a3b482ca08c78856462af64ab9fc41db6b9a6e826c4fd922bb4c728338",
+      "size": 114245209
     },
     {
-      "name": "ctrnf-p2p-getlostin-ctr-nitrofueled-pc-v0.1.0-preview.1-ca7ecdbcd12d-windows-x64.zip.sha256",
-      "sha256": "f6e93d984412257ed395a212e04ef28285a29d13631eb40f45bdb5cfbdce4b07",
+      "name": "ctrnf-p2p-getlostin-ctr-nitrofueled-pc-v0.1.0-preview.1-37b8bc45a05e-windows-x64.zip.sha256",
+      "sha256": "d6e72ec583a5432ec982069089c697fcf687070819005e1d0af804c76a8f18bf",
       "size": 152
     },
     {
-      "name": "ctrnf-p2p-mod-v0.1.0-preview.1-windows-x64-ca7ecdbcd12d.zip",
-      "sha256": "44be11d84ea8d3aec3d85a7d55483a1b16a9e4db35ec092048230bdbe7ea0806",
-      "size": 7034265
+      "name": "ctrnf-p2p-mod-v0.1.0-preview.1-windows-x64-37b8bc45a05e.zip",
+      "sha256": "913b0c43ba873b3e48520262f5a56a03a65536c7ba2f138002033d1388145377",
+      "size": 7034286
     },
     {
-      "name": "ctrnf-p2p-mod-v0.1.0-preview.1-windows-x64-ca7ecdbcd12d.zip.sha256",
-      "sha256": "e4f8e8cdf86cf5e7cae28f1b2a8ee77d7f6be9a53667b9aeb5a180c0feaf7641",
+      "name": "ctrnf-p2p-mod-v0.1.0-preview.1-windows-x64-37b8bc45a05e.zip.sha256",
+      "sha256": "ec0eb6c6818692d7979901c9dc41f82802635356eb684012d4a9b9b72856d964",
       "size": 127
     },
     {
-      "name": "ctrnf-p2p-ryu7w7-octr-nitrofueled-pc-v0.1.0-preview.1-ca7ecdbcd12d-source.zip",
-      "sha256": "3c78f272230679b7d2dacf4b973163fdeb64672ac39ec7823a8a090df3d8b485",
-      "size": 344028995
+      "name": "ctrnf-p2p-ryu7w7-octr-nitrofueled-pc-v0.1.0-preview.1-37b8bc45a05e-source.zip",
+      "sha256": "fd37324f8749947dc32d82f9403405f14d23610205956deb898e72751ef5fa06",
+      "size": 344058175
     },
     {
-      "name": "ctrnf-p2p-ryu7w7-octr-nitrofueled-pc-v0.1.0-preview.1-ca7ecdbcd12d-source.zip.sha256",
-      "sha256": "fb58d7ce0f2a24af3af424715e5d0138d6cb5fe45362e4aeed191f798e22c46f",
+      "name": "ctrnf-p2p-ryu7w7-octr-nitrofueled-pc-v0.1.0-preview.1-37b8bc45a05e-source.zip.sha256",
+      "sha256": "35a5dc1619365521fe4aa046daa5cf59fbeb068e74690e3b385dcf8f7d55a46b",
       "size": 145
     },
     {
-      "name": "ctrnf-p2p-ryu7w7-octr-nitrofueled-pc-v0.1.0-preview.1-ca7ecdbcd12d-windows-x64.zip",
-      "sha256": "8b8cc0fbef0a163e675bb65451365887ed2d340c29d4e7dc74e361e5ef858f35",
-      "size": 116903817
+      "name": "ctrnf-p2p-ryu7w7-octr-nitrofueled-pc-v0.1.0-preview.1-37b8bc45a05e-windows-x64.zip",
+      "sha256": "3d7858d39ded38e9df46f1333e8afdfa6384911633f6bd633bbfb42a2700d480",
+      "size": 116923755
     },
     {
-      "name": "ctrnf-p2p-ryu7w7-octr-nitrofueled-pc-v0.1.0-preview.1-ca7ecdbcd12d-windows-x64.zip.sha256",
-      "sha256": "ea26c93324b57e20f8c6ad72b6eb97b46a066c3fe1525c779d0569ac2cd4900e",
+      "name": "ctrnf-p2p-ryu7w7-octr-nitrofueled-pc-v0.1.0-preview.1-37b8bc45a05e-windows-x64.zip.sha256",
+      "sha256": "3ff1cf17d957fbd4ab645c62a39f38b438fbb5f0945f51733a19711338e27660",
       "size": 150
     }
   ],
-  "completion": {
-    "asset": "ctrnf-p2p-complete-v0.1.0-preview.1-ca7ecdbcd12d.json",
-    "revision": "ca7ecdbcd12d93a835c8987ae88805e135ab2784",
-    "run_url": "https://github.com/pierluigizagaria/CTR-NitroFueled-STEAM-P2P/actions/runs/39758833876"
-  },
-  "completion_asset": "ctrnf-p2p-complete-v0.1.0-preview.1-ca7ecdbcd12d.json",
-  "created_at": "2026-10-22T09:53:09Z",
+  "created_at": "2026-10-23T11:42:58Z",
   "plan": {
-    "base_revision": "ca7ecdbcd12d93a835c8987ae88805e135ab2784",
-    "candidate_revision": "ca7ecdbcd12d93a835c8987ae88805e135ab2784",
-    "changed": false,
+    "base_revision": "740a0f9f8f359e1388430de530b1dc09b8a4a4cf",
+    "candidate_revision": "37b8bc45a05e38c65cb16f7dec613d8d156ccd96",
+    "changed": true,
     "channels": {
       "getlostin-ctr-nitrofueled-pc": {
         "candidate_revision": "db20c2c7e4dc1395a3026d05d536586af4770725",
@@ -76,15 +70,15 @@
         }
       },
       "ryu7w7-octr-nitrofueled-pc": {
-        "candidate_revision": "f12628ae4ae23577bf2d19198c036464a1b40eec",
-        "changed": false,
+        "candidate_revision": "499eb8c4f924f129e988888b4c47753230b929f5",
+        "changed": true,
         "expected_old_revision": "f12628ae4ae23577bf2d19198c036464a1b40eec",
         "psn_tree": "2b18863a4a7189e356dc294328c0827027ecb2c9",
-        "source_tree": "e96f5f2e0d7c9ea8839208532d66caad86e65a1b",
+        "source_tree": "bfeddfe8643d2c59c2f36516d0f3f1978e296137",
         "upstream": {
           "repository": "https://github.com/Ryu7w7/OCTR-NitroFueled-PC.git",
-          "revision": "cdd39072ecdb55dbebe1a1aa0299c4c9ff7fff30",
-          "tag": "v0.6.3"
+          "revision": "ac73258dfee67263657b0722faf2262d40bea826",
+          "tag": "v0.6.4"
         }
       }
     },
@@ -92,9 +86,9 @@
       "email": "pierluigizagaria@gmail.com",
       "name": "Pierluigi Zagaria"
     },
-    "commit_message": "Update P2P distributions from upstream releases\n\n\n",
-    "commit_timestamp": "2026-10-22T09:53:09Z",
-    "fingerprint": "5f696839cc7180c7d4f830d93423d621c524e9f77833ac642bb106f662e098df",
+    "commit_message": "Update P2P distributions from upstream releases\n\nRyu7w7/OCTR-NitroFueled-PC: v0.6.3 -> v0.6.4 (ac73258dfee6)\n",
+    "commit_timestamp": "2026-10-23T11:42:58Z",
+    "fingerprint": "acc5fb718cb76a946a26e01b0ba6ac952a34f1e017dc658ff497cd0ec046e086",
     "new_lock": {
       "channels": {
         "getlostin-ctr-nitrofueled-pc": {
@@ -127,12 +121,12 @@
             "sha256": "8ab2ce88e04711b27732a8cff56108b712cfa67d1ead7d490bca9e185b209bc2"
           },
           "repository": "https://github.com/Ryu7w7/OCTR-NitroFueled-PC.git",
-          "revision": "f12628ae4ae23577bf2d19198c036464a1b40eec",
-          "source_tree": "e96f5f2e0d7c9ea8839208532d66caad86e65a1b",
+          "revision": "499eb8c4f924f129e988888b4c47753230b929f5",
+          "source_tree": "bfeddfe8643d2c59c2f36516d0f3f1978e296137",
           "upstream": {
             "repository": "https://github.com/Ryu7w7/OCTR-NitroFueled-PC.git",
-            "revision": "cdd39072ecdb55dbebe1a1aa0299c4c9ff7fff30",
-            "tag": "v0.6.3"
+            "revision": "ac73258dfee67263657b0722faf2262d40bea826",
+            "tag": "v0.6.4"
           }
         }
       },
@@ -187,7 +181,7 @@
   },
   "release_id": 417443402,
   "schema_version": 1,
-  "source_run_id": "39758833876",
-  "source_run_url": "https://github.com/pierluigizagaria/CTR-NitroFueled-STEAM-P2P/actions/runs/39758833876",
-  "status": "completed"
+  "source_run_id": "39947999177",
+  "source_run_url": "https://github.com/pierluigizagaria/CTR-NitroFueled-STEAM-P2P/actions/runs/39947999177",
+  "status": "pending"
 }
