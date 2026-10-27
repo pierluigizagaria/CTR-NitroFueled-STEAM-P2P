@@ -1,193 +1,60 @@
 {
-  "assets": [
-    {
-      "name": "ctrnf-p2p-getlostin-ctr-nitrofueled-pc-v0.1.0-preview.1-37b8bc45a05e-source.zip",
-      "sha256": "7cff07f0f6e2ee06eb7e55e42a9acf305823919fab797fb78ee6287c4e01f3b0",
-      "size": 341180045
+  "incident": {
+    "failed_jobs": [
+      "plan"
+    ],
+    "fingerprint": "43451495c81344c86d1f93147c789d69d937e455efaef4f4bcabf46bb5e45ce7",
+    "run_url": "https://github.com/pierluigizagaria/CTR-NitroFueled-STEAM-P2P/actions/runs/40502410367"
+  },
+  "inspection": {
+    "action": "build",
+    "base_revision": "37b8bc45a05e38c65cb16f7dec613d8d156ccd96",
+    "fingerprint": "43451495c81344c86d1f93147c789d69d937e455efaef4f4bcabf46bb5e45ce7",
+    "mode": "auto",
+    "reports": {
+      "getlostin-ctr-nitrofueled-pc": {
+        "channel": "getlostin-ctr-nitrofueled-pc",
+        "locked_upstream": {
+          "repository": "https://github.com/GetLostIn/CTR-NitroFueled-PC.git",
+          "revision": "0cf8def7f676192de4f37a26e08a92ea0cd4674a",
+          "tag": "v0.4"
+        },
+        "read_only": true,
+        "schema_version": 1,
+        "status": "unchanged",
+        "upstream_repository": "https://github.com/GetLostIn/CTR-NitroFueled-PC.git",
+        "upstream_revision": "0cf8def7f676192de4f37a26e08a92ea0cd4674a",
+        "upstream_tag": "v0.4"
+      },
+      "ryu7w7-octr-nitrofueled-pc": {
+        "channel": "ryu7w7-octr-nitrofueled-pc",
+        "locked_upstream": {
+          "repository": "https://github.com/Ryu7w7/OCTR-NitroFueled-PC.git",
+          "revision": "ac73258dfee67263657b0722faf2262d40bea826",
+          "tag": "v0.6.4"
+        },
+        "read_only": true,
+        "schema_version": 1,
+        "status": "changed",
+        "upstream_repository": "https://github.com/Ryu7w7/OCTR-NitroFueled-PC.git",
+        "upstream_revision": "9878ceda511792b63ca287a2cc33477a9cafcb86",
+        "upstream_tag": "v0.6.5"
+      }
     },
-    {
-      "name": "ctrnf-p2p-getlostin-ctr-nitrofueled-pc-v0.1.0-preview.1-37b8bc45a05e-source.zip.sha256",
-      "sha256": "5c35775de2d7092df1071c42be2ef024b16e05d64267cfa7bcd18d32719ca743",
-      "size": 147
-    },
-    {
-      "name": "ctrnf-p2p-getlostin-ctr-nitrofueled-pc-v0.1.0-preview.1-37b8bc45a05e-windows-x64.zip",
-      "sha256": "c67290a3b482ca08c78856462af64ab9fc41db6b9a6e826c4fd922bb4c728338",
-      "size": 114245209
-    },
-    {
-      "name": "ctrnf-p2p-getlostin-ctr-nitrofueled-pc-v0.1.0-preview.1-37b8bc45a05e-windows-x64.zip.sha256",
-      "sha256": "d6e72ec583a5432ec982069089c697fcf687070819005e1d0af804c76a8f18bf",
-      "size": 152
-    },
-    {
-      "name": "ctrnf-p2p-mod-v0.1.0-preview.1-windows-x64-37b8bc45a05e.zip",
-      "sha256": "913b0c43ba873b3e48520262f5a56a03a65536c7ba2f138002033d1388145377",
-      "size": 7034286
-    },
-    {
-      "name": "ctrnf-p2p-mod-v0.1.0-preview.1-windows-x64-37b8bc45a05e.zip.sha256",
-      "sha256": "ec0eb6c6818692d7979901c9dc41f82802635356eb684012d4a9b9b72856d964",
-      "size": 127
-    },
-    {
-      "name": "ctrnf-p2p-ryu7w7-octr-nitrofueled-pc-v0.1.0-preview.1-37b8bc45a05e-source.zip",
-      "sha256": "fd37324f8749947dc32d82f9403405f14d23610205956deb898e72751ef5fa06",
-      "size": 344058175
-    },
-    {
-      "name": "ctrnf-p2p-ryu7w7-octr-nitrofueled-pc-v0.1.0-preview.1-37b8bc45a05e-source.zip.sha256",
-      "sha256": "35a5dc1619365521fe4aa046daa5cf59fbeb068e74690e3b385dcf8f7d55a46b",
-      "size": 145
-    },
-    {
-      "name": "ctrnf-p2p-ryu7w7-octr-nitrofueled-pc-v0.1.0-preview.1-37b8bc45a05e-windows-x64.zip",
-      "sha256": "3d7858d39ded38e9df46f1333e8afdfa6384911633f6bd633bbfb42a2700d480",
-      "size": 116923755
-    },
-    {
-      "name": "ctrnf-p2p-ryu7w7-octr-nitrofueled-pc-v0.1.0-preview.1-37b8bc45a05e-windows-x64.zip.sha256",
-      "sha256": "3ff1cf17d957fbd4ab645c62a39f38b438fbb5f0945f51733a19711338e27660",
-      "size": 150
-    }
-  ],
-  "completion": {
+    "run_id": "40502410367",
+    "run_url": "https://github.com/pierluigizagaria/CTR-NitroFueled-STEAM-P2P/actions/runs/40502410367",
+    "schema_version": 1,
+    "state_revision": "0ceca8bf618eaf0fdacb74d311c8edc976a24a65",
+    "timestamp": "2026-10-27T12:16:12Z",
+    "verify": false,
+    "version": "v0.1.0-preview.1"
+  },
+  "plan": null,
+  "previous_completion": {
     "asset": "ctrnf-p2p-complete-v0.1.0-preview.1-37b8bc45a05e.json",
     "revision": "37b8bc45a05e38c65cb16f7dec613d8d156ccd96",
     "run_url": "https://github.com/pierluigizagaria/CTR-NitroFueled-STEAM-P2P/actions/runs/39947999177"
   },
-  "completion_asset": "ctrnf-p2p-complete-v0.1.0-preview.1-37b8bc45a05e.json",
-  "created_at": "2026-10-23T11:42:58Z",
-  "plan": {
-    "base_revision": "740a0f9f8f359e1388430de530b1dc09b8a4a4cf",
-    "candidate_revision": "37b8bc45a05e38c65cb16f7dec613d8d156ccd96",
-    "changed": true,
-    "channels": {
-      "getlostin-ctr-nitrofueled-pc": {
-        "candidate_revision": "db20c2c7e4dc1395a3026d05d536586af4770725",
-        "changed": false,
-        "expected_old_revision": "db20c2c7e4dc1395a3026d05d536586af4770725",
-        "psn_tree": "2b18863a4a7189e356dc294328c0827027ecb2c9",
-        "source_tree": "5daa486d6cb4a58e5f8d0c64b4d050ff4d01fb88",
-        "upstream": {
-          "repository": "https://github.com/GetLostIn/CTR-NitroFueled-PC.git",
-          "revision": "0cf8def7f676192de4f37a26e08a92ea0cd4674a",
-          "tag": "v0.4"
-        }
-      },
-      "ryu7w7-octr-nitrofueled-pc": {
-        "candidate_revision": "499eb8c4f924f129e988888b4c47753230b929f5",
-        "changed": true,
-        "expected_old_revision": "f12628ae4ae23577bf2d19198c036464a1b40eec",
-        "psn_tree": "2b18863a4a7189e356dc294328c0827027ecb2c9",
-        "source_tree": "bfeddfe8643d2c59c2f36516d0f3f1978e296137",
-        "upstream": {
-          "repository": "https://github.com/Ryu7w7/OCTR-NitroFueled-PC.git",
-          "revision": "ac73258dfee67263657b0722faf2262d40bea826",
-          "tag": "v0.6.4"
-        }
-      }
-    },
-    "commit_identity": {
-      "email": "pierluigizagaria@gmail.com",
-      "name": "Pierluigi Zagaria"
-    },
-    "commit_message": "Update P2P distributions from upstream releases\n\nRyu7w7/OCTR-NitroFueled-PC: v0.6.3 -> v0.6.4 (ac73258dfee6)\n",
-    "commit_timestamp": "2026-10-23T11:42:58Z",
-    "fingerprint": "acc5fb718cb76a946a26e01b0ba6ac952a34f1e017dc658ff497cd0ec046e086",
-    "new_lock": {
-      "channels": {
-        "getlostin-ctr-nitrofueled-pc": {
-          "display_name": "GetLostIn/CTR-NitroFueled-PC",
-          "host_mode": "psn",
-          "launcher": "CTR-NitroFueled-PC.exe",
-          "portable_root": "CTR-NitroFueled-PC-portable",
-          "psn_tree": "2b18863a4a7189e356dc294328c0827027ecb2c9",
-          "recipe": {
-            "path": "integrations/GetLostIn/CTR-NitroFueled-PC/recipe.json",
-            "sha256": "80ac127279d65c22bd093af7c810fbd8a7be83631ec9817926d6206c97ab3ef0"
-          },
-          "repository": "https://github.com/GetLostIn/CTR-NitroFueled-PC.git",
-          "revision": "db20c2c7e4dc1395a3026d05d536586af4770725",
-          "source_tree": "5daa486d6cb4a58e5f8d0c64b4d050ff4d01fb88",
-          "upstream": {
-            "repository": "https://github.com/GetLostIn/CTR-NitroFueled-PC.git",
-            "revision": "0cf8def7f676192de4f37a26e08a92ea0cd4674a",
-            "tag": "v0.4"
-          }
-        },
-        "ryu7w7-octr-nitrofueled-pc": {
-          "display_name": "Ryu7w7/OCTR-NitroFueled-PC",
-          "host_mode": "octr",
-          "launcher": "CTR-NitroFueled-PC.exe",
-          "portable_root": "CTR-NitroFueled-PC-portable",
-          "psn_tree": "2b18863a4a7189e356dc294328c0827027ecb2c9",
-          "recipe": {
-            "path": "integrations/Ryu7w7/OCTR-NitroFueled-PC/recipe.json",
-            "sha256": "8ab2ce88e04711b27732a8cff56108b712cfa67d1ead7d490bca9e185b209bc2"
-          },
-          "repository": "https://github.com/Ryu7w7/OCTR-NitroFueled-PC.git",
-          "revision": "499eb8c4f924f129e988888b4c47753230b929f5",
-          "source_tree": "bfeddfe8643d2c59c2f36516d0f3f1978e296137",
-          "upstream": {
-            "repository": "https://github.com/Ryu7w7/OCTR-NitroFueled-PC.git",
-            "revision": "ac73258dfee67263657b0722faf2262d40bea826",
-            "tag": "v0.6.4"
-          }
-        }
-      },
-      "schema_version": 2
-    },
-    "original_lock": {
-      "channels": {
-        "getlostin-ctr-nitrofueled-pc": {
-          "display_name": "GetLostIn/CTR-NitroFueled-PC",
-          "host_mode": "psn",
-          "launcher": "CTR-NitroFueled-PC.exe",
-          "portable_root": "CTR-NitroFueled-PC-portable",
-          "psn_tree": "2b18863a4a7189e356dc294328c0827027ecb2c9",
-          "recipe": {
-            "path": "integrations/GetLostIn/CTR-NitroFueled-PC/recipe.json",
-            "sha256": "80ac127279d65c22bd093af7c810fbd8a7be83631ec9817926d6206c97ab3ef0"
-          },
-          "repository": "https://github.com/GetLostIn/CTR-NitroFueled-PC.git",
-          "revision": "db20c2c7e4dc1395a3026d05d536586af4770725",
-          "source_tree": "5daa486d6cb4a58e5f8d0c64b4d050ff4d01fb88",
-          "upstream": {
-            "repository": "https://github.com/GetLostIn/CTR-NitroFueled-PC.git",
-            "revision": "0cf8def7f676192de4f37a26e08a92ea0cd4674a",
-            "tag": "v0.4"
-          }
-        },
-        "ryu7w7-octr-nitrofueled-pc": {
-          "display_name": "Ryu7w7/OCTR-NitroFueled-PC",
-          "host_mode": "octr",
-          "launcher": "CTR-NitroFueled-PC.exe",
-          "portable_root": "CTR-NitroFueled-PC-portable",
-          "psn_tree": "2b18863a4a7189e356dc294328c0827027ecb2c9",
-          "recipe": {
-            "path": "integrations/Ryu7w7/OCTR-NitroFueled-PC/recipe.json",
-            "sha256": "8ab2ce88e04711b27732a8cff56108b712cfa67d1ead7d490bca9e185b209bc2"
-          },
-          "repository": "https://github.com/Ryu7w7/OCTR-NitroFueled-PC.git",
-          "revision": "f12628ae4ae23577bf2d19198c036464a1b40eec",
-          "source_tree": "e96f5f2e0d7c9ea8839208532d66caad86e65a1b",
-          "upstream": {
-            "repository": "https://github.com/Ryu7w7/OCTR-NitroFueled-PC.git",
-            "revision": "cdd39072ecdb55dbebe1a1aa0299c4c9ff7fff30",
-            "tag": "v0.6.3"
-          }
-        }
-      },
-      "schema_version": 2
-    },
-    "schema_version": 2,
-    "verify": false,
-    "version": "v0.1.0-preview.1"
-  },
-  "release_id": 417443402,
   "schema_version": 1,
-  "source_run_id": "39947999177",
-  "source_run_url": "https://github.com/pierluigizagaria/CTR-NitroFueled-STEAM-P2P/actions/runs/39947999177",
-  "status": "completed"
+  "status": "blocked"
 }
