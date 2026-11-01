@@ -1,8 +1,8 @@
 diff --git a/README.md b/README.md
-index bca110603b8fe499df78c0aaa5fbefc24343f7b9..75e11a1673ec8d6c4e78990871c54d3a81f4511a 100644
+index 9f522528ac60f6f8703a976869237fd4014f1dd9..c8ca15d86699f45bde54f136e0d717b494a54676 100644
 --- a/README.md
 +++ b/README.md
-@@ -20,7 +20,8 @@ nickname, Discord account linking and Discord invites.
+@@ -23,7 +23,8 @@ nickname, Discord account linking and Discord invites.
  
  Developers can integrate an optional platform backend through the reusable
  [PSN host module](platform/psn/README.md). RyuNET remains the default; the module adds
@@ -13,7 +13,7 @@ index bca110603b8fe499df78c0aaa5fbefc24343f7b9..75e11a1673ec8d6c4e78990871c54d3a
  > **No game files are included.** You need your own dump of the game and its 1.21 update.
  > Both builds of the 1.21 update work: the one for firmware 5.05 (the reference) and the one for
 diff --git a/docs/sacredfire/STATUS.md b/docs/sacredfire/STATUS.md
-index 355bd248772a0a4a6e9f85efeeb652feec62d067..b3179a1676852f07c390b9e1f8276ce14c17b280 100644
+index 723f4e240c03f9cc4add2e34bd61b0f4a200369d..0bc38e005a42aecc2f4c6426fd83a0e700a236ca 100644
 --- a/docs/sacredfire/STATUS.md
 +++ b/docs/sacredfire/STATUS.md
 @@ -2,10 +2,11 @@
@@ -1567,16 +1567,16 @@ index 0000000000000000000000000000000000000000..f731fadf88e5c06e100621d0a6d97138
 +         "callback and accepted invite passed");
 +}
 diff --git a/scripts/online_config.py b/scripts/online_config.py
-index c912215e7e278026c8e0a734c6e82f1706825ad9..c48812edabef72531a7db07f732c08b5302d5e51 100644
+index 6c4c25bc74cab548e15064224c1bbdaaa8ba0cb4..ac568fc32c28116b9d330941a9cfc5c08a9200cb 100644
 --- a/scripts/online_config.py
 +++ b/scripts/online_config.py
 @@ -14,9 +14,10 @@ from run import external_psn_backend, setup_online, update_notice
  EXPORT_KEYS = (
      "BB_USER_NAME", "BB_ONLINE", "BB_NET_TRACE", "BB_ONLINE_SERVER", "BB_ONLINE_HTTP_PORT", "BB_ONLINE_NAME",
      "BB_ONLINE_ACCOUNT_ID", "BB_ONLINE_PORT", "BB_ONLINE_FRIENDS", "BB_ONLINE_KEY", "BB_ONLINE_KEYHASH", "BB_ONLINE_INVENTORY",
--    "BB_THEME", "BB_END_RACE_TIMEOUT", "BB_UPDATE_AVAILABLE",
+-    "BB_THEME", "BB_END_RACE_TIMEOUT", "BB_UPDATE_AVAILABLE", "BB_SPEED_MODE",
 -    "BB_PSN_BACKEND", "BB_PSN_BACKEND_CONFIG", "BB_ONLINE_TUNNEL",
-+    "BB_THEME", "BB_END_RACE_TIMEOUT", "BB_UPDATE_AVAILABLE", "BB_ONLINE_TUNNEL",
++    "BB_THEME", "BB_END_RACE_TIMEOUT", "BB_UPDATE_AVAILABLE", "BB_SPEED_MODE", "BB_ONLINE_TUNNEL",
  )
 +# Backend selection/configuration are already inherited by the shell and child.
 +# In particular, an ephemeral relay capability must never enter the env-file.

@@ -1,5 +1,5 @@
 diff --git a/build.sh b/build.sh
-index 7e4bff44655d44e958802d71a2c53ab9707e9953..821356eba3a2392b7b918f3e7775b66119e845cd 100644
+index ae63412e78df6210f37d22f49b5cc49665972c6d..8b4e5390bba94be4fa72690fef3060d92de1341c 100644
 --- a/build.sh
 +++ b/build.sh
 @@ -53,6 +53,9 @@ MINGW*|MSYS*)
@@ -13,18 +13,18 @@ index 7e4bff44655d44e958802d71a2c53ab9707e9953..821356eba3a2392b7b918f3e7775b661
      exit 0
      ;;
 diff --git a/gpu/shim/bbport_overlay.cpp b/gpu/shim/bbport_overlay.cpp
-index 76f46f12d9175ef8cd23a5949131b660cabb5f7f..88a4b68a2634b74647bd75026b066a3414bd2329 100644
+index 05d491c8b440e8765117b957c7450baa4910065c..7bbe32ac7eccfd42b6ad52d375bb4f97b17961cb 100644
 --- a/gpu/shim/bbport_overlay.cpp
 +++ b/gpu/shim/bbport_overlay.cpp
-@@ -22,6 +22,7 @@
- #include <miniz.h>
+@@ -23,6 +23,7 @@
+ #include "bbport_perf.h"
  #include "bbport_settings.h"
  #include "../../src/runtime_friends.h"
 +#include "../../src/runtime_psn.h"
  #include "../../src/runtime_net_ping.h"
  #include "imgui.h"
  #include "imgui_internal.h" // RegisterUserTexture: the trophy pictures
-@@ -590,6 +591,11 @@ bool InOnlineRoom() {
+@@ -600,6 +601,11 @@ bool InOnlineRoom() {
  }
  
  void RoomTab() {
@@ -36,7 +36,7 @@ index 76f46f12d9175ef8cd23a5949131b660cabb5f7f..88a4b68a2634b74647bd75026b066a34
      auto& s = BbSettings::Get();
      MenuSection(BbSettings::MenuText("Players in the room", "Игроки в комнате"));
      if (!InOnlineRoom()) {
-@@ -627,6 +633,11 @@ void ReportTab() {
+@@ -637,6 +643,11 @@ void ReportTab() {
  }
  
  void FriendsTab() {

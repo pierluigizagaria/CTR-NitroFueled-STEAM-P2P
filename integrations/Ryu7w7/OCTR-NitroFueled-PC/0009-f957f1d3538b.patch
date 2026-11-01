@@ -1,0 +1,517 @@
+diff --git a/build.sh b/build.sh
+index 42bfb3324667bdb00dbf463e8fc6f06a72d7ff9b..957eac04aa56829d3ebc57db15f0e8f417f5d452 100644
+--- a/build.sh
++++ b/build.sh
+@@ -20,6 +20,11 @@ net_policy_tests() {
+         done
+     done
+ }
++room_mode_tests() {
++    "$1" -std=c11 -O2 -g -Wall -Wextra -Werror -pthread -Isrc \
++        tests/test_room_mode_isolation.c -o out/room-mode-isolation-test
++    out/room-mode-isolation-test
++}
+ # Windows: MSYS2 CLANG64 (packages in packaging/windows/README.md). The GPU library is static
+ # there and CMake links sacredfire.exe as well; no PGO (GCC-only flags), LTO off by default.
+ case $(uname -s) in
+@@ -53,6 +58,7 @@ MINGW*|MSYS*)
+     if [[ ${1:-} == --test ]]; then
+         psn_contract_tests clang
+         net_policy_tests clang
++        room_mode_tests clang
+         clang -std=c11 -D_GNU_SOURCE -O2 -g -Wall -Wextra -Werror -pthread -Isrc \
+             tests/test_http_ryunet.c src/runtime_http.c -lws2_32 -o out/http-ryunet-test
+         out/http-ryunet-test
+@@ -156,6 +162,7 @@ if [[ ${1:-} == --test ]]; then
+     out/lzma-test
+     psn_contract_tests "$CC"
+     net_policy_tests "$CC"
++    room_mode_tests "$CC"
+     "$CC" -std=c11 -O2 -g -Wall -Wextra -Werror -pthread "${includes[@]}" -I. -Isrc tests/test_pad.c "${libraries[@]}" -o out/pad-test
+     out/pad-test
+     "$CC" -std=c11 -O2 -g -Wall -Wextra -Werror -pthread -I. -Isrc tests/test_runtime.c "${runtime[@]}" out/libatrac9.a -lm "${gpu[@]}" "${libraries[@]}" -o out/runtime-test
+diff --git a/docs/sacredfire/p2p-distribution.md b/docs/sacredfire/p2p-distribution.md
+index d8b842508c1ca39e1b4f9486c5d74fadbb8bb59c..6b21e466d71bda48af648bf503c4b97c6bfe8df4 100644
+--- a/docs/sacredfire/p2p-distribution.md
++++ b/docs/sacredfire/p2p-distribution.md
+@@ -1,17 +1,23 @@
+ # P2P distribution integration
+ 
+ The P2P repository tracks `Ryu7w7/OCTR-NitroFueled-PC` releases with a separately
+-licensed adapter recipe. This integration is based on upstream `v0.6.3`
+-(`cdd39072ecdb55dbebe1a1aa0299c4c9ff7fff30`). The original contributor identities,
++licensed adapter recipe. This integration is based on upstream `v0.7.5`
++(`3885d1aea24d19ed9b31f96fba57a5cce92183cd`). The original contributor identities,
+ GPL-2.0-or-later license, and third-party notices remain applicable.
+ 
+-The v0.6.3 replay preserves the upstream mod/restart fixes and RyuNET clock,
++The integration preserves the upstream mod/restart fixes and RyuNET clock,
+ request-form and ping support. External PSN publishers keep their original
+ URL/Host requests without RyuNET proofs, inventory headers, retry forms or clock
+ updates. The Room panel directs external-backend players to the game lobby;
+ it does not interpret RyuNET ping state as a Steam room. HTTP loopback fixtures,
+ launcher fixtures and the independent socket-policy matrix cover these boundaries.
+ 
++The v0.7.5 integration also keeps RyuNET itemless/private-cup coordination and
++its native mode callbacks disabled for external backends. Local performance
++reports remain available, but are never uploaded to RyuNET or the external
++publisher, even when an existing profile enables upstream reporting. The
++upstream renderer, local mod preparation and default RyuNET behavior are retained.
++
+ Build the Windows runtime and launcher with the existing MSYS2 CLANG64 toolchain:
+ 
+ ```sh
+@@ -21,7 +27,7 @@ cmake -S platform/psn -B out/psn-bridge-tests -G Ninja \
+   -DCMAKE_CXX_COMPILER=clang++ -DPSN_BRIDGE_BACKEND=ON -DPSN_HOST_TESTS=ON
+ cmake --build out/psn-bridge-tests
+ ctest --test-dir out/psn-bridge-tests --output-on-failure
+-BB_P2P_DISTRIBUTION=ON python packaging/windows/make_portable.py
++BB_P2P_DISTRIBUTION=ON python packaging/windows/make_portable.py --dxc-dir /path/to/pinned/dxc
+ ```
+ 
+ `MSYS2_ROOT` can select an existing project-local toolchain. The ordinary build
+diff --git a/launcher/sacredfire_launcher.py b/launcher/sacredfire_launcher.py
+index 94fe8d8889c427bb6e381be16ae0df6b2f369cdc..5be849582785c8b29dbe208e5d3616995940f6f6 100644
+--- a/launcher/sacredfire_launcher.py
++++ b/launcher/sacredfire_launcher.py
+@@ -1314,6 +1314,7 @@ class LauncherWindow(Adw.ApplicationWindow):
+         screen.add(self.ping_row)
+         self.perf_row = Adw.SwitchRow(title=tr("Send anonymous performance data"), subtitle=perf_reports_text(),
+                                       active=self.ini.get("perf_reports") == "1")
++        self.perf_row.set_sensitive(not self.external_backend())
+         screen.add(self.perf_row)
+         page.add(screen)
+ 
+@@ -2666,7 +2667,7 @@ class LauncherWindow(Adw.ApplicationWindow):
+     def ask_perf_reports(self):
+         """The anonymous performance diagnostic (bbport.ini perf_reports, scripts/perf_report.py):
+         asked once, while it is neither 1 nor 0. A plain question, no alarm."""
+-        if load_ini()[0].get("perf_reports") in ("0", "1"):
++        if self.external_backend() or load_ini()[0].get("perf_reports") in ("0", "1"):
+             return
+ 
+         def answer(_dialog, response):
+diff --git a/launcher/windows/launcher.cpp b/launcher/windows/launcher.cpp
+index 91c6c96d2c72db7daffae445efcd06fb76df442c..455092e4a07e6467b0797b0e2a4e55b0bf68f466 100644
+--- a/launcher/windows/launcher.cpp
++++ b/launcher/windows/launcher.cpp
+@@ -3129,8 +3129,10 @@ void SettingsTab() {
+                "del juego (Insert o L3+R3), pestaña Sala.",
+                "In an online room, each player's ping in ms, under the FPS counter. Also in the in-game menu "
+                "(Insert or L3+R3), Room tab."));
+-    GameFlag("perf_reports", T("Enviar datos anónimos de rendimiento", "Send anonymous performance data"), false,
+-             PerfReportsText());
++    if (!ExternalPsnBackend()) {
++        GameFlag("perf_reports", T("Enviar datos anónimos de rendimiento", "Send anonymous performance data"), false,
++                 PerfReportsText());
++    }
+     {
+         std::scoped_lock lock{a.mutex};
+         const std::string current = a.launcher.Get("display");
+@@ -4523,6 +4525,7 @@ const char* PerfReportsText() {
+ }
+ 
+ void PerfReportsPopup() {
++    if (ExternalPsnBackend()) return;
+     App& a = g_app;
+     // Shown once per launcher start, after any other question: on the first start of a new folder
+     // the settings import opened in the same frame and replaced it, so it never came back.
+diff --git a/run.py b/run.py
+index 1543c23d76e415a1fd5206cacc6a5194f253b05b..4b2482e756bd83a92553b4261833a5c299a4930a 100644
+--- a/run.py
++++ b/run.py
+@@ -516,6 +516,10 @@ def setup_online(env, config, data):
+             fail('BB_PSN_BACKEND must be an absolute library path.')
+         if not backend.is_file() or not os.access(backend, os.R_OK):
+             fail('BB_PSN_BACKEND must name a readable library file.')
++        # RyuNET-only mode overlays must not survive an external-backend launch.
++        for key in ('BB_ONLINE_MODE_HOOK', 'BB_PRIVATE_ARCHIVE_PATCHES', 'BB_SPEED_SOLO_TEST',
++                    'BB_SPEED_MODE', 'BB_KNOWN_HEROES', 'BB_ITEM_RULES'):
++            env[key] = ''
+         # Empty values also clear inherited settings when online_config exports them to run.sh.
+         # A backend must never accidentally inherit RyuNET credentials or synthetic identities.
+         for key in ('BB_ONLINE_NAME', 'BB_ONLINE_ACCOUNT_ID', 'BB_ONLINE_FRIENDS',
+@@ -660,7 +664,7 @@ def finish_perf_report(env, config, data, version, title_id, code):
+         if not report.get('overall') and not report.get('fault'):
+             return  # nothing drawn and no crash (a start stopped early): nothing to say
+         path = perf_report.keep(report, data / 'perf')
+-        if perf_report.consent(config) != '1':
++        if external_psn_backend(env) or perf_report.consent(config) != '1':
+             return
+         host = env.get('BB_ONLINE_SERVER') or perf_report.settings_value(config, 'online_server') or 'octr.ryu7w7.xyz'
+         port = env.get('BB_ONLINE_HTTP_PORT', '8080')
+@@ -922,7 +926,7 @@ def main():
+                 archives = '|'.join(str(p) for p in composed.values())
+             env.pop('BB_PRIVATE_ARCHIVE_PATCHES', None)
+             env.pop('BB_ONLINE_MODE_HOOK', None)
+-            if env.get('BB_ONLINE') == '1' or env.get('BB_SPEED_SOLO_TEST') == '1':
++            if not external_psn_backend(env) and (env.get('BB_ONLINE') == '1' or env.get('BB_SPEED_SOLO_TEST') == '1'):
+                 if title_id in ('CUSA13795', 'CUSA14876') and app_version == '01.21':
+                     base = [Path(p) for p in archives.split('|') if p]
+                     if env.get('BB_ONLINE') == '1':
+diff --git a/run.sh b/run.sh
+index 129fa56789719380c2568670b09b76e2218031c1..c9e221d821ca1f80cca4a5761a2511f66dac0e38 100755
+--- a/run.sh
++++ b/run.sh
+@@ -182,7 +182,7 @@ if [[ -n ${BB_MOD_SESSION:-} ]]; then
+     strict_overlap=(--strict-overlap)
+ fi
+ unset BB_ONLINE_MODE_HOOK BB_SPEED_MODE
+-if [[ ${BB_ONLINE:-0} == 1 || ${BB_SPEED_SOLO_TEST:-0} == 1 ]]; then
++if [[ -z ${BB_PSN_BACKEND:-} && ( ${BB_ONLINE:-0} == 1 || ${BB_SPEED_SOLO_TEST:-0} == 1 ) ]]; then
+     if [[ ( $title_id == CUSA13795 || $title_id == CUSA14876 ) && $app_version == 01.21 ]]; then
+         speed_bases=()
+         IFS='|' read -r -a speed_existing <<< "${BB_ARCHIVE_PATCHES:-}"
+diff --git a/scripts/online_config.py b/scripts/online_config.py
+index c280a2fd8d253713d35f00cc7e763e05e832c029..45949d0bca393f44a6470977bf4789abea1e4331 100644
+--- a/scripts/online_config.py
++++ b/scripts/online_config.py
+@@ -15,6 +15,8 @@ EXPORT_KEYS = (
+     "BB_USER_NAME", "BB_ONLINE", "BB_NET_TRACE", "BB_ONLINE_SERVER", "BB_ONLINE_HTTP_PORT", "BB_ONLINE_NAME",
+     "BB_ONLINE_ACCOUNT_ID", "BB_ONLINE_PORT", "BB_ONLINE_FRIENDS", "BB_ONLINE_KEY", "BB_ONLINE_KEYHASH", "BB_ONLINE_INVENTORY",
+     "BB_THEME", "BB_END_RACE_TIMEOUT", "BB_UPDATE_AVAILABLE", "BB_SPEED_MODE",
++    "BB_ONLINE_MODE_HOOK", "BB_PRIVATE_ARCHIVE_PATCHES", "BB_SPEED_SOLO_TEST",
++    "BB_KNOWN_HEROES", "BB_ITEM_RULES",
+ )
+ # Backend selection/configuration are already inherited by the shell and child.
+ # In particular, an ephemeral relay capability must never enter the env-file.
+diff --git a/scripts/perf_report.py b/scripts/perf_report.py
+index 88ca1ef55eb8f4d06500e9c87b51ac51c324f745..ffcfe97dd17a6f6dfadb6f3071bbebeb239c47a3 100644
+--- a/scripts/perf_report.py
++++ b/scripts/perf_report.py
+@@ -354,7 +354,7 @@ def finish(state_path, code, config, data, octr, edition, say=print):
+     if not report.get('overall') and not report.get('fault'):
+         return
+     path = keep(report, Path(data) / 'perf')
+-    if consent(config) != '1':
++    if os.environ.get('BB_PSN_BACKEND') or consent(config) != '1':
+         return
+     import sys
+     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+diff --git a/src/probe.c b/src/probe.c
+index 402c507c1524a18a662e0ab160ac5eb26a584d73..e8cc9df2e2c952fbda74ca51d9a67016b8e7eb3b 100644
+--- a/src/probe.c
++++ b/src/probe.c
+@@ -7,6 +7,7 @@
+ #include <inttypes.h>
+ #include <cpuid.h>
+ #include "runtime.h"
++#include "runtime_psn.h"
+ #include "gpu/bbgpu.h"
+ #include "isa_rewrite.h"
+ #if !defined(__x86_64__) || !defined(__GNUC__)
+@@ -1228,8 +1229,11 @@ int main(int argc, char **argv) {
+     }
+     runtime_cinematic_start(image);
+     runtime_frontend_start(image);
+-    if (!runtime_online_mode_start(image, size)) fail("native Online mode callback could not be installed");
+-    if (!runtime_itemless_start(image, size)) fail("native Itemless collision callback could not be installed");
++    /* RyuNET's private-room modes are not negotiated by an external PSN backend. */
++    if (!runtime_psn_selected()) {
++        if (!runtime_online_mode_start(image, size)) fail("native Online mode callback could not be installed");
++        if (!runtime_itemless_start(image, size)) fail("native Itemless collision callback could not be installed");
++    }
+     printf("Entering original x86-64 code at guest offset 0x%" PRIx64 "\n", entry);
+     entered_game=1;
+     struct { uint64_t argc; const char *argv[2]; } params = {1, {"/app0/eboot.bin", NULL}};
+diff --git a/src/runtime_room_mode.c b/src/runtime_room_mode.c
+index 8ae94d6f75f3caaa7c16140825ef4a3e1ebf4dfb..b94366fa546db1d6ac0a4e747d85e2311d903aa4 100644
+--- a/src/runtime_room_mode.c
++++ b/src/runtime_room_mode.c
+@@ -14,6 +14,7 @@
+ #include "runtime_http.h"
+ #include "runtime_net.h"
+ #include "runtime_np_online.h"
++#include "runtime_psn.h"
+ #include <pthread.h>
+ #include <stdint.h>
+ #include <stdio.h>
+@@ -67,6 +68,7 @@ static void publish_mode(int speed) {
+ 
+ /* Installed before main: the selector tells this file when the player picks a mode. */
+ static void chosen(int speed, int private_room) {
++    if (runtime_psn_selected()) return;
+     runtime_room_mode_left(); /* our own choice now, not another host's room */
+     /* Outside a private room it is Normal: the players of our party (the private room's guests,
+      * taken along to a public search) follow it too. */
+@@ -78,6 +80,7 @@ __attribute__((constructor)) static void install(void) { runtime_online_mode_cho
+  * or public): Speed only for a private room already chosen as Speed, Normal otherwise, which also
+  * replaces an old choice left on the server. */
+ void runtime_room_mode_hosting(void) {
++    if (runtime_psn_selected()) return;
+     runtime_room_mode_left();
+     publish_mode(runtime_online_mode_private_speed() && runtime_online_mode_in_private());
+ }
+@@ -124,6 +127,7 @@ static void *follow(void *arg) {
+ }
+ 
+ void runtime_room_mode_joined(const char *session_id) {
++    if (runtime_psn_selected()) return;
+     if (!session_id || strncmp(session_id, session_prefix, sizeof session_prefix - 1)) return;
+     const char *host = session_id + sizeof session_prefix - 1;
+     const char *me = runtime_np_get_online_name();
+@@ -137,6 +141,7 @@ void runtime_room_mode_joined(const char *session_id) {
+ 
+ /* Leaving the host's room (or picking, or hosting): this player's own choice again. */
+ void runtime_room_mode_left(void) {
++    if (runtime_psn_selected()) return;
+     runtime_online_mode_leave_cup();
+     __atomic_add_fetch(&follow_generation, 1, __ATOMIC_ACQ_REL);
+     runtime_speed_mode_set(runtime_online_mode_private_speed());
+diff --git a/tests/test_psn_backend_v075.py b/tests/test_psn_backend_v075.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..d55710a423c13fc2b7380fbac9945dead4d614b1
+--- /dev/null
++++ b/tests/test_psn_backend_v075.py
+@@ -0,0 +1,142 @@
++"""Keep OCTR's optional RyuNET modes and report upload outside external sessions."""
++import ast
++import contextlib
++import io
++import json
++import os
++from pathlib import Path
++import shutil
++import subprocess
++import sys
++import tempfile
++from types import SimpleNamespace
++import unittest
++from unittest import mock
++
++from paths import ROOT
++sys.path.insert(0, str(ROOT))
++import run
++import perf_report
++
++
++class ExternalLaunchTests(unittest.TestCase):
++    def test_external_setup_clears_mode_state_and_exports_clears_to_shell(self):
++        keys = ('BB_ITEM_RULES', 'BB_SPEED_MODE', 'BB_SPEED_SOLO_TEST', 'BB_ONLINE_MODE_HOOK',
++                'BB_PRIVATE_ARCHIVE_PATCHES', 'BB_KNOWN_HEROES')
++        with tempfile.TemporaryDirectory() as tmp:
++            data = Path(tmp)
++            library = data / 'backend.dll'
++            library.write_bytes(b'fixture: never loaded')
++            config = data / 'bbport.ini'
++            config.write_text('online=1\nonline_server=127.0.0.1:8090\n', encoding='utf-8')
++            env = dict.fromkeys(keys, 'stale') | {'BB_PSN_BACKEND': str(library)}
++            with mock.patch.object(run, 'ryunet_json', side_effect=AssertionError('RyuNET request')), \
++                    mock.patch.object(run, 'online_key', side_effect=AssertionError('RyuNET key')), \
++                    contextlib.redirect_stdout(io.StringIO()):
++                run.setup_online(env, config, data)
++            self.assertEqual({key: env[key] for key in keys}, dict.fromkeys(keys, ''))
++            self.assertEqual(env['BB_ONLINE_SERVER'], '127.0.0.1')
++            output = data / 'environment'
++            child = subprocess.run([sys.executable, str(ROOT / 'scripts/online_config.py'),
++                                    '--config', str(config), '--data', str(data), '--env-file', str(output)],
++                                   env=os.environ | env | dict.fromkeys(keys, 'stale'),
++                                   capture_output=True, text=True)
++            self.assertEqual(child.returncode, 0, child.stderr)
++            exported = dict(item.decode().split('=', 1) for item in output.read_bytes().split(b'\0') if item)
++            self.assertEqual({key: exported[key] for key in keys}, dict.fromkeys(keys, ''))
++            self.assertNotIn('BB_PSN_BACKEND', exported)
++
++    def test_upstream_item_rules_still_come_from_server(self):
++        with tempfile.TemporaryDirectory() as tmp:
++            data = Path(tmp)
++            config = data / 'bbport.ini'
++            config.write_text('online=1\nonline_name=PlayerOne\nonline_server=127.0.0.1:8090\n', encoding='utf-8')
++            rules = {'name': 'fixture-rules', 'odds': {'rocket': 3}}
++            env = {'BB_ITEM_RULES': 'stale', 'BB_SPEED_MODE': '1'}
++            with mock.patch.object(run, 'server_settings', return_value={'items': rules}), \
++                    mock.patch.object(run, 'online_key', return_value=None), \
++                    contextlib.redirect_stdout(io.StringIO()):
++                run.setup_online(env, config, data)
++            self.assertEqual(json.loads(Path(env['BB_ITEM_RULES']).read_text()), rules)
++            self.assertNotIn('BB_SPEED_MODE', env)
++
++    def test_layout_prepares_modes_only_for_upstream_backend(self):
++        tree = ast.parse((ROOT / 'run.py').read_text(encoding='utf-8'))
++        main = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == 'main')
++        layout = next(node for node in ast.walk(main) if isinstance(node, ast.FunctionDef) and node.name == 'apply_layout')
++        for selector in ('/external/backend', ''):
++            with self.subTest(selector=selector):
++                env = {'BB_PSN_BACKEND': selector, 'BB_ONLINE': '1', 'BB_SPEED_SOLO_TEST': '1',
++                       'BB_PRIVATE_ARCHIVE_PATCHES': 'stale', 'BB_ONLINE_MODE_HOOK': 'stale'}
++                online = SimpleNamespace(prepare=mock.Mock(return_value=([Path('menu.patch')], 'hook')),
++                                         known_heroes=mock.Mock(return_value='heroes'))
++                speed = SimpleNamespace(prepare=mock.Mock(return_value=([Path('normal.patch')], [Path('speed.patch')], 1)))
++                namespace = dict(env=env, layout_saved={}, game=Path('game'), out=Path('out'), config='settings',
++                                 title_id='CUSA13795', app_version='01.21', base_patches=[], Path=Path,
++                                 aspect_ratio=SimpleNamespace(prepare=lambda *args: None,
++                                                              archive_list=lambda *args: 'base.patch'),
++                                 mod_packages=SimpleNamespace(ACTIVE=False), online_mode=online, speed_mode=speed,
++                                 external_psn_backend=run.external_psn_backend, say=lambda *args: None)
++                exec(compile(ast.Module(body=[layout], type_ignores=[]), 'run.py', 'exec'), namespace)
++                self.assertEqual(namespace['apply_layout'](), ('settings', None))
++                if selector:
++                    online.prepare.assert_not_called()
++                    speed.prepare.assert_not_called()
++                    self.assertNotIn('BB_ONLINE_MODE_HOOK', env)
++                    self.assertNotIn('BB_PRIVATE_ARCHIVE_PATCHES', env)
++                    self.assertEqual(env['BB_ARCHIVE_PATCHES'], 'base.patch')
++                else:
++                    online.prepare.assert_called_once()
++                    speed.prepare.assert_called_once()
++                    self.assertEqual(env['BB_ONLINE_MODE_HOOK'], 'hook')
++                    self.assertEqual(env['BB_PRIVATE_ARCHIVE_PATCHES'], 'speed.patch')
++
++    def test_shell_external_launch_skips_mode_preparation(self):
++        msys = os.environ.get('MSYS2_ROOT')
++        bash = str(Path(msys) / 'usr/bin/bash.exe') if os.name == 'nt' and msys else shutil.which('bash')
++        if not bash or (os.name == 'nt' and not msys):
++            self.skipTest('A project-selected MSYS2 bash is required on Windows')
++        script = (ROOT / 'run.sh').read_text(encoding='utf-8')
++        block = script[script.index('unset BB_ONLINE_MODE_HOOK BB_SPEED_MODE'):
++                       script.index('# The game runs at its own 30 FPS')]
++        fixture = '''set -eu
++prepare_test() { echo 'unexpected mode preparation' >&2; return 1; }
++PYTHON=prepare_test
++BB_PSN_BACKEND=/external/backend BB_ONLINE=1 BB_SPEED_SOLO_TEST=1
++BB_ONLINE_MODE_HOOK=stale BB_SPEED_MODE=1
++title_id=CUSA13795 app_version=01.21
++'''
++        result = subprocess.run([bash, '--noprofile', '--norc', '-c', fixture + block +
++                                 '\n[[ -z ${BB_ONLINE_MODE_HOOK:-} && -z ${BB_SPEED_MODE:-} ]]'],
++                                capture_output=True, text=True)
++        self.assertEqual(result.returncode, 0, result.stderr)
++        self.assertNotIn('unexpected', result.stderr)
++
++
++class PerformanceIsolationTests(unittest.TestCase):
++    def test_both_finalizers_keep_reports_but_only_upstream_uploads(self):
++        for shell in (False, True):
++            for selector in ('/external/backend', ''):
++                with self.subTest(shell=shell, selector=selector), tempfile.TemporaryDirectory() as tmp:
++                    data = Path(tmp)
++                    config = data / 'bbport.ini'
++                    config.write_text('perf_reports=1\nonline_server=127.0.0.1:8090\n', encoding='utf-8')
++                    state = data / 'state.json'
++                    state.write_text('{}', encoding='utf-8')
++                    collector = SimpleNamespace(report=lambda metadata: {'fault': {'kind': 'fixture'}} | metadata)
++                    env = {'BB_PSN_BACKEND': selector, 'BB_ONLINE_SERVER': '127.0.0.1',
++                           'BB_ONLINE_HTTP_PORT': '8090'}
++                    with mock.patch.object(run, 'PERF', collector), \
++                            mock.patch.object(perf_report, '_collector_of', return_value=collector), \
++                            mock.patch.object(run, 'ryunet_json', return_value=({}, None)) as upload, \
++                            mock.patch.dict(os.environ, env), contextlib.redirect_stdout(io.StringIO()):
++                        if shell:
++                            perf_report.finish(state, 0, config, data, 'v0.7.5', 'CUSA13795')
++                        else:
++                            run.finish_perf_report(env, config, data, 'v0.7.5', 'CUSA13795', 0)
++                    self.assertTrue(list((data / 'perf').glob('*.json')))
++                    self.assertEqual(upload.call_count, 0 if selector else 1)
++
++
++if __name__ == '__main__':
++    unittest.main()
+diff --git a/tests/test_room_mode_isolation.c b/tests/test_room_mode_isolation.c
+new file mode 100644
+index 0000000000000000000000000000000000000000..403102293c8c048609de2078d3e3446be2a123d0
+--- /dev/null
++++ b/tests/test_room_mode_isolation.c
+@@ -0,0 +1,103 @@
++/* SPDX-License-Identifier: GPL-2.0-or-later */
++/* Execute the real room callbacks with synchronous threads and a local request
++ * fixture. No guest memory, publisher or network connection is used. */
++#define _POSIX_C_SOURCE 200809L
++#include <assert.h>
++#include <pthread.h>
++#include <stdio.h>
++#include <string.h>
++#include <time.h>
++
++static int fixture_create(pthread_t *, const pthread_attr_t *, void *(*)(void *), void *);
++static int fixture_detach(pthread_t);
++static int fixture_sleep(const struct timespec *, struct timespec *);
++#define pthread_create fixture_create
++#define pthread_detach fixture_detach
++#define nanosleep fixture_sleep
++#include "../src/runtime_room_mode.c"
++#undef pthread_create
++#undef pthread_detach
++#undef nanosleep
++
++void (*runtime_online_mode_chosen)(int, int);
++static int selected, threads, detached, requests, leaves, changes, adopts, sleeps;
++static int private_speed = 1, in_private = 1, adopted = -1, changed = -1;
++static char method_seen[8], target_seen[160];
++
++int runtime_psn_selected(void) { return selected; }
++const char *runtime_np_get_online_name(void) { return "PlayerOne"; }
++int runtime_online_mode_private_speed(void) { return private_speed; }
++int runtime_online_mode_in_private(void) { return in_private; }
++void runtime_online_mode_leave_cup(void) { ++leaves; }
++void runtime_speed_mode_set(int enabled) { ++changes; changed = enabled; }
++void runtime_online_mode_adopt(int speed) { ++adopts; adopted = speed; }
++int runtime_ryunet_request(const char *method, const char *target, char *body, size_t capacity) {
++    ++requests;
++    snprintf(method_seen, sizeof method_seen, "%s", method);
++    snprintf(target_seen, sizeof target_seen, "%s", target);
++    snprintf(body, capacity, "mode speed");
++    return 200;
++}
++
++static int fixture_create(pthread_t *thread, const pthread_attr_t *attr,
++                          void *(*run)(void *), void *arg) {
++    (void)attr;
++    *thread = (pthread_t)0;
++    ++threads;
++    run(arg);
++    return 0;
++}
++static int fixture_detach(pthread_t thread) { (void)thread; ++detached; return 0; }
++static int fixture_sleep(const struct timespec *request, struct timespec *remaining) {
++    (void)request;
++    (void)remaining;
++    ++sleeps;
++    runtime_room_mode_left(); /* Stop the synchronous follower after one response. */
++    return 0;
++}
++
++static void clear_counts(void) {
++    threads = detached = requests = leaves = changes = adopts = sleeps = 0;
++    method_seen[0] = target_seen[0] = '\0';
++    adopted = changed = -1;
++}
++
++int main(void) {
++    assert(runtime_online_mode_chosen); /* The production constructor registered it. */
++    selected = 1;
++    const unsigned before = follow_generation;
++    runtime_room_mode_hosting();
++    runtime_room_mode_joined("cusa13795-session-OtherPlayer");
++    runtime_room_mode_left();
++    runtime_online_mode_chosen(1, 1);
++    runtime_online_mode_chosen(0, 0);
++    assert(!threads && !detached && !requests && !leaves && !changes && !adopts && !sleeps);
++    assert(follow_generation == before);
++
++    selected = 0;
++    runtime_room_mode_hosting();
++    assert(threads == 1 && detached == 1 && requests == 1 && leaves == 1 && changes == 1);
++    assert(changed == 1 && !strcmp(method_seen, "POST"));
++    assert(!strcmp(target_seen, "/ryunet/room-mode?name=PlayerOne&mode=speed&format=text"));
++
++    clear_counts();
++    runtime_online_mode_chosen(1, 0); /* Public search must publish Normal. */
++    assert(threads == 1 && requests == 1 && leaves == 1 && changes == 1);
++    assert(!strcmp(target_seen, "/ryunet/room-mode?name=PlayerOne&mode=normal&format=text"));
++
++    clear_counts();
++    runtime_room_mode_joined("cusa13795-session-OtherPlayer");
++    assert(threads == 1 && detached == 1 && requests == 1 && sleeps == 1);
++    assert(adopts == 1 && adopted == 1 && leaves == 1 && changes == 1);
++    assert(!strcmp(method_seen, "GET"));
++    assert(!strcmp(target_seen, "/ryunet/room-mode?host=OtherPlayer&format=text"));
++
++    clear_counts();
++    runtime_room_mode_joined("cusa13795-session-PlayerOne");
++    runtime_room_mode_joined("cusa13795-session-Bad Name");
++    runtime_room_mode_joined("external-session");
++    runtime_room_mode_joined(NULL);
++    assert(!threads && !requests && !changes);
++    puts("Room mode isolation tests passed");
++    return 0;
++}

@@ -5,9 +5,9 @@
       "committer": "Pierluigi Zagaria <pierluigizagaria@gmail.com> 1792583046 +0200",
       "deletions": [],
       "message": "Add a reusable PSN host module with an explicit backend ABI\n\nKeep PS4 request, callback and invitation ownership inside a standalone host adapter. Add contract tests for lifecycle, copied buffers, concurrency and dynamic backend loading.\n",
-      "original_revision": "3ec16f2944f83d6c0c210973c2f96e818642dd14",
-      "original_tree": "cb5455602d21f52921537ef1991f91b66bb792ac",
-      "patch": "0001-3ec16f2944f8.patch",
+      "original_revision": "f64ec5dee57032fd32a81520e6a6d293751df741",
+      "original_tree": "01a82b6559d78178f7d3e68303c774830b4589d7",
+      "patch": "0001-f64ec5dee570.patch",
       "sha256": "d052e1330cc63ed8011a1713b458fcc5a62dbfa370ad51f93f2dad761774b6d3"
     },
     {
@@ -15,59 +15,59 @@
       "committer": "Pierluigi Zagaria <pierluigizagaria@gmail.com> 1792662309 +0200",
       "deletions": [],
       "message": "Integrate optional PSN backends without changing the RyuNET default\n\nSelect the shared adapter before guest startup, keep publisher routing independent, and isolate Discord invitation and RyuNET network policy in external mode. Build the shared contract tests with the existing test command.\n\nAdapt to v0.6.3 while keeping RyuNET request rewriting, clock sync and retry policy out of external publishers.\n",
-      "original_revision": "8df65adaa53f3950234d8b6f0a219d2de9ffbe86",
-      "original_tree": "a5e045a7ae6bed43b867cfbdcd26b37e4613a06c",
-      "patch": "0002-8df65adaa53f.patch",
-      "sha256": "fa82564d81cc6ae16a7e61ecbde06ad9409188e219c11d71e3243d30b1be1b64"
+      "original_revision": "7b400c211fc02fa13a629332803bb20412cb7ddc",
+      "original_tree": "9db675425f517b57785fd7c4adc2ad4589101b50",
+      "patch": "0002-7b400c211fc0.patch",
+      "sha256": "577014b8bc16f82b22d8106ec88958badac8071824e93e136b148cd9513c103e"
     },
     {
       "author": "Pierluigi Zagaria <pierluigizagaria@gmail.com> 1792448840 +0200",
       "committer": "Pierluigi Zagaria <pierluigizagaria@gmail.com> 1792662322 +0200",
       "deletions": [],
       "message": "Add an authenticated local bridge backend for PSN notifications\n",
-      "original_revision": "3e36e3e236cf058c14d1dd1231a51f3b18f6a7ac",
-      "original_tree": "3f9519ba83385e78836ea470f4134e6d9ace9fd0",
-      "patch": "0003-3e36e3e236cf.patch",
-      "sha256": "21a77cca9101297d338e8aa5244d1a099208afd9196a59e42c5249a456abeae2"
+      "original_revision": "d1c2d8b8c960907fddfa707f13b7f864fa027846",
+      "original_tree": "46b8a3b5162878e892d13a8ec24db53f1707a9f3",
+      "patch": "0003-d1c2d8b8c960.patch",
+      "sha256": "5626491af05773316c9414e3ba4cafea75c667618745c26d107ba330b428f1bc"
     },
     {
       "author": "Pierluigi Zagaria <pierluigizagaria@gmail.com> 1792490980 +0200",
       "committer": "Pierluigi Zagaria <pierluigizagaria@gmail.com> 1792662358 +0200",
       "deletions": [],
       "message": "Decouple PSN backends from host user IDs and transport policy\n",
-      "original_revision": "e31b930bd83110c7cdde325936eb43ffb6e39559",
-      "original_tree": "d96cef2022daf1160fcbbdefafcc8bb3a91eab35",
-      "patch": "0004-e31b930bd831.patch",
-      "sha256": "26e1501e3ac89c8e6a7de236454a2532e660ef8eb6ca061beb7dfe28130fa9c4"
+      "original_revision": "a1c9a5df8fa3450906ccddad90d3656654bde5ca",
+      "original_tree": "52e477f366f42b1760a118fce8e23eb6f207fb1e",
+      "patch": "0004-a1c9a5df8fa3.patch",
+      "sha256": "2a4524e3784774ebd2a212619c7bd47f29a3338836eb0a477d08e8fc919a63ce"
     },
     {
       "author": "Pierluigi Zagaria <pierluigizagaria@gmail.com> 1792583633 +0200",
       "committer": "Pierluigi Zagaria <pierluigizagaria@gmail.com> 1792662432 +0200",
       "deletions": [],
       "message": "Keep external PSN backends independent of upstream social services\n",
-      "original_revision": "538b1cb3b6dbbf4e8f61cd7949784444cf617481",
-      "original_tree": "70972b317daeac6515fdf424ea48c60f782f08d6",
-      "patch": "0005-538b1cb3b6db.patch",
-      "sha256": "eb0ca8d2bf4e2d94e19b9ed7c95caa2b99fe2943df81211f1b32333a22d77eb5"
+      "original_revision": "981d3ee6f192844af3bab9eeadcc45a89e18d908",
+      "original_tree": "c5b88c28809e8fbc5c89713d92fec2e018cac210",
+      "patch": "0005-981d3ee6f192.patch",
+      "sha256": "34e28ba2eb5318cf1ae409f04652af03e0aad60622442daf30f65b6e668abe28"
     },
     {
       "author": "Pierluigi Zagaria <pierluigizagaria@gmail.com> 1792583634 +0200",
       "committer": "Pierluigi Zagaria <pierluigizagaria@gmail.com> 1792662446 +0200",
       "deletions": [],
       "message": "Build P2P distributions with a stable launcher and separate update channel\n",
-      "original_revision": "e8b58264b435148afb5a785c63f7296670a23c00",
-      "original_tree": "2c3889d4b353297da04e6fda88ade8d8f9f3336f",
-      "patch": "0006-e8b58264b435.patch",
-      "sha256": "d70dbc726acf0b67ea665a677ce5421a870f0e3d8eb0cda2465368a513afdc59"
+      "original_revision": "f6a81acdcc59d4ff37cd1882847f47f26ff4e0ef",
+      "original_tree": "3c296377f53bd5a09305b9384bf46adc8bac6f99",
+      "patch": "0006-f6a81acdcc59.patch",
+      "sha256": "9eb04a31636e1bca4e5641467e67338a790574a196b4fc2e3576638ddea53583"
     },
     {
       "author": "Pierluigi Zagaria <pierluigizagaria@gmail.com> 1792617731 +0200",
       "committer": "Pierluigi Zagaria <pierluigizagaria@gmail.com> 1792662460 +0200",
       "deletions": [],
       "message": "Relay selected-friend invitations and expose opt-in timing\n",
-      "original_revision": "772f2f0d93984e412e1ee9c07766082fdf8665fb",
-      "original_tree": "b82b2bc16d3f9ab5b2d7e79ae1192bdcc684d64b",
-      "patch": "0007-772f2f0d9398.patch",
+      "original_revision": "ff90936317e64a01433a775c5aeab014843733cc",
+      "original_tree": "1be7fda143e5f05d3e3bbe6f7ba3b1d9e9f1aebc",
+      "patch": "0007-ff90936317e6.patch",
       "sha256": "c5ea06cc9ec14a7d2c431bef639f99732bc4d0e9e09efbc8f216572ac2b3c211"
     },
     {
@@ -75,14 +75,24 @@
       "committer": "Pierluigi Zagaria <pierluigizagaria@gmail.com> 1792662618 +0200",
       "deletions": [],
       "message": "Document v0.6.3 isolation and verify ping after socket initialization\n",
-      "original_revision": "f12628ae4ae23577bf2d19198c036464a1b40eec",
-      "original_tree": "e96f5f2e0d7c9ea8839208532d66caad86e65a1b",
-      "patch": "0008-f12628ae4ae2.patch",
+      "original_revision": "cb074ba7af09d5b41e5c4ff3c97fa8421936f643",
+      "original_tree": "7eca9626cedf687a63152f8f1915e85c0266be6b",
+      "patch": "0008-cb074ba7af09.patch",
       "sha256": "0dc53368f37e70f29065547dee5769136c801185657e3de0014315470403da30"
+    },
+    {
+      "author": "Pierluigi Zagaria <pierluigizagaria@gmail.com> 1793533664 +0100",
+      "committer": "Pierluigi Zagaria <pierluigizagaria@gmail.com> 1793533664 +0100",
+      "deletions": [],
+      "message": "Isolate v0.7.5 RyuNET modes and reports from external backends\n",
+      "original_revision": "f957f1d3538ba0c838f89b1dc79715eb1fbdbd7f",
+      "original_tree": "12ae4529493453b10da4e81777ee080e31a22948",
+      "patch": "0009-f957f1d3538b.patch",
+      "sha256": "82f899e46f6b9759aff9d0d2fb89b159d70765ceae411dee212d6befe9d216b6"
     }
   ],
-  "original_integration_revision": "f12628ae4ae23577bf2d19198c036464a1b40eec",
-  "original_upstream_revision": "cdd39072ecdb55dbebe1a1aa0299c4c9ff7fff30",
+  "original_integration_revision": "f957f1d3538ba0c838f89b1dc79715eb1fbdbd7f",
+  "original_upstream_revision": "3885d1aea24d19ed9b31f96fba57a5cce92183cd",
   "schema_version": 1,
   "upstream_repository": "https://github.com/Ryu7w7/OCTR-NitroFueled-PC.git"
 }
