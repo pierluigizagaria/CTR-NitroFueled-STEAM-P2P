@@ -24,8 +24,8 @@ are not included. Build/package tests do not establish live multiplayer acceptan
 
 Always enter P2P through `ctrnf-p2p.exe`. It starts the local server and enables
 the required signature patch. Use the same upstream distribution and complete package build
-on both PCs, with distinct Steam accounts. This preview is {tag}; compare the
-full ZIP filename when updating. The configured host mode is `{pin['host_mode']}`.
+on both PCs, with distinct Steam accounts. This preview is {tag}; build revisions
+are recorded in `p2p-distribution-manifest.json`. The configured host mode is `{pin['host_mode']}`.
 AppID 480 is Valve's SDK example ID; it is not an AppID assigned to this project.
 
 For updates use a complete package for {pin['display_name']}. Stock upstream updates are
@@ -42,8 +42,8 @@ The original host is attributed in LICENSE, THIRD-PARTY.txt and the manifest:
 {pin['upstream']['repository']} at {pin['upstream']['tag']}.
 The integration is reconstructed by the tracked P2P recipe `{pin['recipe']['path']}`.
 Its generated source commit is {pin['revision']}, with tree {pin['source_tree']}.
-The matching host/submodule/dependency source companion is `{source_name}`;
-its hash is in `p2p-distribution-manifest.json`. Keep it available alongside this ZIP.
+The matching host/submodule/dependency source archive is included at
+`sources/{source_name}`; its hash is in `p2p-distribution-manifest.json`.
 Separate bridge, provider, server, patch and Valve licenses remain under licenses/.
 This package does not relicense its components or include other Steamworks SDK files.
 '''.encode('utf-8')
@@ -158,19 +158,25 @@ def assemble(args):
     unresolved = []
     host_binaries = {pin['launcher'], 'bin/sacredfire.exe', 'bin/bb-gpu-capabilities.exe',
                      'psn-bridge-backend.dll'}
-    for name, data in (host | backend).items():
-        if Path(name).suffix.casefold() not in ('.dll', '.pyd', '.exe') or name in host_binaries:
-            continue
+    host_payload = host | backend
+    required_runtime = set(inventory) | {
+        name for name in host_payload
+        if Path(name).suffix.casefold() in ('.dll', '.pyd', '.exe') and name not in host_binaries}
+    for name in sorted(required_runtime):
+        data = host_payload.get(name)
         item = inventory.get(name)
-        if (not item or item.get('sha256') != sha256(data)
-                or not item.get('redistribution_ready')):
+        if (data is None or not item or item.get('sha256') != sha256(data)
+                or item.get('redistribution_ready') is not True):
             unresolved.append(name)
     complete = (not unresolved and source_manifest.get('redistribution_ready') is True
                 and source_manifest.get('build_recipe', {}).get('source_dirty') is False)
     if args.require_redistribution_ready and not complete:
         raise ValueError('Dependency source/notice evidence is incomplete: ' + ', '.join(unresolved))
-    sources = {'archive': Path(args.source_package).name,
-               'sha256': sha256(Path(args.source_package).read_bytes()),
+    source_bytes = Path(args.source_package).read_bytes()
+    source_member = 'sources/' + Path(args.source_package).name
+    add_files(files, {source_member: source_bytes})
+    sources = {'archive': Path(args.source_package).name, 'embedded_path': source_member,
+               'sha256': sha256(source_bytes),
                'manifest_sha256': sha256(source['source-manifest.json'])}
     distribution = {'schema_version': 1, 'component': 'ctrnf-p2p-distribution',
                     'channel': args.channel, 'version': tag, 'platform': 'windows-x64',

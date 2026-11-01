@@ -22,13 +22,14 @@ GetLostIn/CTR-NitroFueled-PC rebuilds stable releases of the
 Ryu7w7/OCTR-NitroFueled-PC rebuilds stable releases of
 [Ryu7w7/OCTR-NitroFueled-PC](https://github.com/Ryu7w7/OCTR-NitroFueled-PC).
 Each includes the matching adapter. Do not mix distributions or use a stock
-upstream updater to replace a P2P build. The source archive beside each binary
-download matches its manifest.
+upstream updater to replace a P2P build. Each ZIP includes its matching source
+archive under `sources/`, together with licenses and build provenance.
 
 ## Standalone mod: manual installation
 
-The separate `ctrnf-p2p-mod-*.zip` remains available for an existing compatible
-host. It includes the mod components and Valve runtime, but no host executable,
+Public downloads provide only the two complete port packages. Developers can
+build a separate `ctrnf-p2p-mod-*.zip` for an existing compatible host using the
+[release tools](RELEASING.md). It includes the mod components and Valve runtime, but no host executable,
 `psn-bridge-backend.dll` or backend runtime dependencies.
 
 Its default `host = native` supports the unchanged

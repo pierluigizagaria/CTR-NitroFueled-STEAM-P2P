@@ -124,8 +124,13 @@ The initial Steam runtime source is the already-published first mod ZIP. Only it
 original `steam_api64.dll` is selected, after checking both the archive and DLL
 SHA-256 and Valve's Authenticode signature. The lock retains the original SDK
 version and archive hash. No SDK credentials or full SDK upload is required.
-If this bootstrap asset is replaced or unavailable, the build fails;
-update the lock only to a reviewed source containing the exact authorized runtime.
+After the first two-package publication, `automation/state` records a complete
+package URL and its verified SHA-256 as the runtime source. Later builds use that
+archive and still require the original DLL hash and Authenticode signature.
+Blocked transactions retain that verified input. Once both replacement packages
+are verified, a pending transaction saves their current URL/hash before cleanup,
+so same-name replacement does not leave a stale bootstrap hash. Missing or
+invalid evidence stops the build; it never silently chooses another runtime.
 
 To update a component, publish its independent tested package, update its URL,
 archive hash, source revision and version in the lock, and open a PR. Merging an
@@ -169,11 +174,13 @@ default configuration and component notices. `p2p-distribution-manifest.json`
 binds every payload hash to the upstream identity, recipe and source companion.
 The host build receipt binds the launcher, runtime, capabilities helper and
 backend to their generated source revision, tree and recipe. Assembly rejects
-mismatched sources or binaries. New archive names use
-`getlostin-ctr-nitrofueled-pc` and `ryu7w7-octr-nitrofueled-pc` plus the P2P source
-revision. Existing preview assets and their historical names are preserved.
+mismatched sources or binaries. Public archive names identify the upstream
+author, repository and tag, for example
+`GetLostIn-CTR-NitroFueled-PC-v0.4-STEAM-P2P-windows-x64.zip`.
+Only the latest complete package for each upstream remains on the release.
+Internal Actions artifacts retain source-revision filenames for exact recovery.
 
-The matching `*-source.zip` contains the exact host Git tree, recursively pinned
+The matching `sources/*-source.zip` inside each complete package contains the exact host Git tree, recursively pinned
 submodule trees, original licenses, the P2P-owned host integration recipes,
 distribution build scripts and pinned JSON header. The host build applies its
 recorded FSR patches to the original submodule source. Mutable working-tree
@@ -215,7 +222,7 @@ initialized local MSVC environment and additive mod assets.
 
 With `create_draft` selected, both distributions and their source companions must
 pass before a draft prerelease is created. That helper never replaces existing
-tags/releases. The automatic workflow below supports additive publication to the
+tags/releases. The automatic workflow below replaces the current pair on the
 existing preview. Offline checks do not establish live Steam or multi-PC acceptance.
 
 To refresh toolchain or dependency evidence, use `tools/lock_msys2.py capture`
@@ -240,20 +247,19 @@ remain reviewed source changes; unattended updates cannot change patches or the
 shared PSN contract. The mod, adapters, package hashes and corresponding sources
 must all pass before publication.
 
-The trusted publisher validates archives against the external plan, uploads
-sources before binaries and promotes only this repository's `main`, with an
-explicit lease. Generated host commits are reproducible source identifiers,
-not refs that need publishing in a separate host fork. Full corresponding source
-archives and recipes are published alongside the binaries. Existing release tags
-and assets are never replaced. A completion receipt lists the inputs, revisions
-and ten asset hashes; release notes link the latest completed build.
+The trusted publisher validates all build inputs against the external plan and
+checks that each full ZIP embeds its exact corresponding source archive. It stages
+and verifies both complete packages, then promotes only this repository's `main`
+with an explicit lease. Same-name updates retain the previous asset under a
+transactional backup name until both current packages are verified. Only then are
+saved project-owned old asset IDs deleted. Unknown downloads are preserved.
+The existing release tag is unchanged. Release notes show just the current two
+upstream versions; completion records and archive hashes live in `automation/state`.
 
-Every automatic publication also provides the compiled standalone mod ZIP and
-checksum: the exact input used by both complete distributions. Manual installation
-requires a compatible host with the adapter and backend dependencies documented
-in `OCTR.md`; copying mod files alone cannot add this interface to current stock
-upstream binaries. Independent provider/server and compiler/dependency pins
-remain reviewed inputs.
+The standalone mod ZIP and separate source/checksum files remain validated Actions
+inputs rather than public release assets. Both complete packages contain that
+exact mod build. Independent provider/server and compiler/dependency pins remain
+reviewed inputs. Historical Git branches and source history remain available.
 
 Only the publisher receives repository write access. There is no host deploy key
 or cross-repository write credential. Build jobs have read access and no persisted
@@ -270,15 +276,16 @@ Manual modes:
 - `retry`: prepare and test a fresh candidate after fixing a failure. If pins
   are current, verify them and clear the stop without republishing existing names.
 - `resume`: complete a pending publication with its original plan and artifacts.
-- `verify`: build/test current pins and check publisher access without publishing.
+- `verify`: build/test current pins and check publisher access without publishing;
+  a pending publication must be resumed first.
 - `publish-pinned`: explicitly build and publish the current reviewed pins, for
   changes such as this migration that do not depend on a new upstream release.
 
 GitHub ref updates and release asset uploads are separate operations. A failed
-publication can leave tested assets visible before the completion receipt exists.
-The pending record keeps exact hashes, before/after refs and the original Actions
-run. Resume never rebuilds or overwrites assets; unrelated remote changes require
-manual resolution. Original artifacts are retained for 90 days and cannot be
+publication can leave staged or backup assets visible before cleanup completes.
+The pending record keeps exact hashes, before/after refs, previous asset IDs and
+the original Actions run. Resume never rebuilds: it completes the saved rotations
+and cleanup, rejecting unrelated remote changes. Original artifacts are retained for 90 days and cannot be
 silently replaced by a rebuild if they expire. Preserve them for recovery.
 
 For local diagnosis, prepare one candidate without publishing:

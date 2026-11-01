@@ -25,6 +25,8 @@ class AutomationControlTests(unittest.TestCase):
         self.assertEqual(control.choose_action('resume', {'status': 'pending'}), 'resume')
         with self.assertRaises(ValueError):
             control.choose_action('retry', {'status': 'pending'}, True)
+        with self.assertRaisesRegex(ValueError, 'resume its original artifacts'):
+            control.choose_action('verify', {'status': 'pending'}, True)
         with self.assertRaises(ValueError):
             control.choose_action('resume', {'status': 'blocked'})
 

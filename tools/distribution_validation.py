@@ -25,6 +25,9 @@ def validate(directory, tag, commit):
         source = directory / source_name
         if sha256(source.read_bytes()) != manifest['sources']['sha256']:
             raise ValueError('Corresponding source companion checksum mismatch')
+        if (manifest['sources'].get('embedded_path') != 'sources/' + source_name
+                or files.get('sources/' + source_name) != source.read_bytes()):
+            raise ValueError('Embedded corresponding source archive differs from the verified companion')
         source_files = read_zip(source)
         source_manifest = verify_manifest(source_files, 'source-manifest.json')
         if (source_manifest['revision'] != manifest['host']['revision']

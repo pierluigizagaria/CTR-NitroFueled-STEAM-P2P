@@ -27,6 +27,8 @@ def save(path, document):
 def choose_action(mode, state, changed=False):
     status = state.get('status') if state else None
     if mode == 'verify':
+        if status == 'pending':
+            raise ValueError('A publication is pending; resume its original artifacts before verification')
         return 'build'
     if mode == 'publish-pinned':
         if status == 'pending':
@@ -125,7 +127,8 @@ def failure_document(previous, inspection, plan, run_url, failed):
         return None
     else:
         document = {'schema_version': 1, 'status': 'blocked', 'inspection': inspection,
-                    'plan': plan, 'previous_completion': (previous or {}).get('completion')}
+                    'plan': plan, 'previous_completion': (previous or {}).get('completion'),
+                    'runtime_source': (previous or {}).get('runtime_source')}
     document['incident'] = incident
     if previous and previous.get('notification'):
         document['notification'] = previous['notification']
@@ -195,6 +198,8 @@ def finish(directory):
                     and inspection.get('mode') != 'retry')):
             return
         state_store.write_state({'schema_version': 1, 'status': 'completed', 'plan': plan,
+                                 'runtime_source': previous.get('runtime_source'),
+                                 'publication_format': previous.get('publication_format'),
                                  'verification': {'run_url': run_url, 'published': False}}, ref)
         message = f'Current pinned builds and publisher verification passed. No release was published. [Run]({run_url}).'
     else:

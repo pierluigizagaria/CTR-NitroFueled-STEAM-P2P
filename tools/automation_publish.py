@@ -12,6 +12,7 @@ import json
 import os
 from pathlib import Path, PurePosixPath
 import re
+import shutil
 import subprocess
 import urllib.parse
 import urllib.request
@@ -176,10 +177,70 @@ def validate_assets(directory, plan, release_lock):
                 or json.loads(source_files['build-recipes/release-lock.json']) != release_lock
                 or sha256(source_files['source-manifest.json']) != manifest['sources']['manifest_sha256']):
             raise ValueError('Corresponding source evidence differs from the tested plan')
+        for name, dependency in source.get('runtime_dependencies', {}).items():
+            if (name not in files or sha256(files[name]) != dependency.get('sha256')
+                    or dependency.get('redistribution_ready') is not True):
+                raise ValueError('Runtime payload differs from corresponding source evidence: ' + name)
     assets.extend(mod_assets)
     if len({path.name for path in assets}) != 10:
         raise ValueError('Exactly ten distinct channel/source/standalone-mod/checksum assets are required')
     return sorted(assets, key=lambda path: (0 if '-source.zip' in path.name else 1, path.name))
+
+
+def public_name(pin):
+    name = pin['display_name'].replace('/', '-') + '-' + pin['upstream']['tag'] + '-STEAM-P2P-windows-x64.zip'
+    windows_name(name)
+    if '/' in name or not re.fullmatch(r'[A-Za-z0-9_.+-]+', name):
+        raise ValueError('Upstream identity cannot be used as a public package name')
+    return name
+
+
+def copy_asset(source, destination):
+    """Retain deterministic bytes across publication retries; never silently replace a file."""
+    source, destination = Path(source), Path(destination)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    expected = dict(asset_record(source), name=destination.name)
+    if destination.exists():
+        if asset_record(destination) != expected:
+            raise ValueError('Existing local publication artifact differs from the tested bytes')
+    else:
+        shutil.copyfile(source, destination)
+    if asset_record(destination) != expected:
+        raise ValueError('Publication copy differs from the tested bytes')
+    return destination
+
+
+def public_assets(directory, plan, release_lock):
+    """Validate all retained build inputs, then expose only the two self-contained ZIPs."""
+    validate_assets(directory, plan, release_lock)
+    result = []
+    for channel in CHANNELS:
+        pin = plan['new_lock']['channels'][channel]
+        original = Path(directory) / f"ctrnf-p2p-{channel}-{plan['version']}-{plan['candidate_revision'][:12]}-windows-x64.zip"
+        result.append(copy_asset(original, Path(directory) / 'public' / public_name(pin)))
+    return result
+
+
+def owned_asset(name):
+    """Only this project's current names and known historical release formats are retired."""
+    legacy = (r'ctrnf-p2p-(?:channel-[ab]|getlostin-ctr-nitrofueled-pc|ryu7w7-octr-nitrofueled-pc)-'
+              r'v[0-9][A-Za-z0-9.+-]*-[0-9a-f]{12}-(?:source|windows-x64)\.zip(?:\.sha256)?')
+    mod = r'ctrnf-p2p-mod-v[0-9][A-Za-z0-9.+-]*-windows-x64(?:-[0-9a-f]{12})?\.zip(?:\.sha256)?'
+    receipt = r'ctrnf-p2p-complete-v[0-9][A-Za-z0-9.+-]*-[0-9a-f]{12}\.json'
+    current = r'(?:GetLostIn-CTR-NitroFueled-PC|Ryu7w7-OCTR-NitroFueled-PC)-v[0-9][A-Za-z0-9.+-]*-STEAM-P2P-windows-x64\.zip'
+    return any(re.fullmatch(pattern, name) for pattern in (legacy, mod, receipt, current))
+
+
+def stage_name(expected):
+    return 'ctrnf-p2p-pending-' + expected['sha256'][:16] + '-' + expected['name']
+
+
+def previous_name(asset):
+    return 'ctrnf-p2p-previous-' + str(asset['id']) + '-' + asset['name']
+
+
+def remote_identity(asset):
+    return {key: asset.get(key) for key in ('id', 'name', 'size', 'state', 'digest')}
 
 
 def classify_refs(plan, bridge_head):
@@ -264,8 +325,26 @@ class GitHubRelease:
             raise ValueError('Local artifact changed during publication')
         found = {item['name']: item for item in self.read()['assets']}.get(expected['name'])
         if found is not None:
-            self.verify(found, expected)
-            return
+            prefix = 'ctrnf-p2p-pending-' + expected['sha256'][:16] + '-'
+            public = expected['name'].removeprefix(prefix)
+            empty_starter = (found.get('state') == 'starter' and found.get('size') == 0
+                             and expected['name'].startswith(prefix) and owned_asset(public)
+                             and public.endswith('-STEAM-P2P-windows-x64.zip'))
+            if empty_starter:
+                # GitHub can leave a zero-byte starter after an upload 502. Only
+                # this transaction's hash-derived staging name may be removed.
+                current = next((item for item in self.read()['assets'] if item['id'] == found['id']), None)
+                if current is not None:
+                    if remote_identity(current) != remote_identity(found):
+                        raise ValueError('Incomplete upload changed before recovery')
+                    try:
+                        api(f"repos/{self.slug}/releases/assets/{found['id']}", method='DELETE')
+                    except ValueError:
+                        if any(item['id'] == found['id'] for item in self.read()['assets']):
+                            raise
+            else:
+                self.verify(found, expected)
+                return
         try:
             # The absence of --clobber is intentional. A concurrent upload cannot be replaced.
             command('gh', 'release', 'upload', self.tag, path, '--repo', self.slug)
@@ -280,48 +359,98 @@ class GitHubRelease:
             raise ValueError('Uploaded release asset is missing')
         self.verify(found, expected)
 
-    def notes(self, plan, receipt_name):
+    def rename(self, asset, name):
+        """A lost rename response is safe only if this exact asset ID acquired the name."""
+        try:
+            api(f"repos/{self.slug}/releases/assets/{asset['id']}", method='PATCH', body={'name': name})
+        except ValueError:
+            current = next((item for item in self.read()['assets'] if item['id'] == asset['id']), None)
+            if current is None or current['name'] != name:
+                raise
+        current = next((item for item in self.read()['assets'] if item['id'] == asset['id']), None)
+        if current is None or current['name'] != name:
+            raise ValueError('Renamed release asset is missing')
+        return current
+
+    def promote_asset(self, expected, previous):
+        assets = {item['name']: item for item in self.read()['assets']}
+        current = assets.get(expected['name'])
+        old = None
+        if current is not None:
+            try:
+                self.verify(current, expected)
+                return
+            except ValueError:
+                old = next((item for item in previous if item['id'] == current['id']), None)
+                if old is None or remote_identity(current) != old:
+                    raise ValueError('Public asset changed outside the saved replacement transaction')
+        staged = assets.get(stage_name(expected))
+        if staged is None:
+            raise ValueError('Verified staged release asset is missing')
+        self.verify(staged, dict(expected, name=stage_name(expected)))
+        if old is not None:
+            backup_name = previous_name(old)
+            if backup_name in assets:
+                raise ValueError('Previous-asset backup name already exists')
+            self.rename(current, backup_name)
+        self.verify(self.rename(staged, expected['name']), expected)
+
+    def prune(self, previous, expected_records):
+        """Delete only saved project-owned IDs after both final packages have been verified."""
+        assets = self.read()['assets']
+        by_name = {item['name']: item for item in assets}
+        retained = set()
+        for expected in expected_records:
+            asset = by_name.get(expected['name'])
+            if asset is None:
+                raise ValueError('Cannot retire old downloads before the complete pair is available')
+            self.verify(asset, expected)
+            retained.add(asset['id'])
+        for old in previous:
+            current = next((item for item in self.read()['assets'] if item['id'] == old['id']), None)
+            if current is None or current['id'] in retained:
+                continue
+            expected = dict(old, name=current['name'])
+            if (current['name'] not in (old['name'], previous_name(old))
+                    or remote_identity(current) != expected or not owned_asset(old['name'])):
+                raise ValueError('Old asset changed outside the saved cleanup transaction')
+            try:
+                api(f"repos/{self.slug}/releases/assets/{old['id']}", method='DELETE')
+            except ValueError:
+                if any(item['id'] == old['id'] for item in self.read()['assets']):
+                    raise
+        remaining = {item['name']: item for item in self.read()['assets']}
+        for expected in expected_records:
+            if expected['name'] not in remaining:
+                raise ValueError('Current download disappeared during cleanup')
+            self.verify(remaining[expected['name']], expected)
+
+    def notes(self, plan):
         release = self.read()
         body = release.get('body') or ''
-        block = release_block(self.slug, plan, receipt_name)
-        if BLOCK_START in body or BLOCK_END in body:
-            if body.count(BLOCK_START) != 1 or body.count(BLOCK_END) != 1:
-                raise ValueError('Ambiguous automatic release-notes block')
-            start, end = body.index(BLOCK_START), body.index(BLOCK_END) + len(BLOCK_END)
-            if start >= end:
-                raise ValueError('Malformed automatic release-notes block')
-            updated = body[:start] + block + body[end:]
-        else:
-            updated = body.rstrip() + '\n\n' + block + '\n'
-        if updated != body:
-            api(f"repos/{self.slug}/releases/{release['id']}", method='PATCH', body={'body': updated})
+        updated = release_block(self.slug, plan) + '\n'
+        title = 'Steam P2P — latest builds'
+        if updated != body or release.get('name') != title:
+            api(f"repos/{self.slug}/releases/{release['id']}", method='PATCH', body={'body': updated, 'name': title})
 
 
-def release_block(slug, plan, receipt_name):
+def release_block(slug, plan):
     base = f"https://github.com/{slug}/releases/download/{plan['version']}/"
-    lines = [BLOCK_START, '### Latest completed automatic P2P build', '',
-             'Bridge revision: `' + plan['candidate_revision'] + '`.', '']
+    lines = [BLOCK_START, '### Latest Windows builds', '']
     for channel in CHANNELS:
-        prefix = f"ctrnf-p2p-{channel}-{plan['version']}-{plan['candidate_revision'][:12]}"
-        lines += [f"- {plan['new_lock']['channels'][channel]['display_name']}: [Windows x64]({base}{prefix}-windows-x64.zip), "
-                  f"[corresponding sources]({base}{prefix}-source.zip)."]
-    mod_name = f"ctrnf-p2p-mod-{plan['version']}-windows-x64-{plan['candidate_revision'][:12]}.zip"
-    lines += [f'- [Standalone compiled mod for manual installation]({base}{mod_name}).', '',
-              'The standalone mod requires a compatible host and the matching installation guide. '
-              'The psn/octr modes require an adapter-enabled host and `psn-bridge-backend.dll`; '
-              'the complete distribution packages include both.', '',
-              f'[Completion receipt and asset hashes]({base}{receipt_name}).', '',
-              'Both distributions passed offline build, adapter and package checks. '
-              'Live multiplayer acceptance remains separate. Earlier preview assets remain available.', BLOCK_END]
+        pin = plan['new_lock']['channels'][channel]
+        lines += [f"- [{pin['display_name']} **{pin['upstream']['tag']}**]({base}{public_name(pin)})"]
+    lines += ['', 'Each ZIP includes the port, Steam P2P mod, corresponding sources, licenses and build provenance. '
+              'Game files are not included.', BLOCK_END]
     return '\n'.join(lines)
 
 
-def begin_transaction(plan, records, release_id, *, resume=False):
+def begin_transaction(plan, records, remote_release, *, resume=False):
     current, ref = automation_state.read_state()
     if resume:
         if (not current or current.get('status') != 'pending' or current.get('plan') != plan
-                or current.get('assets') != records or current.get('release_id') != release_id
-                or not current.get('source_run_id')):
+                or current.get('assets') != records or current.get('release_id') != remote_release['id']
+                or not current.get('source_run_id') or current.get('publication_format') != 'two-complete-archives-v1'):
             raise ValueError('Resume requires the original pending plan and exact retained build artifacts')
         return current, ref
     if current and current.get('status') == 'pending':
@@ -331,7 +460,10 @@ def begin_transaction(plan, records, release_id, *, resume=False):
     if not source_run.isdigit():
         raise ValueError('Publication requires its original GitHub Actions run ID')
     pending = {'schema_version': 1, 'status': 'pending', 'plan': deepcopy(plan), 'assets': records,
-               'release_id': release_id, 'source_run_id': source_run,
+               'release_id': remote_release['id'], 'source_run_id': source_run,
+               'publication_format': 'two-complete-archives-v1',
+               'previous_assets': [remote_identity(asset) for asset in remote_release['assets'] if owned_asset(asset['name'])],
+               'runtime_source': (current or {}).get('runtime_source'),
                'source_run_url': f'https://github.com/{slug}/actions/runs/{source_run}',
                'created_at': plan['commit_timestamp']}
     return pending, automation_state.write_state(pending, ref)
@@ -339,19 +471,27 @@ def begin_transaction(plan, records, release_id, *, resume=False):
 
 def publish(plan, assets, refs, release, *, resume=False):
     """A failed test never calls this function; every network write has a preceding receipt."""
-    assets = sorted(assets, key=lambda path: (0 if '-source.zip' in path.name else 1, path.name))
+    assets = sorted(assets, key=lambda path: path.name)
+    if {path.name for path in assets} != {public_name(plan['new_lock']['channels'][channel]) for channel in CHANNELS}:
+        raise ValueError('Publication requires exactly the two current upstream packages')
     records = sorted((asset_record(path) for path in assets), key=lambda item: item['name'])
     phase = classify_refs(plan, refs.heads())
     if phase != 'all-old' and not resume:
         raise ValueError('Promoted refs require explicit recovery of the original publication')
     remote_release = release.read()
-    existing = {item['name']: item for item in remote_release['assets']}
-    for expected in records:
-        if expected['name'] in existing:
-            release.verify(existing[expected['name']], expected)
-    pending, state_ref = begin_transaction(plan, records, remote_release['id'], resume=resume)
-    for path in assets:  # validate_assets orders all source assets before binary assets.
-        release.ensure_asset(path, next(item for item in records if item['name'] == path.name))
+    pending, state_ref = begin_transaction(plan, records, remote_release, resume=resume)
+    for path in assets:
+        expected = next(item for item in records if item['name'] == path.name)
+        # A resumed transaction may already have promoted either final name.
+        current = next((item for item in release.read()['assets'] if item['name'] == path.name), None)
+        if current is not None:
+            try:
+                release.verify(current, expected)
+                continue
+            except ValueError:
+                pass
+        staged = copy_asset(path, path.parent / 'staging' / stage_name(expected))
+        release.ensure_asset(staged, dict(expected, name=staged.name))
     phase = classify_refs(plan, refs.heads())
     if phase == 'all-old' and plan['changed']:
         try:
@@ -365,19 +505,30 @@ def publish(plan, assets, refs, release, *, resume=False):
     final_phase = classify_refs(plan, refs.heads())
     if final_phase != ('all-new' if plan['changed'] else 'all-old'):
         raise ValueError('Publication did not reach the planned P2P main revision')
-    # Notification/incident metadata can be added after a failed attempt. It must
-    # never change the immutable completion bytes on a later exact-plan resume.
+    for expected in records:
+        release.promote_asset(expected, pending['previous_assets'])
+    current_assets = {asset['name']: asset for asset in release.read()['assets']}
+    for expected in records:
+        if expected['name'] not in current_assets:
+            raise ValueError('Current package is missing before recording its runtime source')
+        release.verify(current_assets[expected['name']], expected)
+    slug = os.environ['GH_REPO']
+    runtime_archive = records[0]
+    runtime_source = {'url': f"https://github.com/{slug}/releases/download/{plan['version']}/{runtime_archive['name']}",
+                      'sha256': runtime_archive['sha256']}
+    # Public names can be reused by mod-only updates. Save their current verified
+    # bytes before notes/cleanup so a later failure cannot retain an obsolete hash.
+    if pending.get('runtime_source') != runtime_source:
+        pending = dict(pending, runtime_source=runtime_source)
+        state_ref = automation_state.write_state(pending, state_ref)
+    release.notes(plan)
+    release.prune(pending['previous_assets'], records)
+    # Completion is recorded on the state branch, not as a third download.
     receipt = {key: pending[key] for key in ('schema_version', 'plan', 'assets', 'release_id',
                                            'source_run_id', 'source_run_url', 'created_at')}
     receipt['status'] = 'completed'
-    name = f"ctrnf-p2p-complete-{plan['version']}-{plan['candidate_revision'][:12]}.json"
-    receipt_path = Path(assets[0]).parent / name
-    receipt_path.write_bytes(json_bytes(receipt))
-    # This last release asset is the completion marker; partial uploads never advertise one.
-    release.ensure_asset(receipt_path, asset_record(receipt_path))
-    release.notes(plan, name)
-    completed = dict(receipt, completion_asset=name,
-                     completion={'asset': name, 'revision': plan['candidate_revision'],
+    completed = dict(receipt, publication_format='two-complete-archives-v1', runtime_source=runtime_source,
+                     completion={'revision': plan['candidate_revision'],
                                  'run_url': pending['source_run_url']})
     automation_state.write_state(completed, state_ref)
     return completed
@@ -426,7 +577,7 @@ def main():
         raise ValueError('Bridge origin differs from GH_REPO')
     refs = GitRefs(repository, slug)
     release_lock = json.loads((repository / 'release-lock.json').read_text(encoding='utf-8'))
-    assets = validate_assets(args.dist, plan, release_lock)
+    assets = public_assets(args.dist, plan, release_lock)
     materialize_candidates(plan, repository, refs, resume=args.resume)
     release = GitHubRelease(slug, plan['version'])
     if args.verify_only:
@@ -438,7 +589,7 @@ def main():
                           'assets': [asset_record(path) for path in assets], 'published': False}))
     else:
         result = publish(plan, assets, refs, release, resume=args.resume)
-        print(json.dumps({'status': result['status'], 'completion_asset': result['completion_asset'],
+        print(json.dumps({'status': result['status'], 'assets': result['assets'],
                           'candidate_revision': plan['candidate_revision']}))
 
 

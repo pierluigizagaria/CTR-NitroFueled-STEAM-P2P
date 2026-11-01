@@ -198,6 +198,19 @@ class DistributionTests(unittest.TestCase):
         self.assertFalse(result['redistribution_ready'])
         self.assertEqual(result['unresolved_runtime_dependencies'], ['libexample.dll'])
 
+    def test_nonbinary_runtime_input_must_be_present_and_match_reviewed_source(self):
+        name, data = 'out/aerolib.inl', b'reviewed generated table'
+        self.source_manifest['runtime_dependencies'][name] = {
+            'sha256': sha256(data), 'redistribution_ready': True}
+        self.write_source()
+        for payload in (self.host_files, self.host_files | {'portable/' + name: b'changed table'}):
+            with self.subTest(payload=payload.get('portable/' + name)):
+                archive(self.host, payload)
+                with self.assertRaisesRegex(ValueError, 'source/notice evidence.*out/aerolib.inl'):
+                    assemble(self.args)
+        archive(self.host, self.host_files | {'portable/' + name: data})
+        self.assertTrue(assemble(self.args)['redistribution_ready'])
+
     def test_rejects_payload_collisions_and_private_state(self):
         archive(self.host, self.host_files | {'portable/ctrnf-p2p.exe': b'other bridge'})
         with self.assertRaisesRegex(ValueError, 'Conflicting'):

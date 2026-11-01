@@ -29,9 +29,9 @@ class CompleteDraftTests(unittest.TestCase):
 
     def test_draft_contains_both_complete_builds_sources_and_exact_standalone_mod(self):
         assets = self.validate()
-        self.assertEqual(len(assets), 10)
-        self.assertIn(self.fixture.standalone_path, assets)
-        self.assertIn(self.fixture.standalone_path.with_suffix('.zip.sha256'), assets)
+        self.assertEqual(len(assets), 2)
+        self.assertEqual({path.name for path in assets}, {
+            fixtures.publisher.public_name(pin) for pin in self.plan['new_lock']['channels'].values()})
         with patch.object(sys, 'argv', ['draft_distributions.py', '--version', self.plan['version'],
                 '--revision', self.plan['candidate_revision'], '--dist', str(self.root)]), \
                 patch.object(draft_distributions, 'validate_draft', return_value=assets), \
@@ -42,7 +42,7 @@ class CompleteDraftTests(unittest.TestCase):
         self.assertTrue(all(asset in run.call_args.args for asset in assets))
         self.assertIn('--draft', run.call_args.args)
         self.assertNotIn('--clobber', run.call_args.args)
-        self.assertIn('separate ctrnf-p2p-mod archive', (self.root / 'complete-release-notes.md').read_text())
+        self.assertIn('Each ZIP includes', (self.root / 'complete-release-notes.md').read_text())
 
     def test_missing_standalone_mod_cannot_create_a_draft(self):
         self.fixture.standalone_path.unlink()

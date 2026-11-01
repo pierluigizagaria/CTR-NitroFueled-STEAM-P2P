@@ -97,6 +97,7 @@ class AssetTests(unittest.TestCase):
                      'integration_recipe': pin['recipe'], 'shared_psn_tree': pin['psn_tree'],
                      'clean_source': True, 'binaries': {name: sha256(data) for name, data in native_files.items()}}
             files = native_files | self.standalone_files | {'p2p-host-build.json': json_bytes(build)}
+            files['sources/' + source_path.name] = source_path.read_bytes()
             mod = copy.deepcopy(self.standalone_manifest)
             mod.update(host=pin, assembly={'input_mod_sha256': mod_digest})
             files['ctrnf-p2p-manifest.json'] = json_bytes(mod)
@@ -105,7 +106,8 @@ class AssetTests(unittest.TestCase):
                         'components': components, 'build': {'source_dirty': False}, 'redistribution_ready': True,
                         'unresolved_runtime_dependencies': [],
                         'input_archives': {'mod': mod_digest},
-                        'sources': {'archive': source_path.name, 'sha256': sha256(source_path.read_bytes()),
+                        'sources': {'archive': source_path.name, 'embedded_path': 'sources/' + source_path.name,
+                                    'sha256': sha256(source_path.read_bytes()),
                                     'manifest_sha256': sha256(source_payload['source-manifest.json'])},
                         'files': {name: sha256(data) for name, data in files.items()}}
             files['p2p-distribution-manifest.json'] = json_bytes(manifest)
@@ -121,6 +123,50 @@ class AssetTests(unittest.TestCase):
         self.assertTrue(all('-source.zip' in asset.name for asset in assets[:4]))
         self.assertIn(self.standalone_path, assets)
         self.assertIn(self.standalone_path.with_suffix('.zip.sha256'), assets)
+
+    def test_public_pair_uses_upstream_names_and_retains_embedded_sources(self):
+        assets = publisher.public_assets(self.root, self.plan, self.release_lock)
+        self.assertEqual(len(assets), 2)
+        for channel, path in zip(publisher.CHANNELS, assets):
+            self.assertEqual(path.name, publisher.public_name(self.plan['new_lock']['channels'][channel]))
+            self.assertEqual(path.read_bytes(), self.binaries[channel][0].read_bytes())
+            source = self.sources[channel][0]
+            with zipfile.ZipFile(path) as package:
+                self.assertEqual(package.read('sources/' + source.name), source.read_bytes())
+
+    def test_external_sidecar_cannot_substitute_missing_embedded_source(self):
+        channel = publisher.CHANNELS[0]
+        _, files = self.binaries[channel]
+        files.pop('sources/' + self.sources[channel][0].name)
+        self.rewrite_binary(channel)
+        with self.assertRaisesRegex(ValueError, 'Embedded corresponding source'):
+            publisher.public_assets(self.root, self.plan, self.release_lock)
+
+    def test_publisher_rechecks_nonbinary_runtime_input_against_source_evidence(self):
+        channel = publisher.CHANNELS[0]
+        name, data = 'out/aerolib.inl', b'reviewed generated table'
+        source_path, source_files = self.sources[channel]
+        source_manifest = json.loads(source_files['source-manifest.json'])
+        source_manifest['runtime_dependencies'] = {name: {'sha256': sha256(data), 'redistribution_ready': True}}
+        source_files['source-manifest.json'] = json_bytes(source_manifest)
+        archive(source_path, source_files)
+        _, files = self.binaries[channel]
+        files['sources/' + source_path.name] = source_path.read_bytes()
+        manifest = json.loads(files['p2p-distribution-manifest.json'])
+        manifest['sources'].update(sha256=sha256(source_path.read_bytes()),
+                                  manifest_sha256=sha256(source_files['source-manifest.json']))
+        files['p2p-distribution-manifest.json'] = json_bytes(manifest)
+        for contents in (None, b'changed table', data):
+            if contents is None:
+                files.pop(name, None)
+            else:
+                files[name] = contents
+            self.rewrite_binary(channel)
+            if contents == data:
+                publisher.validate_assets(self.root, self.plan, self.release_lock)
+            else:
+                with self.assertRaisesRegex(ValueError, 'Runtime payload differs.*out/aerolib.inl'):
+                    publisher.validate_assets(self.root, self.plan, self.release_lock)
 
     def test_rejects_self_consistent_package_for_a_different_host_plan(self):
         plan = copy.deepcopy(self.plan)
@@ -192,6 +238,7 @@ class AssetTests(unittest.TestCase):
                 binary_manifest = json.loads(files['p2p-distribution-manifest.json'])
                 binary_manifest['sources'].update(sha256=sha256(source_path.read_bytes()),
                     manifest_sha256=sha256(source_files['source-manifest.json']))
+                files['sources/' + source_path.name] = source_path.read_bytes()
                 files['p2p-distribution-manifest.json'] = json_bytes(binary_manifest)
                 self.rewrite_binary(channel)
                 with self.assertRaisesRegex(ValueError, error):
@@ -293,12 +340,13 @@ class FakeRelease:
     def __init__(self, events):
         self.events, self.uploaded = events, {}
         self.failure = None
+        self.next_id = 100
 
     def read(self):
         return {'id': 123, 'assets': list(self.uploaded.values())}
 
     def verify(self, asset, expected):
-        if asset != expected:
+        if any(asset.get(key) != value for key, value in expected.items()):
             raise ValueError('Existing release asset differs')
 
     def ensure_asset(self, path, expected):
@@ -307,9 +355,23 @@ class FakeRelease:
             raise ValueError('upload interrupted')
         if path.name in self.uploaded:
             self.verify(self.uploaded[path.name], expected)
-        self.uploaded[path.name] = expected
+        self.uploaded[path.name] = dict(expected, id=self.next_id)
+        self.next_id += 1
 
-    def notes(self, plan, receipt_name):
+    def promote_asset(self, expected, previous):
+        self.events.append('promote-asset:' + expected['name'])
+        if expected['name'] in self.uploaded and self.uploaded[expected['name']]['sha256'] == expected['sha256']:
+            return
+        staged = self.uploaded.pop(publisher.stage_name(expected))
+        self.uploaded[expected['name']] = dict(staged, name=expected['name'])
+
+    def prune(self, previous, records):
+        self.events.append('prune')
+        names = {item['name'] for item in records}
+        self.uploaded = {name: value for name, value in self.uploaded.items()
+                         if name in names or not publisher.owned_asset(name)}
+
+    def notes(self, plan):
         self.events.append('notes')
 
 
@@ -320,7 +382,7 @@ class TransactionTests(unittest.TestCase):
         self.root = Path(self.temp.name)
         self.plan, self.events = fixture_plan(), []
         self.assets = []
-        for name in ('b-windows-x64.zip', 'a-source.zip'):
+        for name in sorted(publisher.public_name(pin) for pin in self.plan['new_lock']['channels'].values()):
             path = self.root / name
             path.write_bytes(name.encode())
             self.assets.append(path)
@@ -348,12 +410,15 @@ class TransactionTests(unittest.TestCase):
 
     def test_success_orders_pending_sources_main_completion_and_retains_run(self):
         result = self.publish()
-        self.assertEqual(self.events[:3], ['state:pending', 'upload:a-source.zip', 'upload:b-windows-x64.zip'])
+        self.assertEqual(self.events[0], 'state:pending')
+        self.assertTrue(all(event.startswith('upload:ctrnf-p2p-pending-') for event in self.events[1:3]))
         self.assertLess(self.events.index('promote-bridge'), self.events.index('notes'))
         self.assertEqual(self.events[-1], 'state:completed')
         self.assertEqual(result['source_run_id'], '55')
         self.assertEqual(result['completion']['revision'], self.plan['candidate_revision'])
-        self.assertFalse(any('host' in event or 'tag' in event for event in self.events))
+        self.assertEqual({item['name'] for item in result['assets']}, {path.name for path in self.assets})
+        self.assertEqual(len(self.release.uploaded), 2)
+        self.assertEqual(result['runtime_source']['sha256'], result['assets'][0]['sha256'])
 
     def test_publish_pinned_uploads_without_any_main_promotion(self):
         self.plan.update(changed=False, candidate_revision=self.plan['base_revision'])
@@ -383,7 +448,7 @@ class TransactionTests(unittest.TestCase):
         git.assert_not_called()
 
     def test_upload_failure_stops_before_any_ref_and_can_resume_exact_original_bytes(self):
-        self.release.failure = 'b-windows-x64.zip'
+        self.release.failure = publisher.stage_name(publisher.asset_record(self.assets[1]))
         with self.assertRaisesRegex(ValueError, 'interrupted'):
             self.publish()
         self.assertEqual(self.state['status'], 'pending')
@@ -394,7 +459,7 @@ class TransactionTests(unittest.TestCase):
         self.assertEqual(result['source_run_id'], '55')
 
     def test_resume_rejects_newly_built_bytes_before_any_upload(self):
-        self.release.failure = 'a-source.zip'
+        self.release.failure = publisher.stage_name(publisher.asset_record(self.assets[0]))
         with self.assertRaises(ValueError):
             self.publish()
         self.events.clear()
@@ -421,11 +486,13 @@ class TransactionTests(unittest.TestCase):
             self.publish()
         self.assertEqual(self.events, [])
 
-    def test_existing_asset_collision_stops_before_state_and_publication(self):
-        self.release.uploaded[self.assets[0].name] = {'name': self.assets[0].name, 'sha256': 'wrong'}
-        with self.assertRaisesRegex(ValueError, 'Existing release asset differs'):
-            self.publish()
-        self.assertEqual(self.events, [])
+    def test_existing_package_is_replaced_and_only_latest_pair_remains(self):
+        self.release.uploaded[self.assets[0].name] = {'id': 1, 'name': self.assets[0].name, 'sha256': 'wrong'}
+        self.release.uploaded['ctrnf-p2p-complete-v0.1.0-preview.1-aaaaaaaaaaaa.json'] = {
+            'id': 2, 'name': 'ctrnf-p2p-complete-v0.1.0-preview.1-aaaaaaaaaaaa.json'}
+        self.publish()
+        self.assertEqual(set(self.release.uploaded), {path.name for path in self.assets})
+        self.assertLess(self.events.index('notes'), self.events.index('prune'))
 
     def test_post_promotion_failure_resumes_without_repromoting_main(self):
         with patch.object(self.release, 'notes', side_effect=ValueError('notes failed')):
@@ -437,8 +504,105 @@ class TransactionTests(unittest.TestCase):
         self.assertEqual(self.publish(resume=True)['status'], 'completed')
         self.assertEqual(self.events.count('promote-bridge'), count)
 
+    def assert_runtime_source_matches_public_asset(self):
+        source = self.state['runtime_source']
+        name = source['url'].rsplit('/', 1)[-1]
+        self.assertEqual(source['url'], 'https://github.com/example/bridge/releases/download/' + self.plan['version'] + '/' + name)
+        self.assertEqual(source['sha256'], self.release.uploaded[name]['sha256'])
+
+    def test_cleanup_failure_keeps_pending_receipt_and_current_runtime_source(self):
+        original_runtime = {'url': 'https://github.com/example/bridge/releases/download/' + self.plan['version'] + '/' + self.assets[0].name,
+                            'sha256': '0' * 64}
+        self.state = {'status': 'blocked', 'runtime_source': original_runtime}
+        with patch.object(self.release, 'prune', side_effect=ValueError('cleanup failed')):
+            with self.assertRaisesRegex(ValueError, 'cleanup failed'):
+                self.publish()
+        self.assertEqual(self.state['status'], 'pending')
+        self.assertNotEqual(self.state['runtime_source'], original_runtime)
+        self.assert_runtime_source_matches_public_asset()
+        self.assertEqual(set(self.release.uploaded), {path.name for path in self.assets})
+        completed = self.publish(resume=True)
+        self.assertEqual(completed['status'], 'completed')
+        self.assert_runtime_source_matches_public_asset()
+
+    def test_completion_state_write_failure_keeps_current_bootstrap_and_resumes(self):
+        original_write = self.write_state
+        def fail_completion(document, expected):
+            if document['status'] == 'completed':
+                raise ValueError('completion write failed')
+            return original_write(document, expected)
+        with patch.object(publisher.automation_state, 'write_state', side_effect=fail_completion):
+            with self.assertRaisesRegex(ValueError, 'completion write failed'):
+                self.publish()
+        self.assertEqual(self.state['status'], 'pending')
+        self.assert_runtime_source_matches_public_asset()
+        self.publish(resume=True)
+        self.assertEqual(self.state['status'], 'completed')
+        self.assert_runtime_source_matches_public_asset()
+
+    def test_runtime_refresh_retains_pending_recovery_and_notification_fields(self):
+        self.release.failure = publisher.stage_name(publisher.asset_record(self.assets[1]))
+        with self.assertRaises(ValueError):
+            self.publish()
+        notification = {'issue_number': 5, 'fingerprint': 'saved'}
+        self.state['notification'] = notification
+        original = copy.deepcopy(self.state)
+        self.release.failure = None
+        with patch.object(self.release, 'notes', side_effect=ValueError('notes failed')):
+            with self.assertRaisesRegex(ValueError, 'notes failed'):
+                self.publish(resume=True)
+        self.assert_runtime_source_matches_public_asset()
+        for key in ('plan', 'assets', 'source_run_id', 'source_run_url', 'previous_assets', 'notification'):
+            self.assertEqual(self.state[key], original[key])
+
 
 class RemoteAssetTests(unittest.TestCase):
+    def test_failed_upload_starter_can_be_removed_on_exact_staging_resume(self):
+        with tempfile.TemporaryDirectory() as directory:
+            original = Path(directory) / 'GetLostIn-CTR-NitroFueled-PC-v0.4-STEAM-P2P-windows-x64.zip'
+            original.write_bytes(b'ours')
+            path = publisher.copy_asset(original, Path(directory) / publisher.stage_name(publisher.asset_record(original)))
+            expected = publisher.asset_record(path)
+            release = publisher.GitHubRelease('example/bridge', 'v0.1.0')
+            assets, calls = {}, []
+            def upload(*args):
+                calls.append('upload')
+                if len(calls) == 1:
+                    assets[1] = {'id': 1, 'name': path.name, 'size': 0, 'state': 'starter', 'digest': None}
+                    raise ValueError('HTTP 502')
+                assets[2] = {'id': 2, 'name': path.name, 'size': expected['size'], 'state': 'uploaded',
+                             'digest': 'sha256:' + expected['sha256']}
+            def delete(url, *, method, body=None):
+                self.assertEqual((url, method), ('repos/example/bridge/releases/assets/1', 'DELETE'))
+                del assets[1]
+            with patch.object(release, 'read', lambda: {'assets': list(assets.values())}), \
+                    patch.object(publisher, 'command', side_effect=upload), \
+                    patch.object(publisher, 'api', side_effect=delete) as api:
+                with self.assertRaisesRegex(ValueError, 'size/state differs'):
+                    release.ensure_asset(path, expected)
+                release.ensure_asset(path, expected)
+            self.assertEqual(calls, ['upload', 'upload'])
+            api.assert_called_once()
+            self.assertEqual(set(assets), {2})
+
+    def test_starter_recovery_never_deletes_final_unknown_or_nonempty_assets(self):
+        with tempfile.TemporaryDirectory() as directory:
+            final = Path(directory) / 'GetLostIn-CTR-NitroFueled-PC-v0.4-STEAM-P2P-windows-x64.zip'
+            final.write_bytes(b'ours')
+            staging = publisher.copy_asset(final, Path(directory) / publisher.stage_name(publisher.asset_record(final)))
+            unrelated = publisher.copy_asset(final, Path(directory) / 'other.zip')
+            release = publisher.GitHubRelease('example/bridge', 'v0.1.0')
+            for path, size, state in ((final, 0, 'starter'), (unrelated, 0, 'starter'),
+                                      (staging, 1, 'starter'), (staging, 0, 'uploaded')):
+                remote = {'id': 1, 'name': path.name, 'size': size, 'state': state, 'digest': None}
+                with self.subTest(name=path.name, size=size, state=state), \
+                        patch.object(release, 'read', return_value={'assets': [remote]}), \
+                        patch.object(publisher, 'api') as api, patch.object(publisher, 'command') as command:
+                    with self.assertRaises(ValueError):
+                        release.ensure_asset(path, publisher.asset_record(path))
+                    api.assert_not_called()
+                    command.assert_not_called()
+
     def test_existing_hash_collision_never_invokes_upload(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / 'fixture.zip'
@@ -450,18 +614,19 @@ class RemoteAssetTests(unittest.TestCase):
                     release.ensure_asset(path, publisher.asset_record(path))
                 command.assert_not_called()
 
-    def test_release_notes_preserve_all_text_outside_owned_block(self):
+    def test_release_notes_replace_history_with_only_current_versions(self):
         release = publisher.GitHubRelease('example/bridge', 'v0.1.0')
         original = 'Original author notices.\n\n' + publisher.BLOCK_START + '\nold\n' + publisher.BLOCK_END + '\nHuman footer.'
         with patch.object(release, 'read', return_value={'id': 123, 'body': original}), patch.object(publisher, 'api') as api:
-            release.notes(fixture_plan(), 'receipt.json')
+            release.notes(fixture_plan())
         updated = api.call_args.kwargs['body']['body']
-        self.assertTrue(updated.startswith('Original author notices.\n\n'))
-        self.assertTrue(updated.endswith('\nHuman footer.'))
+        self.assertNotIn('Original author notices.', updated)
+        self.assertNotIn('Human footer.', updated)
+        self.assertEqual(api.call_args.kwargs['body']['name'], 'Steam P2P — latest builds')
         self.assertEqual(updated.count(publisher.BLOCK_START), 1)
-        self.assertIn('Standalone compiled mod for manual installation', updated)
-        self.assertIn('requires a compatible host', updated)
-        self.assertIn('ctrnf-p2p-mod-v0.1.0-preview.1-windows-x64-' + 'b' * 12 + '.zip', updated)
+        self.assertNotIn('Standalone compiled mod', updated)
+        self.assertIn('GetLostIn/CTR-NitroFueled-PC **v2.0**', updated)
+        self.assertIn('GetLostIn-CTR-NitroFueled-PC-v2.0-STEAM-P2P-windows-x64.zip', updated)
 
 
 class WriteAccessTests(unittest.TestCase):

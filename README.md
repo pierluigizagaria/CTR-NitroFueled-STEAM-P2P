@@ -14,8 +14,7 @@ The mod connects the port to Steam identity, friends and peer transport through
 matchmaking, Pit Stop and progression.
 
 The mod starts the port's own launcher. Game settings, preparation and saves stay
-with the port. The executable, configuration and package filenames retain
-`ctrnf-p2p` for compatibility.
+with the port. Executable and configuration names retain `ctrnf-p2p` for compatibility.
 
 | Complete package | Upstream project | Included host mode |
 | --- | --- | --- |
@@ -25,9 +24,10 @@ with the port. The executable, configuration and package filenames retain
 Upstream pins, adapter patches and build recipes live in this repository under
 [`integrations/`](integrations/) and [`distribution-lock.json`](distribution-lock.json).
 Builds fetch the original upstream release, verify and apply the recorded patches,
-and produce the complete package and its matching source archive. Historical
-integration branches and published assets remain available; new builds do not
-depend on those branches. Each manifest records exact source and dependency
+and produce two complete packages with their matching sources inside each ZIP.
+Releases show only the latest compiled version of each port, with the upstream
+author, repository and version in its filename. Historical integration branches
+remain available; new builds do not depend on those branches. Each manifest records exact source and dependency
 revisions. Both packages include the shared [PSN backend](docs/OCTR.md)
 and its runtime dependencies. Steam invitation acceptance and lobby joining have
 a user-confirmed test on `GetLostIn/CTR-NitroFueled-PC`. The selected-friend
@@ -46,14 +46,14 @@ complete packages only after both distributions pass their build and offline che
 Conflicts or failed checks stop updates and open an issue for the maintainer.
 Installed copies are updated manually from Releases; saves and settings stay local.
 
-The standalone mod ZIP remains available for manual installation. The open
+The open
 [GetLostIn/CTR-NitroFueled-PC #79](https://github.com/GetLostIn/CTR-NitroFueled-PC/pull/79) and
 [Ryu7w7/OCTR-NitroFueled-PC #38](https://github.com/Ryu7w7/OCTR-NitroFueled-PC/pull/38) PRs propose the
 shared host backend interface. If merged into released versions, they would let
 compatible upstream builds load an independently supplied backend and mod, after
 compatibility validation. Acceptance alone would not establish working Steam
 transport or gameplay. Until then, the `psn` and `octr` routes require our
-integrated hosts; the standalone ZIP's default remains the legacy native route.
+integrated hosts. The mod can still be built separately from source.
 
 **Experimental.** See [compatibility and limitations](#compatibility-and-limitations)
 before installing.
@@ -64,14 +64,15 @@ before installing.
 - Your own supported PS4 game files: CUSA13795, update 01.21.
 - Steam running and signed in with your account.
 
-Both complete and standalone packages contain the
+Both complete packages contain the
 [CTR:NF Server Signature Patch](https://github.com/pierluigizagaria/ctrnf-server-signature-patch);
 the bridge enables it automatically. Valve's unmodified `steam_api64.dll`
 runtime is also included; players do not need to download the Steamworks SDK.
 
 ## Install
 
-Download a complete Windows `getlostin-ctr-nitrofueled-pc` or `ryu7w7-octr-nitrofueled-pc` package from
+Download the latest complete Windows package for **GetLostIn/CTR-NitroFueled-PC** or
+**Ryu7w7/OCTR-NitroFueled-PC** from
 [Releases](https://github.com/pierluigizagaria/CTR-NitroFueled-STEAM-P2P/releases).
 
 1. Extract the package into a new folder. It includes the portable port, backend,
@@ -82,11 +83,13 @@ Download a complete Windows `getlostin-ctr-nitrofueled-pc` or `ryu7w7-octr-nitro
 Keep the package's supplied host mode: `psn` for GetLostIn/CTR-NitroFueled-PC or `octr` for Ryu7w7/OCTR-NitroFueled-PC.
 Do not overlay one distribution onto the other or replace its host with a stock
 upstream release. Existing installations and saves stay where they are. The
-matching source archive accompanies each full binary archive.
+matching source archive is included under `sources/` inside each ZIP.
 
 ### Manual mod installation
 
-The separate `ctrnf-p2p-mod-*.zip` contains the bridge, provider, local server,
+Developers can build a separate `ctrnf-p2p-mod-*.zip` using the
+[release tools](docs/RELEASING.md). Public downloads contain only the two complete
+port packages. A separately built mod contains the bridge, provider, local server,
 signature patch and Valve runtime. It contains no host or `psn-bridge-backend.dll`.
 Its default `host = native` targets the unchanged [GetLostIn `online` build at
 `b1b4bf9`](https://github.com/GetLostIn/CTR-NitroFueled-PC/tree/b1b4bf9647132822147e76aeec47390c6cb157bf).
