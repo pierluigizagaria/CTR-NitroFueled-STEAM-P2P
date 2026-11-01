@@ -598,7 +598,10 @@
   ],
   "publication_format": "two-complete-archives-v1",
   "release_id": 417443402,
-  "runtime_source": null,
+  "runtime_source": {
+    "sha256": "a3ff1ba81b19230acbe71a2bf5f38af96af80cb0202b3f67b8555daba7c6a12c",
+    "url": "https://github.com/pierluigizagaria/CTR-NitroFueled-STEAM-P2P/releases/download/v0.1.0-preview.1/GetLostIn-CTR-NitroFueled-PC-v0.4-STEAM-P2P-windows-x64.zip"
+  },
   "schema_version": 1,
   "source_run_id": "41304307064",
   "source_run_url": "https://github.com/pierluigizagaria/CTR-NitroFueled-STEAM-P2P/actions/runs/41304307064",
