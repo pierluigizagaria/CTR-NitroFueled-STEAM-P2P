@@ -154,7 +154,8 @@ def export(args):
     if recipe_path not in files or sha256(files[recipe_path]) != pin['recipe']['sha256']:
         raise ValueError('The tracked integration recipe differs from the distribution lock')
     # The exact builder recipe is a distinct MIT component, never relicensed as host code.
-    for pattern in ('tools/*.py', 'tools/msys2-*.json', 'tools/github_known_hosts',
+    for pattern in ('tools/*.py', 'tools/msys2-*.json', 'tools/dxc-lock.json', 'tools/aerolib-lock.json',
+                    'tools/github_known_hosts',
                     'automation.json', '.github/workflows/*distribution*.yml',
                     '.github/workflows/check-upstreams.yml'):
         for path in sorted(ROOT.glob(pattern)):
@@ -182,6 +183,10 @@ def export(args):
         '   cmake -S host/platform/psn -B backend -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DPSN_BRIDGE_BACKEND=ON -DPSN_HOST_TESTS=ON -DPSN_JSON_INCLUDE_DIR=<absolute-path-to-build-inputs>\n'
         '   cmake --build backend\n'
         '   ctest --test-dir backend --output-on-failure\n'
+        'For portable packaging, the pinned shadPS4 import-name table, original GPL notice\n'
+        'and provenance are in dependency-sources/shadps4-aerolib-*-source.zip. Extract its\n'
+        'src/core/aerolib/aerolib.inl as host/out/aerolib.inl before invoking make_portable.py.\n'
+        'tools/aerolib_inputs.py and aerolib-lock.json in build-recipes verify the exact input.\n'
         'ci_distribution.py is the release workflow for a Git checkout and requires Git history.\n'
         'Version banners can differ without Git; binary-identical rebuilding is not claimed.\n'
         'ZIP stores symlink targets as text. git_file_modes in source-manifest.json records\n'

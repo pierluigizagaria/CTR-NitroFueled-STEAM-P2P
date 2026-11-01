@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "repository": "https://github.com/microsoft/DirectXShaderCompiler",
+  "tag": "v1.9.2609",
+  "revision": "01b62ad47db7dee3dd33f90e7339cf9e860b3f93",
+  "archive": {
+    "url": "https://github.com/microsoft/DirectXShaderCompiler/releases/download/v1.9.2609/dxc_2026_09_29.zip",
+    "sha256": "ad31b1fc8443175d204f77a611fdb3ef2ec42759bdc2f1167368de24a4a7e7f1"
+  },
+  "files": {
+    "bin/x64/dxc.exe": "aa7965b3763d9c710baaa5a28cedcc633449962a75d1391d161a85304a41b3e2",
+    "bin/x64/dxcompiler.dll": "0689e2fee0a1c9df8662a59680469f24e2a3ad7ce6bbbcc9284f7a83172bfc59",
+    "LICENCE-MIT.txt": "903df5512f7d02609fed0c780a9b704f5a3eeb6e4d84ebe42a29845c81899a3c",
+    "LICENSE-LLVM.txt": "729615317e28dd03907e46f0fc3b5e88f7853cee61d1a1471d2749335516b46f"
+  },
+  "notices": {
+    "LICENSE.TXT": {
+      "url": "https://raw.githubusercontent.com/microsoft/DirectXShaderCompiler/01b62ad47db7dee3dd33f90e7339cf9e860b3f93/LICENSE.TXT",
+      "sha256": "27a49e35d1da96eba18fba54bc882667ff0ff8c0254f16f2b6e165d605ba7df8"
+    },
+    "ThirdPartyNotices.txt": {
+      "url": "https://raw.githubusercontent.com/microsoft/DirectXShaderCompiler/01b62ad47db7dee3dd33f90e7339cf9e860b3f93/ThirdPartyNotices.txt",
+      "sha256": "19512a5d0a015ef16d167272c164da49a604614a786206212a80ad486ed0be6d"
+    }
+  },
+  "license": "NCSA AND MIT AND bundled third-party notices",
+  "basis_note": "Unmodified Microsoft DXC x64 compiler and library from the hash-pinned official release, with its LLVM/MIT licenses and source-revision-specific third-party notices. The separately licensed DXIL validator and all other release binaries are excluded.",
+  "license_reference": "https://www.nuget.org/packages/Microsoft.Direct3D.DXC/1.8.2403.24#readme-body-tab"
+}

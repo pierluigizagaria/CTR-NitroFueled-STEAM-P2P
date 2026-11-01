@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "repository": "https://github.com/shadps4-emu/shadPS4",
+  "revision": "55a97e46955b2ece7c7ff8bddeb043ca57a506c6",
+  "license": "GPL-2.0-or-later",
+  "files": {
+    "aerolib.inl": {
+      "source_path": "src/core/aerolib/aerolib.inl",
+      "url": "https://raw.githubusercontent.com/shadps4-emu/shadPS4/55a97e46955b2ece7c7ff8bddeb043ca57a506c6/src/core/aerolib/aerolib.inl",
+      "sha256": "d6238bf50d18c17cab2009bf073ee93b378a63292836de55e08a3841b3b371c5"
+    },
+    "LICENSE": {
+      "source_path": "LICENSE",
+      "url": "https://raw.githubusercontent.com/shadps4-emu/shadPS4/55a97e46955b2ece7c7ff8bddeb043ca57a506c6/LICENSE",
+      "sha256": "8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643"
+    }
+  }
+}

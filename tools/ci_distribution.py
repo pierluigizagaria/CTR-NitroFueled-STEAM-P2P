@@ -61,6 +61,17 @@ def main():
     source_dirty = bool(output('git', '-C', host, '-c', 'core.longpaths=true', 'status', '--porcelain'))
     deps = ROOT / 'out/distribution' / args.channel
     deps.mkdir(parents=True, exist_ok=True)
+    dxc_dir, toolchains = None, {}
+    aerolib_dir = None
+    if (host / 'tools/gen_import_names.py').is_file():
+        from aerolib_inputs import load_lock as aerolib_lock, materialize as aerolib_materialize
+        aerolib_dir = aerolib_materialize(deps / 'aerolib', ROOT / 'out/dependencies/aerolib', host)
+        toolchains['aerolib'] = aerolib_lock()
+    packaging_script = host / 'packaging/windows/make_portable.py'
+    if '--dxc-dir' in packaging_script.read_text(encoding='utf-8'):
+        from dxc_toolchain import load_lock as dxc_lock, materialize as dxc_materialize, provenance
+        dxc_dir = dxc_materialize(deps / 'dxc', ROOT / 'out/dependencies')
+        toolchains['dxc'] = provenance(dxc_lock())
     backend = args.backend_dir or host / 'out/p2p-psn/backends'
     receipt = args.host_build_manifest or deps / 'host-build-manifest.json'
     package = args.host_package
@@ -80,9 +91,10 @@ def main():
         run(bash, 'build.sh', '--test', cwd=host, env=env)
         # Exercise changed host launch/packaging behavior; the upstream broad suite
         # has separately documented unrelated baseline failures on Windows.
-        for fixture in ('test_ultrawide_local_shaders.py', 'test_psn_backend_launcher.py',
-                        'test_p2p_distribution.py'):
-            if (host / 'tests' / fixture).exists():
+        for fixture in ('test_ultrawide_local_shaders.py', 'test_psn_backend*.py',
+                        'test_p2p_distribution.py', 'test_run_ryunet_requests.py',
+                        'test_perf_report.py', 'test_run_vulkan_start.py'):
+            if any((host / 'tests').glob(fixture)):
                 run(sys.executable, '-B', '-m', 'unittest', 'discover', '-s', 'tests',
                     '-p', fixture, cwd=host, env=env)
         release_lock = json.loads((ROOT / 'release-lock.json').read_text())
@@ -96,14 +108,16 @@ def main():
         run(cmake, '--build', backend.parent, '--parallel', '2', env=env)
         run(ctest, '--test-dir', backend.parent, '--output-on-failure', '--timeout', '60', env=env)
         portable_dir = deps / 'portable'
-        run(sys.executable, host / 'packaging/windows/make_portable.py', '--version', args.version,
-            '--dist', portable_dir, cwd=host, env=env)
+        run(sys.executable, packaging_script, '--version', args.version,
+            '--dist', portable_dir, *(['--dxc-dir', dxc_dir] if dxc_dir else []), cwd=host, env=env)
         package = portable_dir / 'CTR-NitroFueled-PC-portable-windows.zip'
         files = read_zip(package, prefix=pin['portable_root'])
+        if aerolib_dir and sha256(files.get('out/aerolib.inl', b'')) != toolchains['aerolib']['files']['aerolib.inl']['sha256']:
+            raise ValueError('Host package omitted or changed the pinned aerolib table')
         files['psn-bridge-backend.dll'] = (backend / 'psn-bridge-backend.dll').read_bytes()
         receipt.write_bytes(json_bytes({'schema_version': 1, 'source_revision': pin['revision'],
             'source_tree': pin['source_tree'], 'integration_recipe': pin['recipe'],
-            'shared_psn_tree': pin['psn_tree'], 'clean_source': True,
+            'shared_psn_tree': pin['psn_tree'], 'clean_source': True, 'toolchains': toolchains,
             'binaries': {name: sha256(files[name]) for name in
                          (pin['launcher'], 'bin/sacredfire.exe', 'bin/bb-gpu-capabilities.exe', 'psn-bridge-backend.dll')},
             'commands': ['BB_P2P_DISTRIBUTION=ON bash build.sh --test',
@@ -120,7 +134,9 @@ def main():
     inventory = deps / 'runtime-inventory.json'
     run(sys.executable, ROOT / 'tools/collect_runtime_sources.py', '--host-package', package,
         '--backend-dir', backend, '--msys-root', args.msys_root, '--lock', lock_path,
-        '--channel', args.channel, '--source-evidence', evidence, '--output', inventory)
+        '--channel', args.channel, '--source-evidence', evidence, '--output', inventory,
+        *(['--dxc-dir', dxc_dir] if dxc_dir else []),
+        *(['--aerolib-dir', aerolib_dir] if aerolib_dir else []))
     suffix = output('git', '-C', ROOT, 'rev-parse', '--short=12', 'HEAD')
     stem = f'ctrnf-p2p-{args.channel}-{args.version}-{suffix}'
     source_zip = ROOT / 'dist' / (stem + '-source.zip')

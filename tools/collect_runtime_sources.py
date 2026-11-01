@@ -15,6 +15,32 @@ from distribution_support import json_bytes, locked_channel, read_zip, sha256, w
 from msys2_metadata import installed as installed_metadata
 
 
+def dxc_inventory(payload, directory, notice, lock_path=None):
+    """Bind packaged DXC bytes and notices to the reviewed Microsoft release."""
+    from dxc_toolchain import DEFAULT_LOCK, BINARIES, LICENSES, NOTICES, load_lock, verify_materialized
+    selected = {name for name in payload if name.startswith('bin/dxc/')}
+    if not selected:
+        return {}
+    lock = load_lock(lock_path or DEFAULT_LOCK)
+    expected = {'bin/dxc/' + Path(name).name for name in BINARIES | LICENSES}
+    if selected != expected or not directory:
+        raise ValueError('DXC payload requires the exact reviewed compiler, library and licenses')
+    root = verify_materialized(directory, lock)
+    for name, digest in lock['files'].items():
+        packaged = 'bin/dxc/' + Path(name).name
+        if sha256(payload[packaged]) != digest:
+            raise ValueError('Packaged DXC checksum mismatch: ' + packaged)
+    licenses = [notice('dxc/' + name, (root / name).read_bytes()) for name in sorted(LICENSES | NOTICES)]
+    return {'bin/dxc/' + Path(name).name: {
+        'sha256': digest, 'package': 'microsoft-DirectXShaderCompiler', 'version': lock['tag'],
+        'license': lock['license'], 'license_files': licenses, 'source_archives': [],
+        'redistribution_basis': 'permissive-license', 'basis_note': lock['basis_note'],
+        'homepage': lock['repository'], 'source_revision': lock['revision'],
+        'source_url': lock['repository'] + '/tree/' + lock['revision'],
+        'release_archive': lock['archive'], 'archive_member': name,
+    } for name, digest in lock['files'].items() if name in BINARIES}
+
+
 def collect(args):
     _, pin = locked_channel(args.lock, args.channel)
     payload = read_zip(args.host_package, prefix=pin['portable_root'])
@@ -47,6 +73,10 @@ def collect(args):
             raise ValueError(f'Reviewed license checksum mismatch: {name}')
         notice(name, data)
 
+    dxc = dxc_inventory(payload, getattr(args, 'dxc_dir', None), notice)
+    from aerolib_inputs import inventory as aerolib_inventory
+    inventory['files'].update(aerolib_inventory(payload, getattr(args, 'aerolib_dir', None), notice, archives))
+
     own = {pin['launcher'], 'bin/sacredfire.exe', 'bin/bb-gpu-capabilities.exe', 'psn-bridge-backend.dll'}
     python_notice = next((name for name in payload if name.lower() == 'python/license.txt'), None)
     python_version = re.search(rb'Python (\d+\.\d+\.\d+)', payload.get('THIRD-PARTY.txt', b''))
@@ -56,7 +86,9 @@ def collect(args):
         item = {'sha256': sha256(data), 'license_files': [], 'source_archives': [],
                 'redistribution_basis': 'unresolved', 'package': 'unknown', 'version': 'unknown',
                 'license': 'unknown'}
-        if name.startswith('python/Lib/site-packages/iced_x86/'):
+        if name in dxc:
+            item.update(dxc[name])
+        elif name.startswith('python/Lib/site-packages/iced_x86/'):
             notices = [p for p in payload if '.dist-info/' in p and
                        ('license' in p.lower() or 'copying' in p.lower())]
             match = next((re.search(r'iced_x86-([^/]+)\.dist-info/', p) for p in notices
@@ -115,6 +147,8 @@ def main():
     for name in ('host-package', 'backend-dir', 'msys-root', 'lock', 'channel', 'output'):
         parser.add_argument('--' + name, required=True)
     parser.add_argument('--source-evidence')
+    parser.add_argument('--dxc-dir', help='Verified DXC directory from tools/dxc_toolchain.py')
+    parser.add_argument('--aerolib-dir', help='Pinned import-name source from tools/aerolib_inputs.py')
     collect(parser.parse_args())
 
 
