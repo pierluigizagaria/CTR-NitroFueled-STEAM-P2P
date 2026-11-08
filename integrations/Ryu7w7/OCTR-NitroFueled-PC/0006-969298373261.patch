@@ -1,11 +1,11 @@
 diff --git a/build.sh b/build.sh
-index 8b4e5390bba94be4fa72690fef3060d92de1341c..42bfb3324667bdb00dbf463e8fc6f06a72d7ff9b 100644
+index bba98f5f67f0ca8695d97a6391e61e8af790afdb..5c375ea87b03fea193ac739c76cc8df5f8d38485 100644
 --- a/build.sh
 +++ b/build.sh
-@@ -39,7 +39,7 @@ MINGW*|MSYS*)
+@@ -40,7 +40,7 @@ MINGW*|MSYS*)
          fi
      done
-     cmake -S gpu -B out/gpu-win -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DBB_PGO=off \
+     cmake -S gpu -B out/gpu-win -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DBB_PGO=off -DSACREDFIRE_RELEASE="$release" \
 -        -DBB_LTO="${BB_LTO:-OFF}" -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ >/dev/null
 +        -DBB_LTO="${BB_LTO:-OFF}" -DBB_P2P_DISTRIBUTION="${BB_P2P_DISTRIBUTION:-OFF}" -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ >/dev/null
      echo "GPU library and loader: LTO ${BB_LTO:-OFF}"
@@ -67,7 +67,7 @@ index 0000000000000000000000000000000000000000..aec130666475e47dfb7bb9517f581bcf
 +Contract tests establish adapter behavior only; they do not establish a live P2P
 +race or compatibility with every upstream game path.
 diff --git a/gpu/CMakeLists.txt b/gpu/CMakeLists.txt
-index 98bef4bbe35f9ebcbcf29e3e82a5d851724811e3..0fdf9f3eb8fb76fb27feaa9a2602b2f4b1bbed1f 100644
+index bc1b9902cbc7d091c4da3fe43dbd26094520d03c..e3464ee6a892596b39c22faf49dd46a07275ad04 100644
 --- a/gpu/CMakeLists.txt
 +++ b/gpu/CMakeLists.txt
 @@ -23,6 +23,7 @@ endif()
@@ -95,15 +95,15 @@ index 98bef4bbe35f9ebcbcf29e3e82a5d851724811e3..0fdf9f3eb8fb76fb27feaa9a2602b2f4
      file(GLOB BB_RUNTIME CONFIGURE_DEPENDS ../src/runtime*.c)
      file(GLOB BB_ATRAC9 CONFIGURE_DEPENDS ../third_party/LibAtrac9/C/src/*.c)
      add_library(atrac9 STATIC ${BB_ATRAC9})
-@@ -244,6 +249,7 @@ if (WIN32)
-         ../src/isa_rewrite.c ../src/isa_emulate.c
-         ../packaging/windows/sacredfire.rc)
+@@ -249,6 +254,7 @@ if (WIN32)
+     endif()
+     target_compile_definitions(sacredfire PRIVATE SACREDFIRE_RELEASE="${SACREDFIRE_RELEASE}")
      set_target_properties(sacredfire PROPERTIES C_STANDARD 11 C_EXTENSIONS OFF)
 +    target_compile_definitions(sacredfire PRIVATE $<$<BOOL:${BB_P2P_DISTRIBUTION}>:BB_P2P_DISTRIBUTION=1>)
      # isa_emulate runs inside guest code: no XMM/YMM.
      set_source_files_properties(../src/isa_emulate.c PROPERTIES COMPILE_OPTIONS "-mgeneral-regs-only")
      # Newer clang (MSYS2) warns about write-only counters kept for diagnostics.
-@@ -267,7 +273,8 @@ if (WIN32)
+@@ -272,7 +278,8 @@ if (WIN32)
          third_party/imgui/imgui_widgets.cpp third_party/imgui/backends/imgui_impl_win32.cpp
          third_party/imgui/backends/imgui_impl_dx11.cpp ../packaging/windows/launcher.rc)
      target_include_directories(ctr-launcher PRIVATE third_party/imgui third_party/imgui/backends)
@@ -114,7 +114,7 @@ index 98bef4bbe35f9ebcbcf29e3e82a5d851724811e3..0fdf9f3eb8fb76fb27feaa9a2602b2f4
      target_link_libraries(ctr-launcher PRIVATE d3d11 dxgi d3dcompiler dwmapi windowscodecs ole32 shell32 uuid winhttp bcrypt advapi32 ws2_32)
      set_target_properties(ctr-launcher PROPERTIES OUTPUT_NAME CTR-NitroFueled-PC INTERPROCEDURAL_OPTIMIZATION OFF)
 diff --git a/launcher/sacredfire_launcher.py b/launcher/sacredfire_launcher.py
-index 08ff2397aa7e45ab54329b4422383b156a6edddf..94fe8d8889c427bb6e381be16ae0df6b2f369cdc 100644
+index bf96a216fa78c5c6440b01e7a543a8543920586d..dd350f3029bf515014307340d3316aae58f08ab2 100644
 --- a/launcher/sacredfire_launcher.py
 +++ b/launcher/sacredfire_launcher.py
 @@ -40,7 +40,7 @@ import discord_ipc  # noqa: E402
@@ -126,7 +126,7 @@ index 08ff2397aa7e45ab54329b4422383b156a6edddf..94fe8d8889c427bb6e381be16ae0df6b
  
  PACKAGED = bool(os.environ.get("BB_PREBUILT"))
  
-@@ -1401,6 +1401,9 @@ class LauncherWindow(Adw.ApplicationWindow):
+@@ -1453,6 +1453,9 @@ class LauncherWindow(Adw.ApplicationWindow):
  
      def check_update(self, manual=False):
          """Asks GitHub for the latest release in the background; a newer one shows the banner."""
@@ -136,7 +136,7 @@ index 08ff2397aa7e45ab54329b4422383b156a6edddf..94fe8d8889c427bb6e381be16ae0df6b
          import threading
          if manual:
              self.version_row.set_subtitle(tr("Checking..."))
-@@ -1430,6 +1433,8 @@ class LauncherWindow(Adw.ApplicationWindow):
+@@ -1482,6 +1485,8 @@ class LauncherWindow(Adw.ApplicationWindow):
          self.update_banner.set_revealed(True)
  
      def on_update(self, _banner):
@@ -146,10 +146,10 @@ index 08ff2397aa7e45ab54329b4422383b156a6edddf..94fe8d8889c427bb6e381be16ae0df6b
          appimage = appimage_update.running_appimage()
          if not release:
 diff --git a/launcher/windows/launcher.cpp b/launcher/windows/launcher.cpp
-index 3a971c739146efe3467d76b01718df361befb55a..91c6c96d2c72db7daffae445efcd06fb76df442c 100644
+index c132c625453f2ea236a61d802efd9894f3583dc9..d7fb2d59791c6cfb91bb4ed1dd2d59c013f1dfeb 100644
 --- a/launcher/windows/launcher.cpp
 +++ b/launcher/windows/launcher.cpp
-@@ -803,6 +803,15 @@ void SyncOnlineBuffers() {
+@@ -814,6 +814,15 @@ void SyncOnlineBuffers() {
  
  std::string CurrentNick() { return Trim(g_app.game.Get("online_name", g_app.game.Get("user_name"))); }
  
@@ -165,7 +165,7 @@ index 3a971c739146efe3467d76b01718df361befb55a..91c6c96d2c72db7daffae445efcd06fb
  bool ExternalPsnBackend() {
      // The runtime validates the library and its ABI. Never load it in both launcher and game.
      return GetEnvironmentVariableW(L"BB_PSN_BACKEND", nullptr, 0) > 1;
-@@ -5414,6 +5423,7 @@ bool CreateDesktopShortcut(std::string& out_error) {
+@@ -5729,6 +5738,7 @@ bool CreateDesktopShortcut(std::string& out_error) {
  /// Steam entry or any other shortcut naming it opens this launcher, and the desktop shortcut
  /// made by the old launcher is made again with the new name.
  void MigrateOldLauncher() {
@@ -173,7 +173,7 @@ index 3a971c739146efe3467d76b01718df361befb55a..91c6c96d2c72db7daffae445efcd06fb
      App& a = g_app;
      std::error_code ec;
      const fs::path self = LauncherExe();
-@@ -5623,6 +5633,7 @@ void StartUpdateInstall();
+@@ -5977,6 +5987,7 @@ void StartUpdateInstall();
  
  /// Asks GitHub for the latest release; with auto_install a newer one is installed at once.
  void StartUpdateCheck(bool auto_install) {
@@ -181,7 +181,7 @@ index 3a971c739146efe3467d76b01718df361befb55a..91c6c96d2c72db7daffae445efcd06fb
      if (UpdateBusy()) return;
      if (g_update.worker.joinable()) g_update.worker.join();
      g_update.stage = UpdateState::Checking;
-@@ -5657,6 +5668,7 @@ void StartUpdateCheck(bool auto_install) {
+@@ -6011,6 +6022,7 @@ void StartUpdateCheck(bool auto_install) {
  }
  
  void StartUpdateInstall() {
@@ -189,7 +189,7 @@ index 3a971c739146efe3467d76b01718df361befb55a..91c6c96d2c72db7daffae445efcd06fb
      App& a = g_app;
      if (g_update.stage != UpdateState::Available && g_update.stage != UpdateState::Dismissed &&
          g_update.stage != UpdateState::Failed)
-@@ -5810,6 +5822,11 @@ void UpdateBanner() {
+@@ -6164,6 +6176,11 @@ void UpdateBanner() {
  void UpdateSection() {
      App& a = g_app;
      ImGui::SeparatorText(T("Actualizaciones", "Updates"));
@@ -201,7 +201,7 @@ index 3a971c739146efe3467d76b01718df361befb55a..91c6c96d2c72db7daffae445efcd06fb
      ImGui::PushTextWrapPos(0.0f);
      ImGui::TextColored(kGrey, "%s",
                         T("Descarga la última versión publicada en GitHub y la instala encima. Tus ajustes, amigos, apodo, "
-@@ -7270,6 +7287,8 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
+@@ -7644,6 +7661,8 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
                                                GetSystemMetrics(SM_CYICON), LR_DEFAULTCOLOR));
      wc.hIconSm = static_cast<HICON>(LoadImageW(instance, MAKEINTRESOURCEW(1), IMAGE_ICON, GetSystemMetrics(SM_CXSMICON),
                                                  GetSystemMetrics(SM_CYSMICON), LR_DEFAULTCOLOR));
@@ -222,7 +222,7 @@ index bf0ef178d9603d092d888dfbc6c27813ce9ce8d4..2e4f77d400dc5dd0e4dc991b387506ad
 +#endif
  1 RT_MANIFEST "launcher.manifest"
 diff --git a/packaging/windows/make_portable.py b/packaging/windows/make_portable.py
-index d72a3dc842e65f81295e8f5c64f68788048b589e..5fbe0b990cf50f74fa60856992ea68a20c6f8ca9 100644
+index 8cc31403b7760c2813257ea4f0c313170c09cc78..2414f7348be6078074988c3b3cb7837a46957f0b 100644
 --- a/packaging/windows/make_portable.py
 +++ b/packaging/windows/make_portable.py
 @@ -35,7 +35,8 @@ LAUNCHER = 'CTR-NitroFueled-PC.exe'
@@ -248,10 +248,10 @@ index 45933276df3f36990df3cb893990aeffa80b4d3b..4682d740b40a3d10fc07b6a549737e3b
 +#endif
  CREATEPROCESS_MANIFEST_RESOURCE_ID RT_MANIFEST "sacredfire.manifest"
 diff --git a/run.py b/run.py
-index 9fd54799a1c50ea2e219286bac2399202bbf05a4..1543c23d76e415a1fd5206cacc6a5194f253b05b 100644
+index 39d210e120aea74302e73daa28dffcfd241bb489..1024ec229dc4d26a2dfa3521938f408b67280f0d 100644
 --- a/run.py
 +++ b/run.py
-@@ -460,9 +460,17 @@ def parse_version(text):
+@@ -509,9 +509,17 @@ def parse_version(text):
      return int(m.group(1)), int(m.group(2)), int(m.group(3) or 0), stage
  
  

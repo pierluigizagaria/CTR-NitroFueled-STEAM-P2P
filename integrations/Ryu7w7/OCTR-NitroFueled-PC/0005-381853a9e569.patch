@@ -1,8 +1,8 @@
 diff --git a/build.sh b/build.sh
-index ae63412e78df6210f37d22f49b5cc49665972c6d..8b4e5390bba94be4fa72690fef3060d92de1341c 100644
+index 2eaee1381c39c5ac6f4fd3c765ed3168c35a5fcd..bba98f5f67f0ca8695d97a6391e61e8af790afdb 100644
 --- a/build.sh
 +++ b/build.sh
-@@ -53,6 +53,9 @@ MINGW*|MSYS*)
+@@ -54,6 +54,9 @@ MINGW*|MSYS*)
      if [[ ${1:-} == --test ]]; then
          psn_contract_tests clang
          net_policy_tests clang
@@ -13,18 +13,18 @@ index ae63412e78df6210f37d22f49b5cc49665972c6d..8b4e5390bba94be4fa72690fef3060d9
      exit 0
      ;;
 diff --git a/gpu/shim/bbport_overlay.cpp b/gpu/shim/bbport_overlay.cpp
-index 05d491c8b440e8765117b957c7450baa4910065c..7bbe32ac7eccfd42b6ad52d375bb4f97b17961cb 100644
+index 9461b9e90730421de83fddb000d29ce9dabf95cf..272430df78c829d570487b653c89a2b907e77e9c 100644
 --- a/gpu/shim/bbport_overlay.cpp
 +++ b/gpu/shim/bbport_overlay.cpp
-@@ -23,6 +23,7 @@
- #include "bbport_perf.h"
- #include "bbport_settings.h"
- #include "../../src/runtime_friends.h"
+@@ -27,6 +27,7 @@
+ #include "../../src/runtime_chat.h"
+ #include "../../src/runtime_name_colors.h"
+ #include "../../src/runtime_replay_list.h"
 +#include "../../src/runtime_psn.h"
  #include "../../src/runtime_net_ping.h"
  #include "imgui.h"
  #include "imgui_internal.h" // RegisterUserTexture: the trophy pictures
-@@ -600,6 +601,11 @@ bool InOnlineRoom() {
+@@ -780,6 +781,11 @@ void ChatSection() {
  }
  
  void RoomTab() {
@@ -34,9 +34,9 @@ index 05d491c8b440e8765117b957c7450baa4910065c..7bbe32ac7eccfd42b6ad52d375bb4f97
 +        return;
 +    }
      auto& s = BbSettings::Get();
+     ChatSection();
      MenuSection(BbSettings::MenuText("Players in the room", "Игроки в комнате"));
-     if (!InOnlineRoom()) {
-@@ -637,6 +643,11 @@ void ReportTab() {
+@@ -925,6 +931,11 @@ void ReplaysTab() {
  }
  
  void FriendsTab() {
@@ -49,7 +49,7 @@ index 05d491c8b440e8765117b957c7450baa4910065c..7bbe32ac7eccfd42b6ad52d375bb4f97
      static unsigned seen = ~0u;
      static char query[RF_NAME] = "";
 diff --git a/src/runtime_friends.c b/src/runtime_friends.c
-index 708de6e5ad5fbc1432acd91143eab1669fba67b1..7f6ea4913e137b19df1c0b1c9f482ac0560f543d 100644
+index 774b113d601196f8546e9f0f2e391e4020afc927..b837357ccd44ed0a36073564d641c323f9b3c89a 100644
 --- a/src/runtime_friends.c
 +++ b/src/runtime_friends.c
 @@ -3,6 +3,7 @@
@@ -59,8 +59,8 @@ index 708de6e5ad5fbc1432acd91143eab1669fba67b1..7f6ea4913e137b19df1c0b1c9f482ac0
 +#include "runtime_psn.h"
  #include "runtime_http.h"
  #include "runtime_net.h"
- #include <pthread.h>
-@@ -414,6 +415,7 @@ static void *friends_thread(void *arg) {
+ void runtime_trophy_badges(const char *json); /* runtime_services.c */
+@@ -422,6 +423,7 @@ static void *friends_thread(void *arg) {
  }
  
  void runtime_friends_start(void) {
@@ -68,7 +68,7 @@ index 708de6e5ad5fbc1432acd91143eab1669fba67b1..7f6ea4913e137b19df1c0b1c9f482ac0
      pthread_mutex_lock(&s_lock);
      const int start = !s_started && runtime_net_is_online() && getenv("BB_ONLINE_KEYHASH") &&
                        runtime_np_get_online_name() && *runtime_np_get_online_name();
-@@ -501,6 +503,7 @@ void runtime_friends_set_hidden(int hidden) {
+@@ -509,6 +511,7 @@ void runtime_friends_set_hidden(int hidden) {
  }
  
  void runtime_friends_join(const char *host) {

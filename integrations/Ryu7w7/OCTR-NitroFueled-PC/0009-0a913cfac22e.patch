@@ -1,8 +1,8 @@
 diff --git a/build.sh b/build.sh
-index 42bfb3324667bdb00dbf463e8fc6f06a72d7ff9b..957eac04aa56829d3ebc57db15f0e8f417f5d452 100644
+index 5c375ea87b03fea193ac739c76cc8df5f8d38485..aef33958aaad2ea9fc4c1d959fa027f3ef1dcf77 100644
 --- a/build.sh
 +++ b/build.sh
-@@ -20,6 +20,11 @@ net_policy_tests() {
+@@ -21,6 +21,11 @@ net_policy_tests() {
          done
      done
  }
@@ -14,7 +14,7 @@ index 42bfb3324667bdb00dbf463e8fc6f06a72d7ff9b..957eac04aa56829d3ebc57db15f0e8f4
  # Windows: MSYS2 CLANG64 (packages in packaging/windows/README.md). The GPU library is static
  # there and CMake links sacredfire.exe as well; no PGO (GCC-only flags), LTO off by default.
  case $(uname -s) in
-@@ -53,6 +58,7 @@ MINGW*|MSYS*)
+@@ -54,6 +59,7 @@ MINGW*|MSYS*)
      if [[ ${1:-} == --test ]]; then
          psn_contract_tests clang
          net_policy_tests clang
@@ -22,7 +22,7 @@ index 42bfb3324667bdb00dbf463e8fc6f06a72d7ff9b..957eac04aa56829d3ebc57db15f0e8f4
          clang -std=c11 -D_GNU_SOURCE -O2 -g -Wall -Wextra -Werror -pthread -Isrc \
              tests/test_http_ryunet.c src/runtime_http.c -lws2_32 -o out/http-ryunet-test
          out/http-ryunet-test
-@@ -156,6 +162,7 @@ if [[ ${1:-} == --test ]]; then
+@@ -174,6 +180,7 @@ if [[ ${1:-} == --test ]]; then
      out/lzma-test
      psn_contract_tests "$CC"
      net_policy_tests "$CC"
@@ -71,10 +71,10 @@ index d8b842508c1ca39e1b4f9486c5d74fadbb8bb59c..6b21e466d71bda48af648bf503c4b97c
  
  `MSYS2_ROOT` can select an existing project-local toolchain. The ordinary build
 diff --git a/launcher/sacredfire_launcher.py b/launcher/sacredfire_launcher.py
-index 94fe8d8889c427bb6e381be16ae0df6b2f369cdc..5be849582785c8b29dbe208e5d3616995940f6f6 100644
+index dd350f3029bf515014307340d3316aae58f08ab2..d09227b804b75fb9b4407e846b1f9a4fb166ee45 100644
 --- a/launcher/sacredfire_launcher.py
 +++ b/launcher/sacredfire_launcher.py
-@@ -1314,6 +1314,7 @@ class LauncherWindow(Adw.ApplicationWindow):
+@@ -1366,6 +1366,7 @@ class LauncherWindow(Adw.ApplicationWindow):
          screen.add(self.ping_row)
          self.perf_row = Adw.SwitchRow(title=tr("Send anonymous performance data"), subtitle=perf_reports_text(),
                                        active=self.ini.get("perf_reports") == "1")
@@ -82,7 +82,7 @@ index 94fe8d8889c427bb6e381be16ae0df6b2f369cdc..5be849582785c8b29dbe208e5d361699
          screen.add(self.perf_row)
          page.add(screen)
  
-@@ -2666,7 +2667,7 @@ class LauncherWindow(Adw.ApplicationWindow):
+@@ -2722,7 +2723,7 @@ class LauncherWindow(Adw.ApplicationWindow):
      def ask_perf_reports(self):
          """The anonymous performance diagnostic (bbport.ini perf_reports, scripts/perf_report.py):
          asked once, while it is neither 1 nor 0. A plain question, no alarm."""
@@ -92,10 +92,10 @@ index 94fe8d8889c427bb6e381be16ae0df6b2f369cdc..5be849582785c8b29dbe208e5d361699
  
          def answer(_dialog, response):
 diff --git a/launcher/windows/launcher.cpp b/launcher/windows/launcher.cpp
-index 91c6c96d2c72db7daffae445efcd06fb76df442c..455092e4a07e6467b0797b0e2a4e55b0bf68f466 100644
+index d7fb2d59791c6cfb91bb4ed1dd2d59c013f1dfeb..a69c569e85c3a8555605eb0bcab5bd4a539cdf32 100644
 --- a/launcher/windows/launcher.cpp
 +++ b/launcher/windows/launcher.cpp
-@@ -3129,8 +3129,10 @@ void SettingsTab() {
+@@ -3264,8 +3264,10 @@ void SettingsTab() {
                 "del juego (Insert o L3+R3), pestaña Sala.",
                 "In an online room, each player's ping in ms, under the FPS counter. Also in the in-game menu "
                 "(Insert or L3+R3), Room tab."));
@@ -108,7 +108,7 @@ index 91c6c96d2c72db7daffae445efcd06fb76df442c..455092e4a07e6467b0797b0e2a4e55b0
      {
          std::scoped_lock lock{a.mutex};
          const std::string current = a.launcher.Get("display");
-@@ -4523,6 +4525,7 @@ const char* PerfReportsText() {
+@@ -4824,6 +4826,7 @@ const char* PerfReportsText() {
  }
  
  void PerfReportsPopup() {
@@ -117,10 +117,10 @@ index 91c6c96d2c72db7daffae445efcd06fb76df442c..455092e4a07e6467b0797b0e2a4e55b0
      // Shown once per launcher start, after any other question: on the first start of a new folder
      // the settings import opened in the same frame and replaced it, so it never came back.
 diff --git a/run.py b/run.py
-index 1543c23d76e415a1fd5206cacc6a5194f253b05b..4b2482e756bd83a92553b4261833a5c299a4930a 100644
+index 1024ec229dc4d26a2dfa3521938f408b67280f0d..9cda689aa31ce3cf844d3a83040b81b6de6e41a7 100644
 --- a/run.py
 +++ b/run.py
-@@ -516,6 +516,10 @@ def setup_online(env, config, data):
+@@ -566,6 +566,10 @@ def setup_online(env, config, data):
              fail('BB_PSN_BACKEND must be an absolute library path.')
          if not backend.is_file() or not os.access(backend, os.R_OK):
              fail('BB_PSN_BACKEND must name a readable library file.')
@@ -131,7 +131,7 @@ index 1543c23d76e415a1fd5206cacc6a5194f253b05b..4b2482e756bd83a92553b4261833a5c2
          # Empty values also clear inherited settings when online_config exports them to run.sh.
          # A backend must never accidentally inherit RyuNET credentials or synthetic identities.
          for key in ('BB_ONLINE_NAME', 'BB_ONLINE_ACCOUNT_ID', 'BB_ONLINE_FRIENDS',
-@@ -660,7 +664,7 @@ def finish_perf_report(env, config, data, version, title_id, code):
+@@ -731,7 +735,7 @@ def finish_perf_report(env, config, data, version, title_id, code):
          if not report.get('overall') and not report.get('fault'):
              return  # nothing drawn and no crash (a start stopped early): nothing to say
          path = perf_report.keep(report, data / 'perf')
@@ -140,21 +140,21 @@ index 1543c23d76e415a1fd5206cacc6a5194f253b05b..4b2482e756bd83a92553b4261833a5c2
              return
          host = env.get('BB_ONLINE_SERVER') or perf_report.settings_value(config, 'online_server') or 'octr.ryu7w7.xyz'
          port = env.get('BB_ONLINE_HTTP_PORT', '8080')
-@@ -922,7 +926,7 @@ def main():
-                 archives = '|'.join(str(p) for p in composed.values())
-             env.pop('BB_PRIVATE_ARCHIVE_PATCHES', None)
-             env.pop('BB_ONLINE_MODE_HOOK', None)
+@@ -1018,7 +1022,7 @@ def launch(args, restarted=False):
+                     env['BB_TT_REFERENCE'] = str((out / 'tt-reference/reference.bin').resolve())
+                 else:
+                     say('Time Trial references not prepared: the AI keeps its native route guidance')
 -            if env.get('BB_ONLINE') == '1' or env.get('BB_SPEED_SOLO_TEST') == '1':
 +            if not external_psn_backend(env) and (env.get('BB_ONLINE') == '1' or env.get('BB_SPEED_SOLO_TEST') == '1'):
                  if title_id in ('CUSA13795', 'CUSA14876') and app_version == '01.21':
                      base = [Path(p) for p in archives.split('|') if p]
                      if env.get('BB_ONLINE') == '1':
 diff --git a/run.sh b/run.sh
-index 129fa56789719380c2568670b09b76e2218031c1..c9e221d821ca1f80cca4a5761a2511f66dac0e38 100755
+index 1a3ad2cf60000feb1aa95cd0bf8e46e36f8c40c1..d75ff0379f278f7be664718986180abe5bb42f73 100755
 --- a/run.sh
 +++ b/run.sh
-@@ -182,7 +182,7 @@ if [[ -n ${BB_MOD_SESSION:-} ]]; then
-     strict_overlap=(--strict-overlap)
+@@ -220,7 +220,7 @@ if [[ ( $title_id == CUSA13795 || $title_id == CUSA14876 ) && $app_version == 01
+     fi
  fi
  unset BB_ONLINE_MODE_HOOK BB_SPEED_MODE
 -if [[ ${BB_ONLINE:-0} == 1 || ${BB_SPEED_SOLO_TEST:-0} == 1 ]]; then
@@ -163,23 +163,23 @@ index 129fa56789719380c2568670b09b76e2218031c1..c9e221d821ca1f80cca4a5761a2511f6
          speed_bases=()
          IFS='|' read -r -a speed_existing <<< "${BB_ARCHIVE_PATCHES:-}"
 diff --git a/scripts/online_config.py b/scripts/online_config.py
-index c280a2fd8d253713d35f00cc7e763e05e832c029..45949d0bca393f44a6470977bf4789abea1e4331 100644
+index 2f6132a68517ab8298df5931de1bd2022c745c97..46162d6704222da116a95e827ece54ef3e0dac1d 100644
 --- a/scripts/online_config.py
 +++ b/scripts/online_config.py
-@@ -15,6 +15,8 @@ EXPORT_KEYS = (
-     "BB_USER_NAME", "BB_ONLINE", "BB_NET_TRACE", "BB_ONLINE_SERVER", "BB_ONLINE_HTTP_PORT", "BB_ONLINE_NAME",
+@@ -16,6 +16,8 @@ EXPORT_KEYS = (
      "BB_ONLINE_ACCOUNT_ID", "BB_ONLINE_PORT", "BB_ONLINE_FRIENDS", "BB_ONLINE_KEY", "BB_ONLINE_KEYHASH", "BB_ONLINE_INVENTORY",
-     "BB_THEME", "BB_END_RACE_TIMEOUT", "BB_UPDATE_AVAILABLE", "BB_SPEED_MODE",
+     "BB_PUBLIC_ITEMLESS", "BB_THEME", "BB_END_RACE_TIMEOUT", "BB_UPDATE_AVAILABLE", "BB_SPEED_MODE",
+     "BB_ITEM_RULES", "BB_ITEM_RULES_SERVER_ID",  # run.sh applies them, as run.py
 +    "BB_ONLINE_MODE_HOOK", "BB_PRIVATE_ARCHIVE_PATCHES", "BB_SPEED_SOLO_TEST",
-+    "BB_KNOWN_HEROES", "BB_ITEM_RULES",
++    "BB_KNOWN_HEROES",
  )
  # Backend selection/configuration are already inherited by the shell and child.
  # In particular, an ephemeral relay capability must never enter the env-file.
 diff --git a/scripts/perf_report.py b/scripts/perf_report.py
-index 88ca1ef55eb8f4d06500e9c87b51ac51c324f745..ffcfe97dd17a6f6dfadb6f3071bbebeb239c47a3 100644
+index be318c4b630730482478da1b16ed06b10ab9fae3..092e4c17739b20704a8bc8d00b9860bda5cf1063 100644
 --- a/scripts/perf_report.py
 +++ b/scripts/perf_report.py
-@@ -354,7 +354,7 @@ def finish(state_path, code, config, data, octr, edition, say=print):
+@@ -365,7 +365,7 @@ def finish(state_path, code, config, data, octr, edition, say=print):
      if not report.get('overall') and not report.get('fault'):
          return
      path = keep(report, Path(data) / 'perf')
@@ -189,7 +189,7 @@ index 88ca1ef55eb8f4d06500e9c87b51ac51c324f745..ffcfe97dd17a6f6dfadb6f3071bbebeb
      import sys
      sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 diff --git a/src/probe.c b/src/probe.c
-index 402c507c1524a18a662e0ab160ac5eb26a584d73..e8cc9df2e2c952fbda74ca51d9a67016b8e7eb3b 100644
+index 17e247775a8346df819fa0a6bee6b3efe70ff5a1..92b16ad5ec4bd9d5dbe915a3794e52afc3a5987f 100644
 --- a/src/probe.c
 +++ b/src/probe.c
 @@ -7,6 +7,7 @@
@@ -200,12 +200,17 @@ index 402c507c1524a18a662e0ab160ac5eb26a584d73..e8cc9df2e2c952fbda74ca51d9a67016
  #include "gpu/bbgpu.h"
  #include "isa_rewrite.h"
  #if !defined(__x86_64__) || !defined(__GNUC__)
-@@ -1228,8 +1229,11 @@ int main(int argc, char **argv) {
-     }
+@@ -1280,13 +1281,16 @@ int main(int argc, char **argv) {
      runtime_cinematic_start(image);
      runtime_frontend_start(image);
+     if (!runtime_friends_native_start(image, size)) fail("native Friends refresh callback could not be installed");
 -    if (!runtime_online_mode_start(image, size)) fail("native Online mode callback could not be installed");
+     if (!runtime_race_options_start(image, size)) fail("native race option callback could not be installed");
+     runtime_meta_dump_start(image, size); /* BB_META_DUMP=1 (lab) */
+     if (!runtime_public_itemless_start(image, size)) fail("native public Itemless callbacks could not be installed");
+     if (!runtime_time_trial_start(image, size)) fail("Time Trial challenge callback could not be installed");
 -    if (!runtime_itemless_start(image, size)) fail("native Itemless collision callback could not be installed");
+     runtime_replay_start(image, size); /* spectator build: native race recording (BB_REPLAY=0 off) */
 +    /* RyuNET's private-room modes are not negotiated by an external PSN backend. */
 +    if (!runtime_psn_selected()) {
 +        if (!runtime_online_mode_start(image, size)) fail("native Online mode callback could not be installed");
@@ -215,7 +220,7 @@ index 402c507c1524a18a662e0ab160ac5eb26a584d73..e8cc9df2e2c952fbda74ca51d9a67016
      entered_game=1;
      struct { uint64_t argc; const char *argv[2]; } params = {1, {"/app0/eboot.bin", NULL}};
 diff --git a/src/runtime_room_mode.c b/src/runtime_room_mode.c
-index 8ae94d6f75f3caaa7c16140825ef4a3e1ebf4dfb..b94366fa546db1d6ac0a4e747d85e2311d903aa4 100644
+index ad6e519621a78d24c86f8e0923cd7da0d1736cf9..5652c48d2b7d893764e31619821cdab011c3fdb5 100644
 --- a/src/runtime_room_mode.c
 +++ b/src/runtime_room_mode.c
 @@ -14,6 +14,7 @@
@@ -226,7 +231,7 @@ index 8ae94d6f75f3caaa7c16140825ef4a3e1ebf4dfb..b94366fa546db1d6ac0a4e747d85e231
  #include <pthread.h>
  #include <stdint.h>
  #include <stdio.h>
-@@ -67,6 +68,7 @@ static void publish_mode(int speed) {
+@@ -96,6 +97,7 @@ static void publish_mode(int speed) {
  
  /* Installed before main: the selector tells this file when the player picks a mode. */
  static void chosen(int speed, int private_room) {
@@ -234,7 +239,7 @@ index 8ae94d6f75f3caaa7c16140825ef4a3e1ebf4dfb..b94366fa546db1d6ac0a4e747d85e231
      runtime_room_mode_left(); /* our own choice now, not another host's room */
      /* Outside a private room it is Normal: the players of our party (the private room's guests,
       * taken along to a public search) follow it too. */
-@@ -78,6 +80,7 @@ __attribute__((constructor)) static void install(void) { runtime_online_mode_cho
+@@ -107,6 +109,7 @@ __attribute__((constructor)) static void install(void) { runtime_online_mode_cho
   * or public): Speed only for a private room already chosen as Speed, Normal otherwise, which also
   * replaces an old choice left on the server. */
  void runtime_room_mode_hosting(void) {
@@ -242,22 +247,22 @@ index 8ae94d6f75f3caaa7c16140825ef4a3e1ebf4dfb..b94366fa546db1d6ac0a4e747d85e231
      runtime_room_mode_left();
      publish_mode(runtime_online_mode_private_speed() && runtime_online_mode_in_private());
  }
-@@ -124,6 +127,7 @@ static void *follow(void *arg) {
+@@ -231,6 +234,7 @@ static void *follow(void *arg) {
  }
  
  void runtime_room_mode_joined(const char *session_id) {
 +    if (runtime_psn_selected()) return;
+     runtime_public_itemless_party_ready();
      if (!session_id || strncmp(session_id, session_prefix, sizeof session_prefix - 1)) return;
      const char *host = session_id + sizeof session_prefix - 1;
-     const char *me = runtime_np_get_online_name();
-@@ -137,6 +141,7 @@ void runtime_room_mode_joined(const char *session_id) {
+@@ -254,6 +258,7 @@ void runtime_room_mode_joined(const char *session_id) {
  
  /* Leaving the host's room (or picking, or hosting): this player's own choice again. */
  void runtime_room_mode_left(void) {
 +    if (runtime_psn_selected()) return;
-     runtime_online_mode_leave_cup();
-     __atomic_add_fetch(&follow_generation, 1, __ATOMIC_ACQ_REL);
-     runtime_speed_mode_set(runtime_online_mode_private_speed());
+     pthread_mutex_lock(&follow_lock);
+     followed_host[0] = 0;
+     race_frozen = 0;
 diff --git a/tests/test_psn_backend_v075.py b/tests/test_psn_backend_v075.py
 new file mode 100644
 index 0000000000000000000000000000000000000000..d55710a423c13fc2b7380fbac9945dead4d614b1

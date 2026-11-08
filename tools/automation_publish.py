@@ -138,6 +138,9 @@ def validate_assets(directory, plan, release_lock):
                 or build.get('upstream_revision', pin['upstream']['revision']) != pin['upstream']['revision']
                 or build.get('upstream_tag', pin['upstream']['tag']) != pin['upstream']['tag']):
             raise ValueError('Host build receipt differs from the tested plan')
+        if (build.get('upstream_version') != pin['upstream']['tag']
+                or files.get('bin/VERSION', b'').strip() != (pin['upstream']['tag'] + '-windows').encode()):
+            raise ValueError('Host version differs from the tested upstream tag')
         own_binaries = {pin['launcher'], 'bin/sacredfire.exe', 'bin/bb-gpu-capabilities.exe',
                         'psn-bridge-backend.dll'}
         if set(build.get('binaries', {})) != own_binaries:

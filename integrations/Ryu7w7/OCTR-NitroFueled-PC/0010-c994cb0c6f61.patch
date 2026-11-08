@@ -1,0 +1,976 @@
+diff --git a/build.sh b/build.sh
+index aef33958aaad2ea9fc4c1d959fa027f3ef1dcf77..97c8cfe23ef3870215099edf56d83745eadfe4e1 100644
+--- a/build.sh
++++ b/build.sh
+@@ -14,7 +14,8 @@ net_policy_tests() {
+     local libraries=()
+     case $(uname -s) in MINGW*|MSYS*) libraries=(-lws2_32);; esac
+     "$compiler" -std=c11 -O2 -g -Wall -Wextra -Werror -Isrc tests/test_net_policy.c \
+-        src/runtime_net_overrides.c src/runtime_net_tunnel.c src/runtime_net_ping.c "${libraries[@]}" -o out/net-policy-test
++        src/runtime_net_overrides.c src/runtime_net_tunnel.c src/runtime_net_ping.c src/runtime_ai_catchup.c \
++        -lm "${libraries[@]}" -o out/net-policy-test
+     for backend in unset empty selected; do
+         for preserve in unset 0 1; do
+             for tunnel in 0 1; do out/net-policy-test "$backend" "$preserve" "$tunnel"; done
+@@ -26,6 +27,13 @@ room_mode_tests() {
+         tests/test_room_mode_isolation.c -o out/room-mode-isolation-test
+     out/room-mode-isolation-test
+ }
++ryunet_service_tests() {
++    "$1" -std=c11 -O2 -g -Wall -Wextra -Werror -pthread -Isrc \
++        -include tests/ryunet_workers_fixture.h \
++        tests/test_ryunet_services.c src/runtime_chat.c src/runtime_name_colors.c src/runtime_spectate.c \
++        -o out/ryunet-services-test
++    out/ryunet-services-test
++}
+ # Windows: MSYS2 CLANG64 (packages in packaging/windows/README.md). The GPU library is static
+ # there and CMake links sacredfire.exe as well; no PGO (GCC-only flags), LTO off by default.
+ case $(uname -s) in
+@@ -60,6 +68,7 @@ MINGW*|MSYS*)
+         psn_contract_tests clang
+         net_policy_tests clang
+         room_mode_tests clang
++        ryunet_service_tests clang
+         clang -std=c11 -D_GNU_SOURCE -O2 -g -Wall -Wextra -Werror -pthread -Isrc \
+             tests/test_http_ryunet.c src/runtime_http.c -lws2_32 -o out/http-ryunet-test
+         out/http-ryunet-test
+@@ -181,6 +190,7 @@ if [[ ${1:-} == --test ]]; then
+     psn_contract_tests "$CC"
+     net_policy_tests "$CC"
+     room_mode_tests "$CC"
++    ryunet_service_tests "$CC"
+     "$CC" -std=c11 -O2 -g -Wall -Wextra -Werror -pthread "${includes[@]}" -I. -Isrc tests/test_pad.c "${libraries[@]}" -o out/pad-test
+     out/pad-test
+     "$CC" -std=c11 -O2 -g -Wall -Wextra -Werror -pthread -I. -Isrc tests/test_runtime.c "${runtime[@]}" out/libatrac9.a -lm "${gpu[@]}" "${libraries[@]}" -o out/runtime-test
+diff --git a/docs/sacredfire/p2p-distribution.md b/docs/sacredfire/p2p-distribution.md
+index 6b21e466d71bda48af648bf503c4b97c6bfe8df4..200e1f9144c268470567851d9b204cec0d575dba 100644
+--- a/docs/sacredfire/p2p-distribution.md
++++ b/docs/sacredfire/p2p-distribution.md
+@@ -1,19 +1,23 @@
+ # P2P distribution integration
+ 
+ The P2P repository tracks `Ryu7w7/OCTR-NitroFueled-PC` releases with a separately
+-licensed adapter recipe. This integration is based on upstream `v0.7.5`
+-(`3885d1aea24d19ed9b31f96fba57a5cce92183cd`). The original contributor identities,
++licensed adapter recipe. This integration is based on upstream `v0.8.3`
++(`418940a6635afe3aeeed8f0d286358319c935a44`). The original contributor identities,
+ GPL-2.0-or-later license, and third-party notices remain applicable.
+ 
+ The integration preserves the upstream mod/restart fixes and RyuNET clock,
+ request-form and ping support. External PSN publishers keep their original
+-URL/Host requests without RyuNET proofs, inventory headers, retry forms or clock
++URL/Host requests without RyuNET proofs, inventory/client headers, retry forms or clock
+ updates. The Room panel directs external-backend players to the game lobby;
+ it does not interpret RyuNET ping state as a Steam room. HTTP loopback fixtures,
+ launcher fixtures and the independent socket-policy matrix cover these boundaries.
+ 
+-The v0.7.5 integration also keeps RyuNET itemless/private-cup coordination and
+-its native mode callbacks disabled for external backends. Local performance
++The v0.8.3 integration keeps RyuNET Itemless, private-cup/team coordination,
++AI reference preparation and their native mode callbacks disabled for external
++backends. RyuNET HTTP sessions, machine fingerprint collection, chat, spectator
++sharing, name-color polling and room verification stay inactive. Inherited
++RyuNET client metadata and item-rule capabilities are cleared before launch;
++independent mod file maps remain intact. Local performance
+ reports remain available, but are never uploaded to RyuNET or the external
+ publisher, even when an existing profile enables upstream reporting. The
+ upstream renderer, local mod preparation and default RyuNET behavior are retained.
+diff --git a/gpu/shim/bbport_overlay.cpp b/gpu/shim/bbport_overlay.cpp
+index 272430df78c829d570487b653c89a2b907e77e9c..b8a42a3287f9b99f10f00b683b84e5405b2e6d4b 100644
+--- a/gpu/shim/bbport_overlay.cpp
++++ b/gpu/shim/bbport_overlay.cpp
+@@ -425,6 +425,7 @@ void PollFriends() {
+                    BbSettings::MenuText("Update from the launcher", "Обновите через лаунчер"), 6, nullptr, 0);
+         }
+     }
++    if (runtime_psn_selected()) return;
+     static bool privacy_sent = false;
+     if (!privacy_sent) { // the server learns "appear offline" once per game
+         privacy_sent = true;
+diff --git a/run.py b/run.py
+index 9cda689aa31ce3cf844d3a83040b81b6de6e41a7..b1ec47d7c77a61df0d5cf384093a72ebec63a72b 100644
+--- a/run.py
++++ b/run.py
+@@ -542,6 +542,15 @@ def external_psn_backend(env=None):
+     return bool((os.environ if env is None else env).get('BB_PSN_BACKEND'))
+ 
+ 
++def set_ryunet_client_metadata(env, version):
++    """Only RyuNET sessions collect the machine fingerprint and advertise client metadata."""
++    if external_psn_backend(env):
++        env['BB_OCTR_VERSION'] = env['BB_MACHINE_ID'] = ''
++        return
++    env['BB_OCTR_VERSION'] = version.removeprefix('v').split('-')[0] if version else ''
++    env['BB_MACHINE_ID'] = machine_header()
++
++
+ def setup_online(env, config, data):
+     # The item-box rules come only from the server (below): items are drawn on each player's PC,
+     # so a local setting would let one player pick their own odds.
+@@ -568,7 +577,8 @@ def setup_online(env, config, data):
+             fail('BB_PSN_BACKEND must name a readable library file.')
+         # RyuNET-only mode overlays must not survive an external-backend launch.
+         for key in ('BB_ONLINE_MODE_HOOK', 'BB_PRIVATE_ARCHIVE_PATCHES', 'BB_SPEED_SOLO_TEST',
+-                    'BB_SPEED_MODE', 'BB_KNOWN_HEROES', 'BB_ITEM_RULES'):
++                    'BB_SPEED_MODE', 'BB_KNOWN_HEROES', 'BB_ITEM_RULES', 'BB_ITEM_RULES_ID',
++                    'BB_ITEM_RULES_SERVER_ID', 'BB_TT_REFERENCE', 'BB_MACHINE_ID'):
+             env[key] = ''
+         # Empty values also clear inherited settings when online_config exports them to run.sh.
+         # A backend must never accidentally inherit RyuNET credentials or synthetic identities.
+@@ -1015,7 +1025,7 @@ def launch(args, restarted=False):
+             # Private Itemless AI follows the game's own Time Trial ghosts (scripts/tt_reference.py,
+             # src/runtime_race_options.c); without them it keeps the native route guidance.
+             env.pop('BB_TT_REFERENCE', None)
+-            if title_id in ('CUSA13795', 'CUSA14876') and app_version == '01.21':
++            if not external_psn_backend(env) and title_id in ('CUSA13795', 'CUSA14876') and app_version == '01.21':
+                 tt = run_python('scripts/tt_reference.py', game, '--out', out / 'tt-reference',
+                                 capture=True, check=False)
+                 if tt.returncode == 0 and (out / 'tt-reference/reference.bin').is_file():
+@@ -1075,8 +1085,7 @@ def launch(args, restarted=False):
+                 break
+         say(f'SacredFire {version or "unknown version"}')
+         update_notice(env, version)
+-        env['BB_OCTR_VERSION'] = version.removeprefix('v').split('-')[0] if version else ''  # the game's login says it
+-        env['BB_MACHINE_ID'] = machine_header()  # this PC's anonymous fingerprint, for bans
++        set_ryunet_client_metadata(env, version)
+         # The graphics engine (bbport.ini renderer): the native Vulkan renderer is experimental; its
+         # shaders are built from this game the first time (scripts/native_shaders.py, ~5 minutes).
+         # Anything that stops it starts the game with shadPS4's Vulkan, as before.
+diff --git a/run.sh b/run.sh
+index d75ff0379f278f7be664718986180abe5bb42f73..d52b739478ac2058e3d9984040c3f7fe9367c536 100755
+--- a/run.sh
++++ b/run.sh
+@@ -91,10 +91,13 @@ else
+     probe=${BB_PROBE:-out/sacredfire}  # BB_PROBE: a wrapper (gdb) around it
+     version=$(cat out/VERSION 2>/dev/null || true)
+ fi
+-# The game's login says this port's version (src/runtime_http.c, the server's client_gate.go).
+-v=${version#v}; export BB_OCTR_VERSION=${v%%-*}
+-# This PC's anonymous fingerprint (a ban covers the PC, not only the nickname), as run.py.
+-BB_MACHINE_ID=$("$PYTHON" scripts/machine_id.py 2>/dev/null || true); export BB_MACHINE_ID
++# Client metadata and the machine fingerprint belong only to RyuNET, as run.py.
++if [[ -z ${BB_PSN_BACKEND:-} ]]; then
++    v=${version#v}; export BB_OCTR_VERSION=${v%%-*}
++    BB_MACHINE_ID=$("$PYTHON" scripts/machine_id.py 2>/dev/null || true); export BB_MACHINE_ID
++else
++    export BB_OCTR_VERSION= BB_MACHINE_ID=
++fi
+ # Mod packages (the launcher's Mods page: .pak, .zip and folders in the data folder's mods/,
+ # switched in patches.json), as run.py: scripts/mod_packages.py prepares a separate mod session
+ # (its own bbport.ini, saves and patches, the mods' files redirected by the engine, never a game
+@@ -212,7 +215,7 @@ elif [[ ${BB_ITEM_RULES_SERVER_ID:-} == none ]]; then
+ fi
+ # Prepare local TT references for Private Itemless AI guidance.
+ unset BB_TT_REFERENCE
+-if [[ ( $title_id == CUSA13795 || $title_id == CUSA14876 ) && $app_version == 01.21 ]]; then
++if [[ -z ${BB_PSN_BACKEND:-} && ( $title_id == CUSA13795 || $title_id == CUSA14876 ) && $app_version == 01.21 ]]; then
+     if startup_python scripts/tt_reference.py "$game" --out "$out/tt-reference"; then
+         export BB_TT_REFERENCE="$out/tt-reference/reference.bin"
+     else
+diff --git a/scripts/online_config.py b/scripts/online_config.py
+index 46162d6704222da116a95e827ece54ef3e0dac1d..cf3faf5fbd228b7763e033f9e66194f982cbec7e 100644
+--- a/scripts/online_config.py
++++ b/scripts/online_config.py
+@@ -17,7 +17,7 @@ EXPORT_KEYS = (
+     "BB_PUBLIC_ITEMLESS", "BB_THEME", "BB_END_RACE_TIMEOUT", "BB_UPDATE_AVAILABLE", "BB_SPEED_MODE",
+     "BB_ITEM_RULES", "BB_ITEM_RULES_SERVER_ID",  # run.sh applies them, as run.py
+     "BB_ONLINE_MODE_HOOK", "BB_PRIVATE_ARCHIVE_PATCHES", "BB_SPEED_SOLO_TEST",
+-    "BB_KNOWN_HEROES",
++    "BB_KNOWN_HEROES", "BB_ITEM_RULES_ID", "BB_TT_REFERENCE", "BB_MACHINE_ID",
+ )
+ # Backend selection/configuration are already inherited by the shell and child.
+ # In particular, an ephemeral relay capability must never enter the env-file.
+diff --git a/src/probe.c b/src/probe.c
+index 92b16ad5ec4bd9d5dbe915a3794e52afc3a5987f..1174ff083eb458a2f751ba06bb891fe1addf7b99 100644
+--- a/src/probe.c
++++ b/src/probe.c
+@@ -1280,17 +1280,22 @@ int main(int argc, char **argv) {
+     }
+     runtime_cinematic_start(image);
+     runtime_frontend_start(image);
+-    if (!runtime_friends_native_start(image, size)) fail("native Friends refresh callback could not be installed");
+-    if (!runtime_race_options_start(image, size)) fail("native race option callback could not be installed");
++    /* RyuNET's callbacks negotiate room rules and native friend-cache updates. */
++    if (!runtime_psn_selected()) {
++        if (!runtime_friends_native_start(image, size)) fail("native Friends refresh callback could not be installed");
++        if (!runtime_online_mode_start(image, size)) fail("native Online mode callback could not be installed");
++        if (!runtime_race_options_start(image, size)) fail("native race option callback could not be installed");
++    }
+     runtime_meta_dump_start(image, size); /* BB_META_DUMP=1 (lab) */
+-    if (!runtime_public_itemless_start(image, size)) fail("native public Itemless callbacks could not be installed");
++    if (!runtime_psn_selected()) {
++        if (!runtime_public_itemless_start(image, size)) fail("native public Itemless callbacks could not be installed");
++    }
+     if (!runtime_time_trial_start(image, size)) fail("Time Trial challenge callback could not be installed");
+-    runtime_replay_start(image, size); /* spectator build: native race recording (BB_REPLAY=0 off) */
+     /* RyuNET's private-room modes are not negotiated by an external PSN backend. */
+     if (!runtime_psn_selected()) {
+-        if (!runtime_online_mode_start(image, size)) fail("native Online mode callback could not be installed");
+         if (!runtime_itemless_start(image, size)) fail("native Itemless collision callback could not be installed");
+     }
++    runtime_replay_start(image, size); /* spectator build: native race recording (BB_REPLAY=0 off) */
+     printf("Entering original x86-64 code at guest offset 0x%" PRIx64 "\n", entry);
+     entered_game=1;
+     struct { uint64_t argc; const char *argv[2]; } params = {1, {"/app0/eboot.bin", NULL}};
+diff --git a/src/runtime_chat.c b/src/runtime_chat.c
+index 5d16e4aa5b199e7b9f26aa1556b4b59b0db0972c..10215e0a9eb535c712aea181c4c34b51f8b73def 100644
+--- a/src/runtime_chat.c
++++ b/src/runtime_chat.c
+@@ -8,6 +8,7 @@
+  * (bbport_overlay.cpp) draws it all. */
+ #define _POSIX_C_SOURCE 200809L
+ #include "runtime_chat.h"
++#include "runtime_psn.h"
+ #include "runtime.h"
+ #include "runtime_http.h"
+ #include "runtime_net_ping.h"
+@@ -66,6 +67,7 @@ static int in_room(char host[24]) {
+ }
+ 
+ int runtime_chat_available(void) {
++    if (runtime_psn_selected()) return 0;
+     char host[24];
+     if (!in_room(host) || !runtime_replay_chat_allowed()) return 0;
+     if (strcmp(host, PUBLIC_ROOM)) return 1;
+@@ -294,6 +296,7 @@ unsigned runtime_chat_view(RcLine *out, int max, int *count, int *status) {
+ }
+ 
+ int runtime_chat_send(const char *text) {
++    if (runtime_psn_selected()) return 0;
+     if (!text || !*text || strlen(text) >= RC_SEND) return 0;
+     pthread_mutex_lock(&lock);
+     const int ok = enabled && outbox_count < OUTBOX;
+@@ -318,6 +321,7 @@ void runtime_chat_set_public(int on) {
+ }
+ 
+ void runtime_chat_start(void) {
++    if (runtime_psn_selected()) return;
+     pthread_mutex_lock(&lock);
+     const int first = !started;
+     started = 1;
+diff --git a/src/runtime_http.c b/src/runtime_http.c
+index 99cb8170cc78af732b17ceb6c57bdc3743052adf..6e0477c573dad3891d6108c90def887f385bf811 100644
+--- a/src/runtime_http.c
++++ b/src/runtime_http.c
+@@ -550,6 +550,7 @@ int runtime_ryunet_transfer(const char *method, const char *target, const void *
+                             char **reply, size_t *reply_size, size_t max_reply) {
+     *reply = NULL;
+     *reply_size = 0;
++    if (runtime_psn_selected()) return 0;
+     const char *host = getenv("BB_ONLINE_SERVER");
+     const char *port = getenv("BB_ONLINE_HTTP_PORT");
+     if (!host || !*host) return 0;
+@@ -721,7 +722,7 @@ static int http_exchange(const HttpConnection *c, const HttpRequest *r, const st
+      * (BB_ITEM_RULES_ID: the id /ryunet/theme gave them, set by run.py/run.sh only once they
+      * were applied; "none" when the server has none). The server can refuse a login without
+      * them (its client_gate.go): older ports, or a game left with its own odds. */
+-    if (c->is_plain_http) {
++    if (!runtime_psn_selected() && c->is_plain_http) {
+         const char *version = getenv("BB_OCTR_VERSION"), *items = getenv("BB_ITEM_RULES_ID");
+         if (version && *version && strlen(version) < 48 && !strpbrk(version, "\r\n") &&
+             hlen < (int)sizeof(header_buf) - 80)
+diff --git a/src/runtime_name_colors.c b/src/runtime_name_colors.c
+index 31e84e06f2769f2621f4f3da1e2892043cde8bf7..ec0fe00afd8f45faa7e2a380cf09cc1680cf95f6 100644
+--- a/src/runtime_name_colors.c
++++ b/src/runtime_name_colors.c
+@@ -7,6 +7,7 @@
+  * changing a color to make another. */
+ #define _POSIX_C_SOURCE 200809L
+ #include "runtime_name_colors.h"
++#include "runtime_psn.h"
+ #include "runtime_http.h"
+ 
+ #include <pthread.h>
+@@ -62,6 +63,7 @@ static void rainbow_at(uint64_t ms, unsigned turn_ms, float rgb[3]) {
+ }
+ 
+ int runtime_name_color(const char *nick, float rgb[3]) {
++    if (runtime_psn_selected()) return 0;
+     if (!nick || !*nick) return 0;
+     const NameList *list = __atomic_load_n(&current, __ATOMIC_ACQUIRE);
+     for (int i = 0; i < list->count; ++i) {
+@@ -152,6 +154,7 @@ static void *worker(void *unused) {
+ }
+ 
+ void runtime_name_colors_start(void) {
++    if (runtime_psn_selected()) return;
+     static int started;
+     if (__atomic_exchange_n(&started, 1, __ATOMIC_RELAXED)) return;
+     pthread_t thread;
+diff --git a/src/runtime_room_mode.c b/src/runtime_room_mode.c
+index 5652c48d2b7d893764e31619821cdab011c3fdb5..1c10db3fcb0ba842854362422154077eaa8315d1 100644
+--- a/src/runtime_room_mode.c
++++ b/src/runtime_room_mode.c
+@@ -123,6 +123,7 @@ static char followed_host[24];
+ static int race_frozen;
+ 
+ int runtime_room_mode_following(void) {
++    if (runtime_psn_selected()) return 0;
+     pthread_mutex_lock(&follow_lock);
+     const int active = followed_host[0] != 0;
+     pthread_mutex_unlock(&follow_lock);
+@@ -130,6 +131,7 @@ int runtime_room_mode_following(void) {
+ }
+ 
+ int runtime_room_mode_ready(void) {
++    if (runtime_psn_selected()) return 1;
+     if (runtime_room_mode_following()) return 1;
+     pthread_mutex_lock(&publish_lock);
+     const int ready = publish_ok && !publish_running;
+@@ -166,6 +168,7 @@ static void *verify_mode(void *arg) {
+ 
+ /* -1 keeps the pending transition in the lobby while the worker verifies it. */
+ int runtime_room_mode_begin_race(void) {
++    if (runtime_psn_selected()) return 1;
+     pthread_mutex_lock(&follow_lock);
+     if (race_frozen) { pthread_mutex_unlock(&follow_lock); return 1; }
+     if (verify_running) { pthread_mutex_unlock(&follow_lock); return -1; }
+@@ -199,6 +202,7 @@ int runtime_room_mode_begin_race(void) {
+ }
+ 
+ void runtime_room_mode_end_race(void) {
++    if (runtime_psn_selected()) return;
+     pthread_mutex_lock(&follow_lock);
+     race_frozen = 0; verify_done=0; ++verify_epoch;
+     pthread_mutex_unlock(&follow_lock);
+diff --git a/src/runtime_spectate.c b/src/runtime_spectate.c
+index c83a2596362426234666b188ecb9d165e043a84d..afce5e099118e3254d74ccfda4b95c1c748374e6 100644
+--- a/src/runtime_spectate.c
++++ b/src/runtime_spectate.c
+@@ -7,6 +7,7 @@
+  * seconds behind (GET /ryunet/spectate/live, new frames as they come), and each next race of theirs loads by
+  * itself until Stop spectating. Finished races are not sent or downloaded. */
+ #include "runtime_spectate.h"
++#include "runtime_psn.h"
+ #include "runtime.h"
+ #include "runtime_http.h"
+ #include "runtime_np_online.h"
+@@ -327,6 +328,7 @@ static void *worker(void *unused) {
+ }
+ 
+ void runtime_spectate_start(void) {
++    if (runtime_psn_selected()) return;
+     pthread_mutex_lock(&lock);
+     const int first = !started;
+     started = 1;
+@@ -346,6 +348,7 @@ void runtime_spectate_set_share(int on) {
+ }
+ 
+ void runtime_spectate_watch(const char *friend_name) {
++    if (runtime_psn_selected()) return;
+     if (!friend_name || !valid_nick(friend_name)) return;
+     pthread_mutex_lock(&lock);
+     snprintf(watch_name, sizeof watch_name, "%s", friend_name);
+diff --git a/tests/ryunet_workers_fixture.h b/tests/ryunet_workers_fixture.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..965c3c18d6d3b7a09a3229de4e1ba73d1081d545
+--- /dev/null
++++ b/tests/ryunet_workers_fixture.h
+@@ -0,0 +1,13 @@
++/* SPDX-License-Identifier: GPL-2.0-or-later */
++#ifndef RYUNET_WORKERS_FIXTURE_H
++#define RYUNET_WORKERS_FIXTURE_H
++#define _POSIX_C_SOURCE 200809L
++#include <pthread.h>
++
++/* Declare the real functions first so Windows DLL import attributes never apply
++ * to the fixture definitions. Only these clients' worker calls are redirected. */
++int fixture_thread_create(pthread_t *, const pthread_attr_t *, void *(*)(void *), void *);
++int fixture_thread_detach(pthread_t);
++#define pthread_create fixture_thread_create
++#define pthread_detach fixture_thread_detach
++#endif
+diff --git a/tests/test_chat.c b/tests/test_chat.c
+index 7ab84bc40422a07b107f9a4ab7392ae14aec62c8..8a10a5b62362b388d88c6d2b05827716a19e7b43 100644
+--- a/tests/test_chat.c
++++ b/tests/test_chat.c
+@@ -5,6 +5,7 @@
+ static char dir[256], requested[600], posted[RC_SEND];
+ static int room_on_now = 1, public_now = 0, following = 0, reply_status = 200, peers_now = 0;
+ static const char *reply_text = "ok 0\n";
++int runtime_psn_selected(void) { return 0; }
+ 
+ int runtime_online_mode_room_on(void) { return room_on_now; }
+ int runtime_online_mode_public_on(void) { return public_now; }
+diff --git a/tests/test_http_ryunet.c b/tests/test_http_ryunet.c
+index 313cd4fec40e08cb0de119bbfa9d842eeca3fcab..0759f6c0043d584531dad24df74ff8e633a476ce 100644
+--- a/tests/test_http_ryunet.c
++++ b/tests/test_http_ryunet.c
+@@ -38,6 +38,9 @@ static int intercept; /* 1: requests for the server's name; 2: also for its addr
+ static int requests;
+ static int external_psn;
+ static int last_inventory;
++static int last_client, last_items, last_machine;
++static unsigned char last_body[16];
++static int last_body_size;
+ static int server_skew = SKEW;
+ 
+ /* What src/runtime_net.c and runtime_net_overrides.c give runtime_http.c. */
+@@ -79,6 +82,13 @@ static void serve_one(void) {
+     const char *proof = strstr(request, "X-RyuNET-Proof: 1.");
+     last_ts = proof ? atoll(proof + 18) : 0;
+     last_inventory = strstr(request, "X-RyuNET-Inventory:") != NULL;
++    last_client = strstr(request, "X-RyuNET-Client: octr/v0.8.3\r\n") != NULL;
++    last_items = strstr(request, "X-RyuNET-Items: fixture-items\r\n") != NULL;
++    last_machine = strstr(request, "X-RyuNET-Machine: fixture-machine\r\n") != NULL;
++    const char *body = strstr(request, "\r\n\r\n");
++    last_body_size = body ? got - (int)(body + 4 - request) : 0;
++    if (last_body_size > 0 && last_body_size <= (int)sizeof last_body)
++        memcpy(last_body, body + 4, (size_t)last_body_size);
+ 
+     const time_t now = time(NULL) + server_skew;
+     char date[64];
+@@ -166,17 +176,22 @@ int main(void) {
+     external_psn = 1;
+     server_skew = SKEW * 2;
+     putenv("BB_ONLINE_INVENTORY=save");
++    putenv("BB_OCTR_VERSION=v0.8.3");
++    putenv("BB_ITEM_RULES_ID=fixture-items");
++    putenv("BB_MACHINE_ID=fixture-machine");
+     requests = 0;
+     CHECK(login() == 403);
+     CHECK(requests == 1);
+     CHECK(strcmp(last_line, "POST https://lavender-ps4-auth3.prod.demonware.net:443/auth/ HTTP/1.1") == 0);
+     CHECK(strcmp(last_host, "lavender-ps4-auth3.prod.demonware.net") == 0);
+     CHECK(last_ts == 0 && !last_inventory);
++    CHECK(!last_client && !last_items && !last_machine);
+     intercept = 3;
+     requests = 0;
+     CHECK(login() == 302);
+     CHECK(requests == 1);
+     CHECK(last_ts == 0 && !last_inventory);
++    CHECK(!last_client && !last_items && !last_machine);
+     /* Direct RyuNET service helpers must also stop before opening a connection. */
+     char proof[160], external_body[32] = "unchanged";
+     char external_server[] = "BB_ONLINE_SERVER=localhost", external_port[48];
+@@ -186,6 +201,16 @@ int main(void) {
+     CHECK(runtime_ryunet_proof("POST", "/ryunet/friends", proof, sizeof proof) == 0);
+     CHECK(runtime_ryunet_request("POST", "/ryunet/friends", external_body, sizeof external_body) == 0);
+     CHECK(!external_body[0]);
++    char *transfer_reply = external_body;
++    size_t transfer_size = 99;
++    CHECK(runtime_ryunet_transfer("GET", "/ryunet/names", NULL, 0,
++                                 &transfer_reply, &transfer_size, 128) == 0);
++    CHECK(transfer_reply == NULL && transfer_size == 0);
++    transfer_reply = external_body;
++    transfer_size = 99;
++    CHECK(runtime_ryunet_transfer("POST", "/ryunet/spectate/live", "race", 4,
++                                 &transfer_reply, &transfer_size, 128) == 0);
++    CHECK(transfer_reply == NULL && transfer_size == 0);
+     CHECK(requests == 1);
+     external_psn = 0;
+     server_skew = SKEW;
+@@ -196,6 +221,7 @@ int main(void) {
+     CHECK(strcmp(last_line, "POST /auth/ HTTP/1.1") == 0);
+     CHECK(strcmp(last_host, host) == 0);
+     CHECK(last_inventory);
++    CHECK(last_client && last_items && last_machine);
+     CHECK(llabs(last_ts - (long long)time(NULL)) <= 2);
+     /* The game's next try: the server's time. */
+     CHECK(login() == 200);
+@@ -233,6 +259,17 @@ int main(void) {
+     CHECK(requests == 1);
+     CHECK(strcmp(last_line, "POST /ryunet/friends/privacy?name=a&hidden=0&format=text HTTP/1.1") == 0);
+ 
++    /* The binary helper still sends signed requests and returns owned reply bytes. */
++    const unsigned char binary[] = {0, 1, 255, 0, 7};
++    requests = 0;
++    CHECK(runtime_ryunet_transfer("POST", "/ryunet/spectate/live", binary, sizeof binary,
++                                 &transfer_reply, &transfer_size, 128) == 200);
++    CHECK(requests == 1 && last_body_size == (int)sizeof binary);
++    CHECK(!memcmp(last_body, binary, sizeof binary));
++    CHECK(transfer_reply && transfer_size == 2 && !memcmp(transfer_reply, "{}", 2));
++    CHECK(llabs(last_ts - ((long long)time(NULL) + SKEW)) <= 3);
++    free(transfer_reply);
++
+     /* Every form redirected: the game sees the redirect, as before. */
+     intercept = 3;
+     requests = 0;
+diff --git a/tests/test_name_colors.c b/tests/test_name_colors.c
+index c374ab89fcdacf86abf3114b2e924266fa42277e..7e94e7960ade21662b71b301cd4e6bca7e31d011 100644
+--- a/tests/test_name_colors.c
++++ b/tests/test_name_colors.c
+@@ -4,6 +4,7 @@
+ 
+ static const char *reply_text = "ok\n";
+ static int reply_status = 200, asked;
++int runtime_psn_selected(void) { return 0; }
+ 
+ int runtime_ryunet_transfer(const char *method, const char *target, const void *data, size_t size, char **reply, size_t *reply_size,
+                             size_t max_reply) {
+diff --git a/tests/test_net_policy.c b/tests/test_net_policy.c
+index 55e6e792129ce9a8bc1c5c8eaa4a626cea1b5785..efb3db505c78d3654ecdf49203206c87fcd9c078 100644
+--- a/tests/test_net_policy.c
++++ b/tests/test_net_policy.c
+@@ -7,6 +7,8 @@
+ 
+ /* The socket fixture has no social worker or remote publisher. */
+ void runtime_friends_start(void) {}
++void runtime_spectate_start(void) {}
++void runtime_public_itemless_reset(void) {}
+ 
+ static void environment(const char *key, const char *value) {
+ #ifdef _WIN32
+diff --git a/tests/test_psn_backend_launcher.py b/tests/test_psn_backend_launcher.py
+index 8f2de54c0cce7de00b27bc934f28995e84aafe56..252b72e5a5ad336c1a1e2424da03a7646a76e6f3 100644
+--- a/tests/test_psn_backend_launcher.py
++++ b/tests/test_psn_backend_launcher.py
+@@ -99,12 +99,15 @@ class SetupTests(unittest.TestCase):
+         env = {}
+         with mock.patch.object(run, 'online_key', return_value='ab' * 32) as key, \
+                 mock.patch.object(run, 'claim_nick') as claim, \
++                mock.patch.object(run.ryunet_session, 'Session') as session_factory, \
+                 mock.patch.object(run, 'server_settings', return_value={'theme': 'halloween', 'end_race_timeout': 30}) as theme, \
+                 contextlib.redirect_stdout(io.StringIO()):
+             run.setup_online(env, self.config, self.data)
++        session = session_factory.return_value.__enter__.return_value
+         key.assert_called_once_with(self.data)
+-        claim.assert_called_once_with('127.0.0.1', '8090', 'PlayerOne', env['BB_ONLINE_KEYHASH'])
+-        theme.assert_called_once_with('127.0.0.1', '8090')
++        claim.assert_called_once_with('127.0.0.1', '8090', 'PlayerOne', env['BB_ONLINE_KEYHASH'], session=session)
++        theme.assert_called_once_with('127.0.0.1', '8090', session=session)
++        session_factory.return_value.__exit__.assert_called_once_with(None, None, None)
+         self.assertEqual(env['BB_ONLINE_NAME'], 'PlayerOne')
+         self.assertEqual(env['BB_THEME'], 'halloween')
+         self.assertEqual(env['BB_END_RACE_TIMEOUT'], '30')
+diff --git a/tests/test_psn_backend_v075.py b/tests/test_psn_backend_v075.py
+index d55710a423c13fc2b7380fbac9945dead4d614b1..b9bab6ec91b13cd93a724fa8e2da19a721ebdd3a 100644
+--- a/tests/test_psn_backend_v075.py
++++ b/tests/test_psn_backend_v075.py
+@@ -22,20 +22,26 @@ import perf_report
+ class ExternalLaunchTests(unittest.TestCase):
+     def test_external_setup_clears_mode_state_and_exports_clears_to_shell(self):
+         keys = ('BB_ITEM_RULES', 'BB_SPEED_MODE', 'BB_SPEED_SOLO_TEST', 'BB_ONLINE_MODE_HOOK',
+-                'BB_PRIVATE_ARCHIVE_PATCHES', 'BB_KNOWN_HEROES')
++                'BB_PRIVATE_ARCHIVE_PATCHES', 'BB_KNOWN_HEROES', 'BB_ITEM_RULES_ID',
++                'BB_ITEM_RULES_SERVER_ID', 'BB_MACHINE_ID', 'BB_TT_REFERENCE')
+         with tempfile.TemporaryDirectory() as tmp:
+             data = Path(tmp)
+             library = data / 'backend.dll'
+             library.write_bytes(b'fixture: never loaded')
+             config = data / 'bbport.ini'
+             config.write_text('online=1\nonline_server=127.0.0.1:8090\n', encoding='utf-8')
+-            env = dict.fromkeys(keys, 'stale') | {'BB_PSN_BACKEND': str(library)}
++            env = dict.fromkeys(keys, 'stale') | {'BB_PSN_BACKEND': str(library),
++                                                  'BB_PUBLIC_ITEMLESS': '1', 'BB_MOD_FILE_MAP': 'local-mod.map'}
+             with mock.patch.object(run, 'ryunet_json', side_effect=AssertionError('RyuNET request')), \
+                     mock.patch.object(run, 'online_key', side_effect=AssertionError('RyuNET key')), \
++                    mock.patch.object(run, 'machine_header', side_effect=AssertionError('machine fingerprint')), \
++                    mock.patch.object(run.ryunet_session, 'Session', side_effect=AssertionError('RyuNET session')), \
+                     contextlib.redirect_stdout(io.StringIO()):
+                 run.setup_online(env, config, data)
+             self.assertEqual({key: env[key] for key in keys}, dict.fromkeys(keys, ''))
+             self.assertEqual(env['BB_ONLINE_SERVER'], '127.0.0.1')
++            self.assertEqual(env['BB_PUBLIC_ITEMLESS'], '0')
++            self.assertEqual(env['BB_MOD_FILE_MAP'], 'local-mod.map')
+             output = data / 'environment'
+             child = subprocess.run([sys.executable, str(ROOT / 'scripts/online_config.py'),
+                                     '--config', str(config), '--data', str(data), '--env-file', str(output)],
+@@ -44,6 +50,7 @@ class ExternalLaunchTests(unittest.TestCase):
+             self.assertEqual(child.returncode, 0, child.stderr)
+             exported = dict(item.decode().split('=', 1) for item in output.read_bytes().split(b'\0') if item)
+             self.assertEqual({key: exported[key] for key in keys}, dict.fromkeys(keys, ''))
++            self.assertEqual(exported['BB_PUBLIC_ITEMLESS'], '0')
+             self.assertNotIn('BB_PSN_BACKEND', exported)
+ 
+     def test_upstream_item_rules_still_come_from_server(self):
+@@ -62,34 +69,44 @@ class ExternalLaunchTests(unittest.TestCase):
+ 
+     def test_layout_prepares_modes_only_for_upstream_backend(self):
+         tree = ast.parse((ROOT / 'run.py').read_text(encoding='utf-8'))
+-        main = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == 'main')
+-        layout = next(node for node in ast.walk(main) if isinstance(node, ast.FunctionDef) and node.name == 'apply_layout')
++        launch = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == 'launch')
++        layout = next(node for node in ast.walk(launch) if isinstance(node, ast.FunctionDef) and node.name == 'apply_layout')
+         for selector in ('/external/backend', ''):
+             with self.subTest(selector=selector):
+                 env = {'BB_PSN_BACKEND': selector, 'BB_ONLINE': '1', 'BB_SPEED_SOLO_TEST': '1',
+-                       'BB_PRIVATE_ARCHIVE_PATCHES': 'stale', 'BB_ONLINE_MODE_HOOK': 'stale'}
++                       'BB_PRIVATE_ARCHIVE_PATCHES': 'stale', 'BB_ONLINE_MODE_HOOK': 'stale',
++                       'BB_TT_REFERENCE': 'stale', 'BB_MOD_FILE_MAP': 'local-mod.map'}
+                 online = SimpleNamespace(prepare=mock.Mock(return_value=([Path('menu.patch')], 'hook')),
+                                          known_heroes=mock.Mock(return_value='heroes'))
+                 speed = SimpleNamespace(prepare=mock.Mock(return_value=([Path('normal.patch')], [Path('speed.patch')], 1)))
++                prepare_tt = mock.Mock(return_value=SimpleNamespace(returncode=1))
+                 namespace = dict(env=env, layout_saved={}, game=Path('game'), out=Path('out'), config='settings',
+-                                 title_id='CUSA13795', app_version='01.21', base_patches=[], Path=Path,
+-                                 aspect_ratio=SimpleNamespace(prepare=lambda *args: None,
++                                 title_id='CUSA13795', app_version='01.21', base_patches=[], Path=Path, boot=Path('boot'),
++                                 aspect_ratio=SimpleNamespace(prepare=lambda *args, **kwargs: None,
+                                                               archive_list=lambda *args: 'base.patch'),
+                                  mod_packages=SimpleNamespace(ACTIVE=False), online_mode=online, speed_mode=speed,
++                                 item_rules=SimpleNamespace(with_rules=lambda game, out, rules, archives, **kwargs: archives),
++                                 startup_call=lambda label, function, *args, **kwargs: function(*args, **kwargs),
++                                 run_python=prepare_tt, json=json,
+                                  external_psn_backend=run.external_psn_backend, say=lambda *args: None)
+                 exec(compile(ast.Module(body=[layout], type_ignores=[]), 'run.py', 'exec'), namespace)
+                 self.assertEqual(namespace['apply_layout'](), ('settings', None))
+                 if selector:
+                     online.prepare.assert_not_called()
+                     speed.prepare.assert_not_called()
++                    prepare_tt.assert_not_called()
+                     self.assertNotIn('BB_ONLINE_MODE_HOOK', env)
+                     self.assertNotIn('BB_PRIVATE_ARCHIVE_PATCHES', env)
+                     self.assertEqual(env['BB_ARCHIVE_PATCHES'], 'base.patch')
++                    self.assertNotIn('BB_TT_REFERENCE', env)
++                    self.assertEqual(env['BB_MOD_FILE_MAP'], 'local-mod.map')
+                 else:
+                     online.prepare.assert_called_once()
+                     speed.prepare.assert_called_once()
+                     self.assertEqual(env['BB_ONLINE_MODE_HOOK'], 'hook')
+                     self.assertEqual(env['BB_PRIVATE_ARCHIVE_PATCHES'], 'speed.patch')
++                    prepare_tt.assert_called_once_with('scripts/tt_reference.py', Path('game'), '--out',
++                                                       Path('out/tt-reference'), capture=True, check=False)
+ 
+     def test_shell_external_launch_skips_mode_preparation(self):
+         msys = os.environ.get('MSYS2_ROOT')
+@@ -97,17 +114,19 @@ class ExternalLaunchTests(unittest.TestCase):
+         if not bash or (os.name == 'nt' and not msys):
+             self.skipTest('A project-selected MSYS2 bash is required on Windows')
+         script = (ROOT / 'run.sh').read_text(encoding='utf-8')
+-        block = script[script.index('unset BB_ONLINE_MODE_HOOK BB_SPEED_MODE'):
++        block = script[script.index('unset BB_TT_REFERENCE'):
+                        script.index('# The game runs at its own 30 FPS')]
+         fixture = '''set -eu
+ prepare_test() { echo 'unexpected mode preparation' >&2; return 1; }
+ PYTHON=prepare_test
++startup_python() { "$PYTHON" "$@"; }
+ BB_PSN_BACKEND=/external/backend BB_ONLINE=1 BB_SPEED_SOLO_TEST=1
+-BB_ONLINE_MODE_HOOK=stale BB_SPEED_MODE=1
++BB_ONLINE_MODE_HOOK=stale BB_SPEED_MODE=1 BB_TT_REFERENCE=stale BB_MOD_FILE_MAP=local-mod.map
+ title_id=CUSA13795 app_version=01.21
+ '''
+         result = subprocess.run([bash, '--noprofile', '--norc', '-c', fixture + block +
+-                                 '\n[[ -z ${BB_ONLINE_MODE_HOOK:-} && -z ${BB_SPEED_MODE:-} ]]'],
++                                 '\n[[ -z ${BB_ONLINE_MODE_HOOK:-} && -z ${BB_SPEED_MODE:-} && -z ${BB_TT_REFERENCE:-} '
++                                 '&& $BB_MOD_FILE_MAP == local-mod.map ]]'],
+                                 capture_output=True, text=True)
+         self.assertEqual(result.returncode, 0, result.stderr)
+         self.assertNotIn('unexpected', result.stderr)
+@@ -123,7 +142,8 @@ class PerformanceIsolationTests(unittest.TestCase):
+                     config.write_text('perf_reports=1\nonline_server=127.0.0.1:8090\n', encoding='utf-8')
+                     state = data / 'state.json'
+                     state.write_text('{}', encoding='utf-8')
+-                    collector = SimpleNamespace(report=lambda metadata: {'fault': {'kind': 'fixture'}} | metadata)
++                    collector = SimpleNamespace(corrupt_free=False,
++                                                report=lambda metadata: {'fault': {'kind': 'fixture'}} | metadata)
+                     env = {'BB_PSN_BACKEND': selector, 'BB_ONLINE_SERVER': '127.0.0.1',
+                            'BB_ONLINE_HTTP_PORT': '8090'}
+                     with mock.patch.object(run, 'PERF', collector), \
+diff --git a/tests/test_psn_backend_v083.py b/tests/test_psn_backend_v083.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..35a687d10253f81c932d209097f928851886c1ce
+--- /dev/null
++++ b/tests/test_psn_backend_v083.py
+@@ -0,0 +1,61 @@
++"""OCTR client metadata belongs to RyuNET, including the late launch stage."""
++import os
++from pathlib import Path
++import shutil
++import subprocess
++import tempfile
++import unittest
++from unittest import mock
++
++from paths import ROOT
++import run
++
++
++class ClientMetadataTests(unittest.TestCase):
++    def test_external_launch_clears_inherited_metadata_without_collecting_machine_id(self):
++        env = {'BB_PSN_BACKEND': '/external/backend', 'BB_MACHINE_ID': 'stale', 'BB_OCTR_VERSION': 'old'}
++        with mock.patch.object(run, 'machine_header', side_effect=AssertionError('machine fingerprint')), \
++                mock.patch.dict(os.environ, {'BB_PSN_BACKEND': ''}):
++            run.set_ryunet_client_metadata(env, 'v0.8.3')
++        self.assertEqual(env['BB_MACHINE_ID'], '')
++        self.assertEqual(env['BB_OCTR_VERSION'], '')
++
++    def test_upstream_launch_still_collects_metadata_from_its_own_environment(self):
++        for selector in (None, ''):
++            with self.subTest(selector=selector):
++                env = {} if selector is None else {'BB_PSN_BACKEND': selector}
++                with mock.patch.object(run, 'machine_header', return_value='fixture-machine') as fingerprint, \
++                        mock.patch.dict(os.environ, {'BB_PSN_BACKEND': '/another/process/backend'}):
++                    run.set_ryunet_client_metadata(env, 'v0.8.3-12-gabcdef')
++                fingerprint.assert_called_once_with()
++                self.assertEqual(env['BB_MACHINE_ID'], 'fixture-machine')
++                self.assertEqual(env['BB_OCTR_VERSION'], '0.8.3')
++
++    def test_shell_late_metadata_only_collects_for_upstream(self):
++        msys = os.environ.get('MSYS2_ROOT')
++        bash = str(Path(msys) / 'usr/bin/bash.exe') if os.name == 'nt' and msys else shutil.which('bash')
++        if not bash or (os.name == 'nt' and not msys):
++            self.skipTest('A project-selected MSYS2 bash is required on Windows')
++        script = (ROOT / 'run.sh').read_text(encoding='utf-8')
++        block = script[script.index('# Client metadata and the machine fingerprint'):
++                       script.index('# Mod packages (the launcher')]
++        fixture = '''set -eu
++fingerprint_test() { printf called > "$FINGERPRINT_TEST_MARKER"; printf 'fixture-machine\\n'; }
++PYTHON=fingerprint_test version=v0.8.3-12-gabcdef
++BB_MACHINE_ID=stale BB_OCTR_VERSION=old
++'''
++        for selector in ('/external/backend', ''):
++            with self.subTest(selector=selector), tempfile.TemporaryDirectory() as tmp:
++                marker = Path(tmp) / 'fingerprint-called'
++                expected = ('[[ -z $BB_MACHINE_ID && -z $BB_OCTR_VERSION ]]' if selector else
++                            '[[ $BB_MACHINE_ID == fixture-machine && $BB_OCTR_VERSION == 0.8.3 ]]')
++                result = subprocess.run([bash, '--noprofile', '--norc', '-c', fixture + block + '\n' + expected],
++                                        env=os.environ | {'BB_PSN_BACKEND': selector,
++                                                          'FINGERPRINT_TEST_MARKER': marker.as_posix()},
++                                        capture_output=True, text=True)
++                self.assertEqual(result.returncode, 0, result.stderr)
++                self.assertEqual(marker.exists(), not bool(selector))
++
++
++if __name__ == '__main__':
++    unittest.main()
+diff --git a/tests/test_room_mode.c b/tests/test_room_mode.c
+index d5a53160a56a35c1dcdaffbb61a1f0d6ab103a62..f53c60a002b3fe53fe4ff2d73b7a03507a8c22be 100644
+--- a/tests/test_room_mode.c
++++ b/tests/test_room_mode.c
+@@ -3,6 +3,7 @@
+ #include <unistd.h>
+ 
+ void (*runtime_online_mode_chosen)(int, int);
++int runtime_psn_selected(void) { return 0; }
+ static int active_speed;
+ void runtime_speed_mode_set(int enabled) { active_speed = enabled; }
+ int runtime_speed_mode_enabled(void) { return active_speed; }
+diff --git a/tests/test_room_mode_isolation.c b/tests/test_room_mode_isolation.c
+index 403102293c8c048609de2078d3e3446be2a123d0..f10a7d101e2ee6c0b657bd7aacc40227cdb344f9 100644
+--- a/tests/test_room_mode_isolation.c
++++ b/tests/test_room_mode_isolation.c
+@@ -1,6 +1,6 @@
+ /* SPDX-License-Identifier: GPL-2.0-or-later */
+-/* Execute the real room callbacks with synchronous threads and a local request
+- * fixture. No guest memory, publisher or network connection is used. */
++/* Execute real room callbacks with queued worker functions and local replies.
++ * Workers run after their caller releases its locks; no game or network is used. */
+ #define _POSIX_C_SOURCE 200809L
+ #include <assert.h>
+ #include <pthread.h>
+@@ -21,21 +21,28 @@ static int fixture_sleep(const struct timespec *, struct timespec *);
+ 
+ void (*runtime_online_mode_chosen)(int, int);
+ static int selected, threads, detached, requests, leaves, changes, adopts, sleeps;
+-static int private_speed = 1, in_private = 1, adopted = -1, changed = -1;
++static int race_leaves, announcements, party_ready;
++static int private_speed = 1, in_private = 1, active_speed, adopted = -1, changed = -1;
+ static char method_seen[8], target_seen[160];
++static struct { void *(*run)(void *); void *arg; } jobs[8];
++static unsigned queued;
+ 
+ int runtime_psn_selected(void) { return selected; }
+ const char *runtime_np_get_online_name(void) { return "PlayerOne"; }
+ int runtime_online_mode_private_speed(void) { return private_speed; }
+ int runtime_online_mode_in_private(void) { return in_private; }
+ void runtime_online_mode_leave_cup(void) { ++leaves; }
+-void runtime_speed_mode_set(int enabled) { ++changes; changed = enabled; }
+-void runtime_online_mode_adopt(int speed) { ++adopts; adopted = speed; }
++void runtime_race_options_leave_room(void) { ++race_leaves; }
++int runtime_public_itemless_announce(void) { ++announcements; return 1; }
++void runtime_public_itemless_party_ready(void) { ++party_ready; }
++void runtime_speed_mode_set(int enabled) { ++changes; changed = active_speed = enabled; }
++int runtime_speed_mode_enabled(void) { return active_speed; }
++void runtime_online_mode_adopt(int speed) { ++adopts; adopted = active_speed = speed; }
+ int runtime_ryunet_request(const char *method, const char *target, char *body, size_t capacity) {
+     ++requests;
+     snprintf(method_seen, sizeof method_seen, "%s", method);
+     snprintf(target_seen, sizeof target_seen, "%s", target);
+-    snprintf(body, capacity, "mode speed");
++    snprintf(body, capacity, "%s", !strcmp(method, "POST") ? "status ok\n" : "mode speed\n");
+     return 200;
+ }
+ 
+@@ -44,20 +51,28 @@ static int fixture_create(pthread_t *thread, const pthread_attr_t *attr,
+     (void)attr;
+     *thread = (pthread_t)0;
+     ++threads;
+-    run(arg);
++    assert(queued < sizeof jobs / sizeof jobs[0]);
++    jobs[queued].run = run;
++    jobs[queued++].arg = arg;
+     return 0;
+ }
++static void run_jobs(void) {
++    for (unsigned i = 0; i < queued; ++i) jobs[i].run(jobs[i].arg);
++    queued = 0;
++}
+ static int fixture_detach(pthread_t thread) { (void)thread; ++detached; return 0; }
+ static int fixture_sleep(const struct timespec *request, struct timespec *remaining) {
+     (void)request;
+     (void)remaining;
+     ++sleeps;
+-    runtime_room_mode_left(); /* Stop the synchronous follower after one response. */
++    runtime_room_mode_left(); /* Stop the follower after one response. */
+     return 0;
+ }
+ 
+ static void clear_counts(void) {
++    assert(!queued);
+     threads = detached = requests = leaves = changes = adopts = sleeps = 0;
++    race_leaves = announcements = party_ready = 0;
+     method_seen[0] = target_seen[0] = '\0';
+     adopted = changed = -1;
+ }
+@@ -65,32 +80,56 @@ static void clear_counts(void) {
+ int main(void) {
+     assert(runtime_online_mode_chosen); /* The production constructor registered it. */
+     selected = 1;
+-    const unsigned before = follow_generation;
++    const unsigned before = follow_generation, published = publish_generation, epoch = verify_epoch;
+     runtime_room_mode_hosting();
+     runtime_room_mode_joined("cusa13795-session-OtherPlayer");
+     runtime_room_mode_left();
+     runtime_online_mode_chosen(1, 1);
+     runtime_online_mode_chosen(0, 0);
++    assert(!runtime_room_mode_following());
++    /* RyuNET verification cannot block a race through another publisher. */
++    assert(runtime_room_mode_ready() == 1);
++    assert(runtime_room_mode_begin_race() == 1);
++    runtime_room_mode_end_race();
+     assert(!threads && !detached && !requests && !leaves && !changes && !adopts && !sleeps);
+-    assert(follow_generation == before);
++    assert(!race_leaves && !announcements && !party_ready && !queued);
++    assert(follow_generation == before && publish_generation == published && verify_epoch == epoch);
++    assert(!race_frozen && !verify_running && !verify_done);
+ 
+     selected = 0;
+     runtime_room_mode_hosting();
+-    assert(threads == 1 && detached == 1 && requests == 1 && leaves == 1 && changes == 1);
++    assert(threads == 1 && detached == 1 && !requests && leaves == 1 && changes == 1);
++    assert(!runtime_room_mode_ready());
++    run_jobs();
++    assert(requests == 1 && announcements == 1 && race_leaves == 1 && runtime_room_mode_ready());
+     assert(changed == 1 && !strcmp(method_seen, "POST"));
+     assert(!strcmp(target_seen, "/ryunet/room-mode?name=PlayerOne&mode=speed&format=text"));
+ 
++    /* Default mode still waits for the server's final snapshot and freezes it. */
++    assert(runtime_room_mode_begin_race() == -1);
++    assert(runtime_room_mode_begin_race() == -1 && queued == 1);
++    run_jobs();
++    assert(runtime_room_mode_begin_race() == 1 && race_frozen);
++    assert(!strcmp(target_seen, "/ryunet/room-mode?host=PlayerOne&format=text"));
++    runtime_room_mode_end_race();
++    assert(!race_frozen);
++
+     clear_counts();
+     runtime_online_mode_chosen(1, 0); /* Public search must publish Normal. */
++    run_jobs();
+     assert(threads == 1 && requests == 1 && leaves == 1 && changes == 1);
+     assert(!strcmp(target_seen, "/ryunet/room-mode?name=PlayerOne&mode=normal&format=text"));
+ 
+     clear_counts();
++    active_speed = 0;
+     runtime_room_mode_joined("cusa13795-session-OtherPlayer");
++    assert(runtime_room_mode_following() && party_ready == 1);
++    run_jobs();
+     assert(threads == 1 && detached == 1 && requests == 1 && sleeps == 1);
+     assert(adopts == 1 && adopted == 1 && leaves == 1 && changes == 1);
+     assert(!strcmp(method_seen, "GET"));
+     assert(!strcmp(target_seen, "/ryunet/room-mode?host=OtherPlayer&format=text"));
++    assert(!runtime_room_mode_following());
+ 
+     clear_counts();
+     runtime_room_mode_joined("cusa13795-session-PlayerOne");
+diff --git a/tests/test_ryunet_services.c b/tests/test_ryunet_services.c
+new file mode 100644
+index 0000000000000000000000000000000000000000..16b56981165c1a78e76dbdd2ddf5d34634dff664
+--- /dev/null
++++ b/tests/test_ryunet_services.c
+@@ -0,0 +1,95 @@
++/* SPDX-License-Identifier: GPL-2.0-or-later */
++/* Link the real chat, name-color and spectate clients, intercepting worker creation.
++ * Verify external isolation and ordinary startup without a game or network. */
++#define _POSIX_C_SOURCE 200809L
++#include "runtime.h"
++#include "runtime_chat.h"
++#include "runtime_name_colors.h"
++#include "runtime_net_ping.h"
++#include "runtime_replay.h"
++#include "runtime_replay_list.h"
++#include "runtime_spectate.h"
++#include <assert.h>
++#include <pthread.h>
++#include <stdio.h>
++
++static int external = 1, threads, detached, game_reads;
++int runtime_psn_selected(void) { return external; }
++int fixture_thread_create(pthread_t *thread, const pthread_attr_t *attr,
++                          void *(*run)(void *), void *arg) {
++    (void)attr; (void)arg;
++    assert(run);
++    *thread = (pthread_t)0;
++    ++threads;
++    return 0;
++}
++int fixture_thread_detach(pthread_t thread) { (void)thread; ++detached; return 0; }
++int runtime_online_mode_room_on(void) { ++game_reads; return 1; }
++int runtime_online_mode_public_on(void) { ++game_reads; return 0; }
++int runtime_room_mode_following(void) { return 0; }
++void runtime_room_mode_host_name(char out[24]) { snprintf(out, 24, "PlayerOne"); }
++const char *runtime_np_get_online_name(void) { return "PlayerOne"; }
++const char *runtime_file_progress_dir(void) { assert(!"unexpected file access"); return "."; }
++int runtime_net_ping_view(PingPeer *out, int max) { (void)out; (void)max; return 0; }
++int runtime_ryunet_transfer(const char *method, const char *target, const void *data, size_t size,
++                            char **reply, size_t *reply_size, size_t max_reply) {
++    (void)method; (void)target; (void)data; (void)size; (void)reply; (void)reply_size; (void)max_reply;
++    assert(!"unexpected network request");
++    return 0;
++}
++int runtime_replay_chat_allowed(void) { return 1; }
++int runtime_replay_can_start(void) { return 1; }
++int runtime_replay_can_chain(void) { return 0; }
++uint32_t runtime_replay_live_count(void) { return 0; }
++int runtime_replay_live_state(uint32_t *id, struct rr_header *header, uint32_t *frames, int *ended) {
++    (void)id; (void)header; (void)frames; (void)ended; return 0;
++}
++size_t runtime_replay_live_pack(uint32_t id, uint32_t from, uint32_t to, uint8_t *out, size_t cap) {
++    (void)id; (void)from; (void)to; (void)out; (void)cap; return 0;
++}
++int runtime_replay_play_live(const struct rr_header *header, const uint8_t *packed, size_t size, uint32_t frames) {
++    (void)header; (void)packed; (void)size; (void)frames; return 0;
++}
++int runtime_replay_live_append(const struct rr_header *header, const uint8_t *packed, size_t size,
++                               uint32_t frames, int ended) {
++    (void)header; (void)packed; (void)size; (void)frames; (void)ended; return 0;
++}
++
++static void start_services(void) {
++    runtime_chat_start();
++    runtime_spectate_start();
++    runtime_name_colors_start();
++}
++
++int main(void) {
++    start_services();
++    start_services();
++    assert(!threads && !detached);
++    assert(!runtime_chat_available() && !runtime_chat_send("hello"));
++    assert(!game_reads);
++    runtime_spectate_watch("OtherPlayer");
++    char who[32] = "unchanged";
++    int state = -1;
++    assert(!runtime_spectate_following(who, sizeof who) && !who[0]);
++    assert(runtime_spectate_status(&state, who, sizeof who) == 0 && state == RS_IDLE && !who[0]);
++    assert(!runtime_spectate_viewers());
++    float rgb[3] = {-1, -1, -1};
++    assert(!runtime_name_color("Ryu7w7", rgb));
++    assert(rgb[0] == -1 && rgb[1] == -1 && rgb[2] == -1);
++
++    /* Suppressed startup must not latch a client's once-only startup flag. */
++    external = 0;
++    start_services();
++    assert(threads == 3 && detached == 3);
++    start_services();
++    assert(threads == 3 && detached == 3);
++    assert(runtime_chat_available() && runtime_chat_send("hello") && game_reads > 0);
++    assert(runtime_name_color("Ryu7w7", rgb));
++    runtime_spectate_watch("OtherPlayer");
++    assert(runtime_spectate_following(who, sizeof who) && !strcmp(who, "OtherPlayer"));
++    assert(runtime_spectate_status(&state, who, sizeof who) == 1 && state == RS_FETCHING);
++    runtime_spectate_stop();
++    assert(!runtime_spectate_following(who, sizeof who));
++    puts("RyuNET service isolation tests passed");
++    return 0;
++}

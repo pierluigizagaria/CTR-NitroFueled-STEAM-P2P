@@ -85,15 +85,25 @@ def main():
         bash = msys / 'usr/bin/bash.exe'
         cmake = compiler_bin / 'cmake.exe'
         ctest = compiler_bin / 'ctest.exe'
-        env = os.environ | {'BB_P2P_DISTRIBUTION': 'ON', 'MSYS2_ROOT': str(msys),
+        host_version = pin['upstream']['tag']
+        env = os.environ | {'BB_P2P_DISTRIBUTION': 'ON', 'BB_VERSION': host_version,
+                            'MSYS2_ROOT': str(msys),
                             'MSYSTEM': 'CLANG64',
                             'PATH': os.pathsep.join((str(compiler_bin), str(msys / 'usr/bin'), os.environ['PATH']))}
         run(bash, 'build.sh', '--test', cwd=host, env=env)
+        # OCTR embeds this identity in its compatibility protocol. Older hosts use
+        # git describe only for a banner; their packaged VERSION is set below.
+        if ((host / 'tools/build_version.py').is_file()
+                and (host / 'out/VERSION').read_text(encoding='utf-8').strip() != host_version + '-windows'):
+            raise ValueError('Host build version differs from the locked upstream tag')
         # Exercise changed host launch/packaging behavior; the upstream broad suite
         # has separately documented unrelated baseline failures on Windows.
         for fixture in ('test_ultrawide_local_shaders.py', 'test_psn_backend*.py',
                         'test_p2p_distribution.py', 'test_run_ryunet_requests.py',
-                        'test_perf_report.py', 'test_run_vulkan_start.py'):
+                        'test_perf_report.py', 'test_run_vulkan_start.py',
+                        'test_build_version.py', 'test_boot_cache*.py',
+                        'test_import_names.py', 'test_startup_preparation.py',
+                        'test_public_itemless_launch.py', 'test_ryunet_session.py'):
             if any((host / 'tests').glob(fixture)):
                 run(sys.executable, '-B', '-m', 'unittest', 'discover', '-s', 'tests',
                     '-p', fixture, cwd=host, env=env)
@@ -108,21 +118,25 @@ def main():
         run(cmake, '--build', backend.parent, '--parallel', '2', env=env)
         run(ctest, '--test-dir', backend.parent, '--output-on-failure', '--timeout', '60', env=env)
         portable_dir = deps / 'portable'
-        run(sys.executable, packaging_script, '--version', args.version,
+        run(sys.executable, packaging_script, '--version', host_version,
             '--dist', portable_dir, *(['--dxc-dir', dxc_dir] if dxc_dir else []), cwd=host, env=env)
         package = portable_dir / 'CTR-NitroFueled-PC-portable-windows.zip'
         files = read_zip(package, prefix=pin['portable_root'])
+        if files.get('bin/VERSION', b'').decode('utf-8').strip() != host_version + '-windows':
+            raise ValueError('Host package version differs from the locked upstream tag')
         if aerolib_dir and sha256(files.get('out/aerolib.inl', b'')) != toolchains['aerolib']['files']['aerolib.inl']['sha256']:
             raise ValueError('Host package omitted or changed the pinned aerolib table')
         files['psn-bridge-backend.dll'] = (backend / 'psn-bridge-backend.dll').read_bytes()
         receipt.write_bytes(json_bytes({'schema_version': 1, 'source_revision': pin['revision'],
             'source_tree': pin['source_tree'], 'integration_recipe': pin['recipe'],
             'shared_psn_tree': pin['psn_tree'], 'clean_source': True, 'toolchains': toolchains,
+            'upstream_version': host_version,
             'binaries': {name: sha256(files[name]) for name in
                          (pin['launcher'], 'bin/sacredfire.exe', 'bin/bb-gpu-capabilities.exe', 'psn-bridge-backend.dll')},
-            'commands': ['BB_P2P_DISTRIBUTION=ON bash build.sh --test',
+            'commands': ['BB_P2P_DISTRIBUTION=ON BB_VERSION=' + host_version + ' bash build.sh --test',
                          'cmake platform/psn PSN_BRIDGE_BACKEND=ON PSN_HOST_TESTS=ON',
-                         'ctest --output-on-failure', 'packaging/windows/make_portable.py'],
+                         'ctest --output-on-failure',
+                         'packaging/windows/make_portable.py --version ' + host_version],
             'tests': ['native PSN CTest', 'PSN backend CTest and HTTP fixtures',
                       'host launcher, distribution and local shader fixtures when present']}))
     elif not args.host_build_manifest or not args.backend_dir:

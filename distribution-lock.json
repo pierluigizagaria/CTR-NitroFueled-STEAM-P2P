@@ -27,15 +27,15 @@
       "psn_tree": "2b18863a4a7189e356dc294328c0827027ecb2c9",
       "recipe": {
         "path": "integrations/Ryu7w7/OCTR-NitroFueled-PC/recipe.json",
-        "sha256": "4307cafdcbc0c08f00a9a8f9277587cabfeff8c09f98e9e1d1fe8c7c2d0d4895"
+        "sha256": "fd6db2a6477ed53301241958cf78bbf319d0102a6700d379260a75776c63d24e"
       },
       "repository": "https://github.com/Ryu7w7/OCTR-NitroFueled-PC.git",
-      "revision": "f957f1d3538ba0c838f89b1dc79715eb1fbdbd7f",
-      "source_tree": "12ae4529493453b10da4e81777ee080e31a22948",
+      "revision": "c994cb0c6f61439d6f761399a92a65db8da45b67",
+      "source_tree": "ca1ed899dbf1eed6bb94bacc49f4f1cfa6735c23",
       "upstream": {
         "repository": "https://github.com/Ryu7w7/OCTR-NitroFueled-PC.git",
-        "revision": "3885d1aea24d19ed9b31f96fba57a5cce92183cd",
-        "tag": "v0.7.5"
+        "revision": "418940a6635afe3aeeed8f0d286358319c935a44",
+        "tag": "v0.8.3"
       }
     }
   },

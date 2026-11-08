@@ -161,7 +161,11 @@ initialized. The bridge/provider/server keep independent builds and public
 interfaces. Each host uses its own MSYS2 build and portable packager; the optional
 PSN backend is built and tested independently before assembly. Stock updater
 replacement is disabled in the integration build.
+The host build receives its locked upstream tag as `BB_VERSION`; its portable
+package uses the same tag. OCTR embeds this identity in compatibility checks.
+The P2P preview version remains separate in the mod and distribution manifests.
 
+Host orchestration uses Python 3.14.8, matching OCTR's pinned portable runtime.
 The workflow installs the compiler/library archives pinned by URL and SHA-256 in
 `tools/msys2-packages.json`. It uses the runner's existing MSYS base and records
 source/build evidence; runner images and system tools remain external inputs,

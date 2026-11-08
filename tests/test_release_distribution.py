@@ -38,7 +38,7 @@ class DistributionTests(unittest.TestCase):
         self.lock.write_bytes(json_bytes({'schema_version': 2, 'channels': {'getlostin-ctr-nitrofueled-pc': self.pin}}))
         self.host_files = {'portable/CTR-NitroFueled-PC.exe': b'launcher',
                            'portable/bin/sacredfire.exe': b'host', 'portable/bin/bb-gpu-capabilities.exe': b'caps',
-                           'portable/run.py': b'# source',
+                           'portable/run.py': b'# source', 'portable/bin/VERSION': b'v0.4-windows\n',
                            'portable/LICENSE': b'GPL', 'portable/THIRD-PARTY.txt': b'notices',
                            'portable/art/picture.png': b'optional artwork'}
         self.host = self.root / 'host.zip'
@@ -67,7 +67,7 @@ class DistributionTests(unittest.TestCase):
         (self.backend / 'psn-bridge-backend.dll').write_bytes(b'backend')
         self.host_build = self.root / 'host-build.json'
         self.host_build.write_bytes(json_bytes({'schema_version': 1, 'source_revision': 'a' * 40,
-            'shared_psn_tree': 'b' * 40, 'source_tree': self.pin['source_tree'],
+            'shared_psn_tree': 'b' * 40, 'source_tree': self.pin['source_tree'], 'upstream_version': 'v0.4',
             'integration_recipe': self.pin['recipe'], 'clean_source': True, 'binaries': {
                 'CTR-NitroFueled-PC.exe': sha256(b'launcher'), 'bin/sacredfire.exe': sha256(b'host'),
                 'bin/bb-gpu-capabilities.exe': sha256(b'caps'), 'psn-bridge-backend.dll': sha256(b'backend')}}))
@@ -80,6 +80,11 @@ class DistributionTests(unittest.TestCase):
     def test_rejects_binary_not_bound_to_reviewed_build(self):
         archive(self.host, self.host_files | {'portable/bin/sacredfire.exe': b'stock host'})
         with self.assertRaisesRegex(ValueError, 'build artifact checksum'):
+            assemble(self.args)
+
+    def test_prebuilt_package_must_identify_the_locked_upstream(self):
+        archive(self.host, self.host_files | {'portable/bin/VERSION': b'v0.1.0-preview.1-windows\n'})
+        with self.assertRaisesRegex(ValueError, 'Host version differs'):
             assemble(self.args)
 
     def write_source(self):

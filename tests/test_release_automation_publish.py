@@ -94,9 +94,11 @@ class AssetTests(unittest.TestCase):
             native_files = {'launcher.exe': b'launcher', 'bin/sacredfire.exe': b'host',
                             'bin/bb-gpu-capabilities.exe': b'caps', 'psn-bridge-backend.dll': b'backend'}
             build = {'source_revision': pin['revision'], 'source_tree': pin['source_tree'],
+                     'upstream_version': pin['upstream']['tag'],
                      'integration_recipe': pin['recipe'], 'shared_psn_tree': pin['psn_tree'],
                      'clean_source': True, 'binaries': {name: sha256(data) for name, data in native_files.items()}}
             files = native_files | self.standalone_files | {'p2p-host-build.json': json_bytes(build)}
+            files['bin/VERSION'] = (pin['upstream']['tag'] + '-windows\n').encode()
             files['sources/' + source_path.name] = source_path.read_bytes()
             mod = copy.deepcopy(self.standalone_manifest)
             mod.update(host=pin, assembly={'input_mod_sha256': mod_digest})
@@ -194,6 +196,14 @@ class AssetTests(unittest.TestCase):
         files['p2p-distribution-manifest.json'] = json_bytes(manifest)
         archive(path, files)
         with self.assertRaisesRegex(ValueError, 'Host binary differs'):
+            publisher.validate_assets(self.root, self.plan, self.release_lock)
+
+    def test_rejects_wrong_host_version_even_after_package_rehash(self):
+        channel = publisher.CHANNELS[0]
+        _, files = self.binaries[channel]
+        files['bin/VERSION'] = b'v0.1.0-preview.1-windows\n'
+        self.rewrite_binary(channel)
+        with self.assertRaisesRegex(ValueError, 'Host version differs'):
             publisher.validate_assets(self.root, self.plan, self.release_lock)
 
     def rewrite_binary(self, channel):

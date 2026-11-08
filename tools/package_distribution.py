@@ -101,6 +101,9 @@ def assemble(args):
             or build_manifest.get('shared_psn_tree') != pin['psn_tree']
             or build_manifest.get('clean_source') is not True):
         raise ValueError('Host build evidence does not match the clean locked source')
+    if (build_manifest.get('upstream_version') != pin['upstream']['tag']
+            or host.get('bin/VERSION', b'').strip() != (pin['upstream']['tag'] + '-windows').encode()):
+        raise ValueError('Host version differs from the locked upstream tag')
     for name in (pin['launcher'], 'bin/sacredfire.exe', 'bin/bb-gpu-capabilities.exe', 'psn-bridge-backend.dll'):
         if name not in host | backend or build_manifest.get('binaries', {}).get(name) != sha256((host | backend)[name]):
             raise ValueError('Host build artifact checksum mismatch: ' + name)
