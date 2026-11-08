@@ -11,6 +11,10 @@
       "size": 485188401
     }
   ],
+  "completion": {
+    "revision": "7ba6eedc5549fc43dba67cc0dddabe493ad3f9cb",
+    "run_url": "https://github.com/pierluigizagaria/CTR-NitroFueled-STEAM-P2P/actions/runs/42512451760"
+  },
   "created_at": "2026-11-08T18:56:23Z",
   "plan": {
     "base_revision": "7ba6eedc5549fc43dba67cc0dddabe493ad3f9cb",
@@ -139,22 +143,6 @@
     "verify": false,
     "version": "v0.1.0-preview.1"
   },
-  "previous_assets": [
-    {
-      "digest": "sha256:a3ff1ba81b19230acbe71a2bf5f38af96af80cb0202b3f67b8555daba7c6a12c",
-      "id": 698273465,
-      "name": "GetLostIn-CTR-NitroFueled-PC-v0.4-STEAM-P2P-windows-x64.zip",
-      "size": 459878633,
-      "state": "uploaded"
-    },
-    {
-      "digest": "sha256:4084cfad75d001f5e781cc5413a7d37ea59e7f3d239fbb4f99aeb0a4e0f84237",
-      "id": 698274436,
-      "name": "Ryu7w7-OCTR-NitroFueled-PC-v0.7.5-STEAM-P2P-windows-x64.zip",
-      "size": 480591774,
-      "state": "uploaded"
-    }
-  ],
   "publication_format": "two-complete-archives-v1",
   "release_id": 417443402,
   "runtime_source": {
@@ -164,5 +152,5 @@
   "schema_version": 1,
   "source_run_id": "42512451760",
   "source_run_url": "https://github.com/pierluigizagaria/CTR-NitroFueled-STEAM-P2P/actions/runs/42512451760",
-  "status": "pending"
+  "status": "completed"
 }
