@@ -49,6 +49,10 @@
     "verify": false,
     "version": "v0.1.0-preview.1"
   },
+  "notification": {
+    "fingerprint": "007949b5bb5003cc6c910dee893ef9da486dc93d5b22c24dea222dbe5d89bae7",
+    "issue_number": 7
+  },
   "plan": null,
   "previous_completion": {
     "revision": "7ba6eedc5549fc43dba67cc0dddabe493ad3f9cb",
